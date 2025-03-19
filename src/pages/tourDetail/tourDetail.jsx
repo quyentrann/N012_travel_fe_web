@@ -618,6 +618,10 @@ export default function TourDetail() {
                   </p>
                 </div>
               </div>
+              <div className="flex items-center text-red-500 font-semibold">
+            <GiftOutlined className="mr-2" />
+            <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span>
+          </div>
               <div>
                 <Button
                   type="primary"
