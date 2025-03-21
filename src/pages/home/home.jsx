@@ -23,7 +23,8 @@ export default function Home() {
   const [selected, setSelected] = useState(null);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
-
+  const [tourList, setTours] = useState([]);
+  // const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -34,6 +35,8 @@ export default function Home() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+
 
   const priceOptions = [
     { label: 'Dưới 1 triệu', value: '0-1000000' },
@@ -50,7 +53,7 @@ export default function Home() {
 
   useEffect(() => {
     axios
-      .get('https://provinces.open-api.vn/api/?depth=2') // API lấy danh sách tỉnh/thành + quận/huyện, API của VNPOST hoặc Open Source:
+      .get('https://provinces.open-api.vn/api/?depth=2')
       .then((response) => {
         const data = response.data.map((province) => ({
           value: province.code,
@@ -65,16 +68,42 @@ export default function Home() {
       .catch((error) => console.error('Lỗi khi tải dữ liệu:', error));
   }, []);
 
-  const tourList = [
-    { id: 1, name: 'Tour Đà Nẵng', price: '3,000,000 VND', image: 'url1' },
-    { id: 2, name: 'Tour Phú Quốc', price: '5,000,000 VND', image: 'url2' },
-    { id: 3, name: 'Tour Nha Trang', price: '4,500,000 VND', image: 'url3' },
-  ];
+
+  useEffect(() => {
+    axios.get('http://localhost:8080/api/tours')
+      .then((response) => {
+        // console.log('Dữ liệu nhận từ API:', response.data);
+        setTours(response.data);
+      })
+      .catch((error) => {
+        console.error('Lỗi khi tải dữ liệu:', error);
+      });
+  }, []);
+  
+
+  // const tourList = [
+  //   { id: 1, name: 'Tour Đà Nẵng - Bà Nà Hills', price: '3,000,000 VND', image: 'url1' },
+  //   { id: 2, name: 'Tour Phú Quốc - Vinpearl Safari', price: '5,000,000 VND', image: 'url2' },
+  //   { id: 3, name: 'Tour Nha Trang - VinWonders', price: '4,500,000 VND', image: 'url3' },
+  //   { id: 4, name: 'Tour Hạ Long - Vịnh Kỳ Quan', price: '6,000,000 VND', image: 'url4' },
+  //   { id: 5, name: 'Tour Đà Lạt - Thành Phố Ngàn Hoa', price: '2,800,000 VND', image: 'url5' },
+  //   { id: 6, name: 'Tour Sapa - Đỉnh Fansipan', price: '4,200,000 VND', image: 'url6' },
+  //   { id: 7, name: 'Tour Huế - Phố Cổ Hội An', price: '3,500,000 VND', image: 'url7' },
+  //   { id: 8, name: 'Tour Cần Thơ - Chợ Nổi Cái Răng', price: '2,600,000 VND', image: 'url8' },
+  //   { id: 9, name: 'Tour Hà Nội - Văn Miếu Quốc Tử Giám', price: '3,900,000 VND', image: 'url9' },
+  //   { id: 10, name: 'Tour Mộc Châu - Đồi Chè Trái Tim', price: '3,300,000 VND', image: 'url10' },
+  //   { id: 11, name: 'Tour Quảng Bình - Động Phong Nha', price: '4,800,000 VND', image: 'url11' },
+  //   { id: 12, name: 'Tour Côn Đảo - Nghĩa Trang Hàng Dương', price: '5,500,000 VND', image: 'url12' },
+  //   { id: 13, name: 'Tour Bình Định - Kỳ Co - Eo Gió', price: '4,000,000 VND', image: 'url13' },
+  //   { id: 14, name: 'Tour Phan Thiết - Mũi Né', price: '3,700,000 VND', image: 'url14' },
+  //   { id: 15, name: 'Tour Buôn Ma Thuột - Hồ Lak', price: '3,200,000 VND', image: 'url15' }
+  // ];
+  
 
   return (
     <div className="w-screen h-screen relative overflow-x-hidden">
       <div
-        className="w-full h-full relative px-5 pt-3"
+        className="w-full h-full relative px-5 pt-3 opacity-100 "
         style={{
           backgroundImage: `url(${nen1})`,
           backgroundSize: 'cover',
@@ -133,7 +162,9 @@ export default function Home() {
 
               {open && (
                 <div className="absolute right-0 mt-2 w-[160px] bg-white shadow-lg rounded-md border border-gray-300 p-3 z-50">
-                  <button className="w-full bg-cyan-800 text-white py-2 rounded-md text-[14px] font-semibold hover:bg-cyan-900 transition" onClick={()=> navigate('/login')}>
+                  <button
+                    className="w-full bg-cyan-800 text-white py-2 rounded-md text-[14px] font-semibold hover:bg-cyan-900 transition"
+                    onClick={() => navigate('/login')}>
                     Đăng nhập
                   </button>
                   <p className="text-center text-gray-600 text-[11px] mt-2">
@@ -263,12 +294,23 @@ export default function Home() {
       </div>
 
       <div className="p-10 px-35">
-        <div className="flex overflow-x-auto space-x-4 justify-between">
-          {tourList.map((tour) => (
-            <ItemTourComponent key={tour.id} data={tour} />
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {tourList.length > 0 ? (
+  tourList.map((tour) => <ItemTourComponent key={tour.id} tour={tour} />)
+) : (
+  <p>Không có tour nào</p>
+)}
+
         </div>
       </div>
+{/* 
+      <div className="p-10 px-35">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {tours.map((tour) => (
+            <ItemTourComponent key={tour.tourId} data={tour} />
+          ))}
+        </div>
+      </div> */}
 
       <footer className="bg-gray-900 text-white text-center p-5 mt-200">
         <p>&copy; 2025 Travelista Tours. All Rights Reserved.</p>

@@ -9,9 +9,11 @@ export default function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/tour-detail" element={<TourDetail />} />
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/tour-booking" element={<ItemTourBookingDetail />} />
     </Routes>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import card from '../../images/card.jpg';
 import {
   Button,
@@ -20,6 +21,7 @@ import {
   EnvironmentOutlined,
   CheckOutlined,
   CaretRightOutlined,
+  GiftOutlined
 } from '@ant-design/icons';
 
 const promotions = [{ key: '1', label: 'Giảm 10% cho nhóm trên 5 người' }];
@@ -249,6 +251,7 @@ const itemss = [
   },
 ];
 export default function TourDetail() {
+    const navigate = useNavigate();
   const { token } = theme.useToken();
   const panelStyle = {
     marginBottom: 15,
@@ -619,8 +622,8 @@ export default function TourDetail() {
                 </div>
               </div>
               <div className="flex items-center text-red-500 font-semibold">
-            <GiftOutlined className="mr-2" />
-            <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span>
+            {/* <GiftOutlined className="mr-2" />
+            <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span> */}
           </div>
               <div>
                 <Button
@@ -632,7 +635,9 @@ export default function TourDetail() {
                     fontWeight: 500,
                     borderRadius: 12,
                     backgroundColor: '#009EE2',
-                  }}>
+                  }}
+                  onClick={() => navigate('/tour-booking')}
+                  >
                   Đặt Tour
                 </Button>
               </div>
