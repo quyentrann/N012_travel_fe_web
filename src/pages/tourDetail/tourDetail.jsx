@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
+import { getTourById } from '../../apis/tour';
 import { useNavigate } from 'react-router-dom';
+import TourBookingForm from '../../components/ItemTourBookingDetail';
 import card from '../../images/card.jpg';
+import axios from 'axios';
 import {
   Button,
   Carousel,
@@ -11,6 +15,9 @@ import {
   theme,
   Tabs,
   Typography,
+  Select,
+  message,
+  Modal,
 } from 'antd';
 
 import {
@@ -21,11 +28,16 @@ import {
   EnvironmentOutlined,
   CheckOutlined,
   CaretRightOutlined,
-  GiftOutlined
+  GiftOutlined,
+  ClockCircleOutlined,
+  CarOutlined,
+  ForkOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 
-const promotions = [{ key: '1', label: 'Giảm 10% cho nhóm trên 5 người' }];
+import dayjs from 'dayjs';
 
+const promotions = [{ key: '1', label: 'Giảm 10% cho nhóm trên 5 người' }];
 const { Title, Paragraph } = Typography;
 
 const itemss = [
@@ -81,11 +93,11 @@ const itemss = [
           người lớn)
         </Paragraph>
         <Paragraph>
-          - Trẻ em từ 2 tuổi - dưới 12 tuổi: 85% giá tour người lớn (không có
+          - Trẻ em từ 2 tuổi - dưới 10 tuổi: 85% giá tour người lớn (không có
           chế độ giường riêng).
         </Paragraph>
         <Paragraph>
-          - Trẻ em đủ 12 tuổi trở lên: 100% giá tour người lớn.
+          - Trẻ em đủ 10 tuổi trở lên: 100% giá tour người lớn.
         </Paragraph>
         <Paragraph>
           - Hai người lớn chỉ kèm một bé, bé thứ hai tính giá người lớn.
@@ -133,7 +145,7 @@ const itemss = [
           - Trong vòng 2 ngày hoặc không tham gia: Chịu phí 100% giá trị tour và
           toàn bộ chi phí vé.
         </Paragraph>
-        <p className="text-[14px] font-medium">Hủy tour ngày thường</p>
+        <span className="text-[14px] font-medium">Hủy tour ngày thường</span>
         <Paragraph>
           - Trước 14 ngày: Chịu phí 10% giá trị tour và toàn bộ chi phí vé.
         </Paragraph>
@@ -251,22 +263,63 @@ const itemss = [
   },
 ];
 export default function TourDetail() {
-    const navigate = useNavigate();
+  const [startDate, setStartDate] = useState(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [tour, setTour] = useState(null);
+  const tourId = location.state?.id;
   const { token } = theme.useToken();
+  const [availableDates, setAvailableDates] = useState([]);
+  const [adults, setAdults] = useState(1);
+  const [children, setChildren] = useState(0);
+  const [infants, setInfants] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+  
+  const totalPrice =
+  (tour?.price ? tour.price * adults : 0) +
+  (tour?.price ? tour.price * 0.85 * children : 0) +
+  (tour?.price ? tour.price * 0.3 * infants : 0);
+
+  const totalGuests = adults + children + infants;
+const discountRate = totalGuests >= 5 ? 0.1 : 0; // Giảm 10% nếu >= 5 người
+const discountAmount = totalPrice * discountRate;
+const finalPrice = totalPrice - discountAmount;
+
+  const handleCloseForm = () => {
+    setShowForm(false);
+  };
+
   const panelStyle = {
     marginBottom: 15,
     background: token.colorFillAlter,
     borderRadius: token.borderRadiusLG,
     border: 'none',
   };
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
+    if (tourId) {
+      getTourById(tourId)
+        .then((data) => {
+          setTour(data);
+          if (data.tourDetails) {
+            const startDates = data.tourDetails.map((tour) =>
+              dayjs(tour.startDate).startOf('day')
+            );
+            setAvailableDates(startDates);
+          }
+        })
+        .catch((err) => console.error('Lỗi API:', err));
+    }
+  }, [tourId]);
 
   const listImageTour = [
     { id: 1, image: card },
     { id: 2, image: card },
     { id: 3, image: card },
     { id: 4, image: card },
-    { id: 5, image: card },
-    { id: 6, image: card },
   ];
 
   const menu = (
@@ -283,69 +336,55 @@ export default function TourDetail() {
     ['Hướng dẫn viên', 'Bảo hiểm du lịch'],
   ];
 
-  const items = [
-    {
-      key: '1',
-      label: (
-        <div>
-          <span>Ngày 1</span>
-          <span style={{ color: 'gray', marginLeft: 10 }}>
-            Hồ Chí Minh - Đài Trung
-          </span>
-        </div>
-      ),
-      children: <p>Nội dung chuyến đi.</p>,
-      style: panelStyle,
-    },
-    {
-      key: '2',
-      label: (
-        <div>
-          <span>Ngày 2</span>
-          <span style={{ color: 'gray', marginLeft: 10 }}>
-            Đài Trung - Du Thuyền Hồ Nhật Nguyệt
-          </span>
-        </div>
-      ),
-      children: <p>Nội dung chuyến đi.</p>,
-      style: panelStyle,
-    },
-    {
-      key: '3',
-      label: (
-        <div>
-          <span>Ngày 3</span>
-          <span style={{ color: 'gray', marginLeft: 10 }}>
-            Đài Trung - Đài Bắc
-          </span>
-        </div>
-      ),
-      children: <p>Nội dung chuyến đi.</p>,
-      style: panelStyle,
-    },
-    {
-      key: '4',
-      label: (
-        <div>
-          <span>Ngày 4</span>
-          <span style={{ color: 'gray', marginLeft: 10 }}>
-            Đài Bắc - Hồ Chí Minh
-          </span>
-        </div>
-      ),
-      children: <p>Nội dung chuyến đi.</p>,
-      style: panelStyle,
-    },
-  ];
+  const items = tour?.tourSchedules?.map((schedule, index) => ({
+    key: String(index + 1),
+    label: (
+      <div>
+        <span>Ngày {schedule.dayNumber}</span>
+        <span style={{ color: 'gray', marginLeft: 10 }}>
+          {schedule.location}
+        </span>
+      </div>
+    ),
+    children: (
+      <div className="text-[14px] pl-4">
+        <p>
+          <ClockCircleOutlined style={{ paddingRight: '5px' }} />
+          <strong> Thời gian:</strong> {schedule.arrivalTime} -{' '}
+          {schedule.departureTime}
+        </p>
+        <p>
+          <CarOutlined style={{ paddingRight: '5px' }} />
+          <strong> Phương tiện:</strong> {schedule.stransport}
+        </p>
+        <p>
+          <ForkOutlined style={{ paddingRight: '5px' }} />
+          <strong> Bữa ăn:</strong> {schedule.meal}
+        </p>
+        <p>
+          <CheckOutlined style={{ paddingRight: '5px', color: '#228B22' }} />
+          <strong> Hoạt động:</strong> {schedule.activities}
+        </p>
+      </div>
+    ),
+    style: panelStyle, // Nếu bạn có style riêng
+  }));
 
-  <Collapse items={items} />;
+  const disabledDate = (date) => {
+    return !availableDates.some((d) => d.isSame(dayjs(date), 'day'));
+  };
+
+  const increase = (setter) => setter((prev) => prev + 1);
+  const decrease = (setter, min) =>
+    setter((prev) => (prev > min ? prev - 1 : prev));
+
 
   return (
     <div>
       <div className="h-full w-screen px-10 py-5 bg-[#f8f8f8]">
         <div>
-          <p className="text-[30px] font-bold px-5">
-            Tour Côn Đảo, Bà Rịa - Vũng Tàu: Du lịch Côn Đảo huyền thoại
+          <p className="text-[23px] font-bold px-5">
+            Tour {tour?.location}: {tour?.name}
           </p>
         </div>
         <div className="flex h-full w-full mt-3 ">
@@ -357,37 +396,35 @@ export default function TourDetail() {
                     <img
                       src={tour.image}
                       alt={`Tour ${tour.id}`}
-                      className="h-120 w-full rounded-[5px]"
+                      className="h-113 w-full rounded-[5px]"
                     />
                   </div>
                 ))}
               </Carousel>
             </div>
             <div className="sticky top-0 bg-white shadow z-50">
-              <nav className="h-18 mt-5 font-semibold flex justify-between text-[17px] ">
+              <nav className="h-16 mt-5 font-semibold flex justify-between text-[15px] ">
                 <button
-                  className="hover:scale-110"
+                  className=""
                   onClick={() => scrollToSection('tong-quan')}>
                   Tổng Quan
                 </button>
 
                 <button
-                  className="hover:scale-110"
+                  className=""
                   onClick={() => scrollToSection('lich-trinh')}>
                   Lịch Trình Tour
                 </button>
-                <button
-                  className="hover:scale-110"
-                  onClick={() => scrollToSection('luu-y')}>
+                <button className="" onClick={() => scrollToSection('luu-y')}>
                   Điều Kiện Tour
                 </button>
                 <button
-                  className="hover:scale-110"
+                  className=""
                   onClick={() => scrollToSection('danh-gia')}>
                   Đánh Giá
                 </button>
                 <button
-                  className="hover:scale-110"
+                  className=""
                   onClick={() => scrollToSection('tour-tuong-tu')}>
                   Tour Tương Tự
                 </button>
@@ -395,18 +432,18 @@ export default function TourDetail() {
             </div>
 
             <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="flex justify-between pb-3 text-[16px] ">
+              <div className="flex justify-between pb-3 text-[14px] ">
                 <p className="font-medium ">
                   <EnvironmentOutlined className="pr-1" />
                   Khởi hành từ:{' '}
-                  <span className="font-bold text-[17px]">Hồ Chí Minh</span>
+                  <span className="font-bold text-[15px]">Hà Nội</span>
                 </p>
                 <p className="font-medium ">
-                  Mã Tour: <span className="font-bold text-[17px]">TO2467</span>
+                  Mã Tour: <span className="font-bold text-[15px]">TO2467</span>
                 </p>
               </div>
               <div className="border-1 border-gray-100"></div>
-              <div className="text-[18px] font-bold pt-5">
+              <div className="text-[16px] font-bold pt-5">
                 Tour Trọn Gói Bao Gồm
               </div>
               <div className="flex w-full mt-5 text-[14px]">
@@ -423,71 +460,32 @@ export default function TourDetail() {
               </div>
             </div>
             <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="text-[18px] font-bold pb-5">
+              <div className="text-[16px] font-bold pb-2">
                 Điểm Nhấn Hành Trình
               </div>
-              <p className="font-medium text-[14px]">
-                Du lịch Đà Nẵng mùa Xuân - Cao Nguyên Bà Nà - Hội An từ Sài Gòn
-                2025.{' '}
-                <span className="font-normal">
-                  Đón mùa xuân tươi mới tại Đà Nẵng - thành phố đáng sống nhất
-                  Việt Nam, với những trải nghiệm tuyệt vời tại Cao Nguyên Bà Nà
-                  và phố cổ Hội An. Thả mình giữa mây trời trên Bà Nà Hills,
-                  chiêm ngưỡng cảnh sắc thơ mộng và hòa mình vào không gian văn
-                  hóa độc đáo tại Hội An – nơi thời gian dường như lắng đọng.
-                  Khởi hành từ Sài Gòn, hành trình này sẽ mang đến cho bạn những
-                  khoảnh khắc khó quên trong mùa xuân rạng rỡ!
-                </span>
-              </p>
-              <div className="text-[14px] pt-5">
-                <p className="text-[16px] font-medium pb-2">
+              <p className="text-[14px]">- {tour?.highlights}</p>
+              <div className="text-[14px] pt-3">
+                <p className="text-[15px] font-medium pb-2 pl-2">
                   Trải nghiệm thú vị trong tour
                 </p>
-                <div className="pl-5">
-                  <p className="pb-4">
-                    <CheckOutlined
-                      style={{ color: '#228B22', paddingRight: '5px' }}
-                    />
-                    Trải nghiệm đạp xe trượt trên đường ray qua Cầu Nakdong
-                  </p>
-                  <p className="pb-4">
-                    <CheckOutlined
-                      style={{ color: '#228B22', paddingRight: '5px' }}
-                    />
-                    Tặng vé trải nghiệm đi Phà thả mồi cho Hải Âu ăn ngắm hoàng
-                    hôn
-                  </p>
-                  <p className="pb-4">
-                    <CheckOutlined
-                      style={{ color: '#228B22', paddingRight: '5px' }}
-                    />
-                    Khám phá ngôi làng Gamcheon- Santorini dịu dàng của Hàn Quốc
-                  </p>
-                  <p className="pb-4">
-                    <CheckOutlined
-                      style={{ color: '#228B22', paddingRight: '5px' }}
-                    />
-                    Tham gia làm kim chi và diện trang phục truyền thống Hàn
-                    quốc – Hanbok
-                  </p>
-                  <p className="pb-4">
-                    <CheckOutlined
-                      style={{ color: '#228B22', paddingRight: '5px' }}
-                    />
-                    Điểm tham quan: Làng Văn hóa Gamcheon, Cảnh Phúc Cung
-                    Gyeongbok
-                  </p>
-                  <p className="pb-4">
-                    <CheckOutlined
-                      style={{ color: '#228B22', paddingRight: '5px' }}
-                    />
-                    Chủ đề: Văn hóa, Mua sắm, Khám phá, Ẩm thực
-                  </p>
+                <div className="pl-6">
+                  {tour?.experiences?.split(';').map((exp, index) => (
+                    <p key={index} className="pb-4">
+                      <CheckOutlined
+                        style={{
+                          color: '#228B22',
+                          paddingRight: '5px',
+                          fontSize: '14px',
+                        }}
+                      />
+                      {exp.trim()}
+                    </p>
+                  ))}
                 </div>
               </div>
             </div>
             <div className="w-full bg-white my-4 rounded-[5px] p-5 shadow">
-              <div className="text-[18px] font-bold pb-5">Lịch Trình Tour</div>
+              <div className="text-[16px] font-bold pb-5">Lịch Trình Tour</div>
               <div>
                 <Collapse
                   bordered={false}
@@ -504,7 +502,7 @@ export default function TourDetail() {
               </div>
             </div>
             <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="text-[18px] font-bold ">Thông tin cần lưu ý</div>
+              <div className="text-[16px] font-bold ">Thông tin cần lưu ý</div>
               <div>
                 <Tabs defaultActiveKey="1" items={itemss} />
               </div>
@@ -526,9 +524,12 @@ export default function TourDetail() {
                 </div>
                 <div className="flex flex-col items-center ">
                   <DatePicker
-                    placeholder="Chọn ngày"
-                    format="DD.MM.YYYY"
+                    selected={startDate}
+                    onChange={(date) => setStartDate(date)}
+                    placeholderText="Chọn ngày"
+                    dateFormat="dd.MM.yyyy"
                     className="border-none text-lg"
+                    disabledDate={disabledDate} // Dùng disabledDate thay vì filterDate
                   />
                 </div>
               </div>
@@ -540,12 +541,27 @@ export default function TourDetail() {
                   <div className="text-[10px] text-gray-700">&gt; 10 tuổi </div>
                 </div>
                 <p className="text-black text-[14px] font-medium">
-                  x 10.990.000
+                  <p className="text-black text-[14px] font-medium">
+                    <p className="text-black text-[14px] font-medium">
+                      {(tour?.price ? tour.price * adults : 0).toLocaleString(
+                        'vi-VN'
+                      )}
+                    </p>
+                  </p>
                 </p>
+
                 <div className="flex justify-between w-16 text-[13px] font-medium">
-                  <MinusOutlined className="cursor-pointer" />
-                  <p>1</p>
-                  <PlusOutlined className="cursor-pointer" />
+                  <MinusOutlined
+                    className={`cursor-pointer ${
+                      adults === 1 ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                    onClick={() => decrease(setAdults, 1)}
+                  />
+                  <p>{adults}</p>
+                  <PlusOutlined
+                    className="cursor-pointer"
+                    onClick={() => increase(setAdults)}
+                  />
                 </div>
               </div>
               <div className="bg-white border-1 border-gray-300 text-center h-15 rounded-xl flex justify-between p-5 items-center">
@@ -556,12 +572,23 @@ export default function TourDetail() {
                   <div className="text-[10px] text-gray-700">2 - 10 tuổi </div>
                 </div>
                 <p className="text-black text-[14px] font-medium">
-                  x 10.990.000
+                  {(tour?.price
+                    ? tour.price * 0.85 * children
+                    : 0
+                  ).toLocaleString('vi-VN')}
                 </p>
                 <div className="flex justify-between w-16 text-[13px] font-medium">
-                  <MinusOutlined className="cursor-pointer" />
-                  <p>1</p>
-                  <PlusOutlined className="cursor-pointer" />
+                  <MinusOutlined
+                    className={`cursor-pointer ${
+                      children === 0 ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                    onClick={() => decrease(setChildren, 0)}
+                  />
+                  <p>{children}</p>
+                  <PlusOutlined
+                    className="cursor-pointer"
+                    onClick={() => increase(setChildren)}
+                  />
                 </div>
               </div>
               <div className="bg-white border-1 border-gray-300 text-center h-15 rounded-xl flex justify-between p-5 items-center">
@@ -572,27 +599,41 @@ export default function TourDetail() {
                   <div className="text-[10px] text-gray-700">&lt; 2 tuổi </div>
                 </div>
                 <p className="text-black text-[14px] font-medium">
-                  x 10.990.000
+                  {(tour?.price
+                    ? tour.price * 0.3 * infants
+                    : 0
+                  ).toLocaleString('vi-VN')}
                 </p>
                 <div className="flex justify-between w-16 text-[13px] font-medium">
-                  <MinusOutlined className="cursor-pointer" />
-                  <p>1</p>
-                  <PlusOutlined className="cursor-pointer" />
+                  <MinusOutlined
+                    className={`cursor-pointer ${
+                      infants === 0 ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                    onClick={() => decrease(setInfants, 0)}
+                  />
+                  <p>{infants}</p>
+                  <PlusOutlined
+                    className="cursor-pointer"
+                    onClick={() => increase(setInfants)}
+                  />
                 </div>
               </div>
               <div>
-                <Dropdown overlay={menu} trigger={['click']}>
+                {/* <Dropdown overlay={menu} trigger={['click']}>
                   <Button icon={<TagOutlined />} className="flex items-center">
                     <p className="text-[12px]">Chọn Ưu Đãi</p>
                   </Button>
-                </Dropdown>
+                </Dropdown> */}
+                  <div className="flex items-center text-red-500 text-[12px]">
+                <GiftOutlined className="mr-1" />
+            <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span>
+              </div>
+                
               </div>
               <div className="flex justify-between">
                 <p className="text-[14px] font-medium">Giảm giá ưu đãi</p>
                 <div className="flex flex-row items-end">
-                  <p className="text-[14px] font-medium text-gray-600">
-                    -900.000
-                  </p>
+                  <p className="text-[14px] font-medium text-gray-600">{discountAmount.toLocaleString('vi-VN')}</p>
                   <p className="text-[12px] pl-2 font-medium text-gray-600">
                     VND
                   </p>
@@ -602,7 +643,7 @@ export default function TourDetail() {
                 <p className="text-[14px] font-medium">Tổng Giá Tour</p>
                 <div className="flex flex-row items-end">
                   <p className="text-[14px] font-medium text-gray-600">
-                    14.990.000
+                    {totalPrice.toLocaleString('vi-VN')}
                   </p>
                   <p className="text-[12px] pl-2 font-medium text-gray-600">
                     VND
@@ -614,17 +655,14 @@ export default function TourDetail() {
                 <p className="text-[16px] font-medium">Tổng Thanh Toán</p>
                 <div className="flex flex-row items-end">
                   <p className="text-[17px] font-bold text-red-700">
-                    14.990.000
+                  {finalPrice.toLocaleString('vi-VN')}
                   </p>
                   <p className="text-[10px] pl-2 font-medium text-red-700">
                     VND
                   </p>
                 </div>
               </div>
-              <div className="flex items-center text-red-500 font-semibold">
-            {/* <GiftOutlined className="mr-2" />
-            <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span> */}
-          </div>
+            
               <div>
                 <Button
                   type="primary"
@@ -636,13 +674,46 @@ export default function TourDetail() {
                     borderRadius: 12,
                     backgroundColor: '#009EE2',
                   }}
-                  onClick={() => navigate('/tour-booking')}
-                  >
+                  onClick={() => {
+                    if (!startDate) {
+                      message.warning('Vui lòng chọn ngày đi trước khi đặt tour!');
+                      return;
+                    }
+
+                    if (localStorage.getItem('TOKEN')) {
+                      setShowForm(true);
+                    } else {
+                      message.warning('Bạn cần đăng nhập để đặt tour!');
+                    }
+                  }}>
                   Đặt Tour
                 </Button>
               </div>
             </div>
           </div>
+          <Modal
+            open={showForm}
+            onCancel={handleCloseForm}
+            footer={null}
+            width={600} // Đặt chiều rộng cho Modal
+            closeIcon={<CloseOutlined />}
+            title="Chi Tiết Đặt Tour"
+            destroyOnClose={true}
+            style={{ top: 10 }}>
+            <TourBookingForm
+              tourId={tourId}
+              adults={adults}
+              children={children}
+              infants={infants}
+              discountAmount={discountAmount}
+              startDate={
+                startDate?.isDayjsObject
+                  ? startDate.format('YYYY-MM-DD')
+                  : startDate
+              }
+              totalPrice={finalPrice}
+            />
+          </Modal>
         </div>
       </div>
       <div>
