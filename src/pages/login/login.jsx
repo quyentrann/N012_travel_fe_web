@@ -1,5 +1,5 @@
-import React from 'react';
-import { Input, Space } from 'antd';
+import React, { useState } from 'react';
+import { Input } from 'antd';
 import { MailOutlined } from '@ant-design/icons';
 import { EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
 import { LockOutlined } from '@ant-design/icons';
@@ -8,7 +8,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from 'antd';
 
 import nen from '../../images/nen.webp';
-import nen2 from '../../images/nen2.webp';
 import logo from '../../images/logo.png';
 import plan from '../../images/maybay.png';
 import gg from '../../images/Google.png';
@@ -16,12 +15,18 @@ import fb from '../../images/fb.png';
 import ap from '../../images/apple.png';
 import vt1 from '../../images/Vector.png';
 import vt2 from '../../images/Group688.png';
+import axios from 'axios';
+import { LOCAL_STORAGE_TOKEN_EXPIRES_IN, login } from '../../apis/auth/auth';
 export default function Login() {
   const navigate = useNavigate();
-  
-  const gotoHome =()=>{
-    navigate('/')
-  }
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const loginUser = () => {
+    login(email, password);
+  };
+
   return (
     <div
       className="min-h-screen w-full flex  overflow-hidden"
@@ -62,6 +67,8 @@ export default function Login() {
               prefix={<MailOutlined className="text-gray-500 pr-2" />}
               className="w-full h-11 border border-gray-400 rounded-lg focus:border-blue-400"
               style={{ borderColor: '#4A90E2', fontSize: 14 }}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
 
             <Input.Password
@@ -73,11 +80,18 @@ export default function Login() {
               }
               className="w-full h-11 border border-gray-400 rounded-lg focus:border-blue-400 mt-5"
               style={{ borderColor: '#4A90E2', fontSize: 14 }}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
+
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+
             <div
               className="text-right text-sm text-blue-500 pt-1 pb-3"
               style={{ fontSize: 12 }}>
-              <span className="text-[#009EE2] inline cursor-pointer font-[500]"  onClick={() => navigate('/forgot-password')}>
+              <span
+                className="text-[#009EE2] inline cursor-pointer font-[500]"
+                onClick={() => navigate('/forgot-password')}>
                 Forgot your password?
               </span>
             </div>
@@ -92,9 +106,8 @@ export default function Login() {
                   fontWeight: 500,
                   borderRadius: 8,
                   backgroundColor: '#009EE2',
-                }} 
-                onClick={gotoHome}
-                >
+                }}
+                onClick={() => loginUser()}>
                 Login
               </Button>
             </div>
@@ -125,13 +138,14 @@ export default function Login() {
 
           <div className="mt-4 text-gray-700 pt-3" style={{ fontSize: 16 }}>
             Don't have an account?{' '}
-            <div className=" cursor-pointer inline text-[#009EE2] transition duration-200"  onClick={() => navigate('/register')}>
+            <div
+              className=" cursor-pointer inline text-[#009EE2] transition duration-200"
+              onClick={() => navigate('/register')}>
               Register Now
             </div>
           </div>
         </div>
-        <div 
-        className='flex-1 items-end flex'>
+        <div className="flex-1 items-end flex">
           <div>
             <img
               src={vt1}
@@ -139,8 +153,7 @@ export default function Login() {
               className="h-[140px] pl-[30px] pb-[40px] rotate-8"
             />
           </div>
-          <div 
-          className='h-[110px] justify-end flex flex-1 pr-5 '>
+          <div className="h-[110px] justify-end flex flex-1 pr-5 ">
             <img src={vt2} alt="vt2" />
           </div>
         </div>

@@ -9,7 +9,8 @@ import {
 } from '@ant-design/icons';
 import { Cascader, DatePicker, Select, Input, Button } from 'antd';
 import axios from 'axios';
-
+import { getTours } from '../../apis/tour';
+import { useDispatch, useSelector } from 'react-redux';
 import logo from '../../images/logo.png';
 import nen1 from '../../images/BgHome.png';
 import nen2 from '../../images/Boat.png';
@@ -23,8 +24,11 @@ export default function Home() {
   const [selected, setSelected] = useState(null);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const [tourList, setTours] = useState([]);
-  // const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+  const dispatch = useDispatch();
+  const [tours, setTours] = useState([]);
+  const { Option } = Select;
+  
+  // const tours  = useSelector((state) => state.user.tours);
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -35,8 +39,6 @@ export default function Home() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-
 
   const priceOptions = [
     { label: 'Dưới 1 triệu', value: '0-1000000' },
@@ -68,42 +70,60 @@ export default function Home() {
       .catch((error) => console.error('Lỗi khi tải dữ liệu:', error));
   }, []);
 
+  useEffect(() => {
+    async function fetchTours() {
+      try {
+        const data = await getTours();
+        setTours(data);
+      } catch (error) {
+        console.error('Lỗi khi tải danh sách tour:', error);
+        setTours([]);
+      }
+    }
+
+    fetchTours();
+  }, []);
 
   useEffect(() => {
-    axios.get('http://localhost:8080/api/tours')
-      .then((response) => {
-        // console.log('Dữ liệu nhận từ API:', response.data);
-        setTours(response.data);
-      })
-      .catch((error) => {
-        console.error('Lỗi khi tải dữ liệu:', error);
+    console.log(tours);
+  }, [tours]);
+
+  const getUserInfo = async () => {
+    try {
+      const token = localStorage.getItem('TOKEN');
+      if (!token) throw new Error('Không tìm thấy token!');
+  
+      const response = await axios.get('http://localhost:8080/api/users/me', {
+        headers: { Authorization: `Bearer ${token}` },
       });
+  
+      console.log('Thông tin useraaaa:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Lỗi lấy thông tin user:', error);
+      return null;
+    }
+  };
+  
+  // Gọi hàm để lấy thông tin user
+  useEffect(() => {
+    getUserInfo();
   }, []);
   
-
-  // const tourList = [
-  //   { id: 1, name: 'Tour Đà Nẵng - Bà Nà Hills', price: '3,000,000 VND', image: 'url1' },
-  //   { id: 2, name: 'Tour Phú Quốc - Vinpearl Safari', price: '5,000,000 VND', image: 'url2' },
-  //   { id: 3, name: 'Tour Nha Trang - VinWonders', price: '4,500,000 VND', image: 'url3' },
-  //   { id: 4, name: 'Tour Hạ Long - Vịnh Kỳ Quan', price: '6,000,000 VND', image: 'url4' },
-  //   { id: 5, name: 'Tour Đà Lạt - Thành Phố Ngàn Hoa', price: '2,800,000 VND', image: 'url5' },
-  //   { id: 6, name: 'Tour Sapa - Đỉnh Fansipan', price: '4,200,000 VND', image: 'url6' },
-  //   { id: 7, name: 'Tour Huế - Phố Cổ Hội An', price: '3,500,000 VND', image: 'url7' },
-  //   { id: 8, name: 'Tour Cần Thơ - Chợ Nổi Cái Răng', price: '2,600,000 VND', image: 'url8' },
-  //   { id: 9, name: 'Tour Hà Nội - Văn Miếu Quốc Tử Giám', price: '3,900,000 VND', image: 'url9' },
-  //   { id: 10, name: 'Tour Mộc Châu - Đồi Chè Trái Tim', price: '3,300,000 VND', image: 'url10' },
-  //   { id: 11, name: 'Tour Quảng Bình - Động Phong Nha', price: '4,800,000 VND', image: 'url11' },
-  //   { id: 12, name: 'Tour Côn Đảo - Nghĩa Trang Hàng Dương', price: '5,500,000 VND', image: 'url12' },
-  //   { id: 13, name: 'Tour Bình Định - Kỳ Co - Eo Gió', price: '4,000,000 VND', image: 'url13' },
-  //   { id: 14, name: 'Tour Phan Thiết - Mũi Né', price: '3,700,000 VND', image: 'url14' },
-  //   { id: 15, name: 'Tour Buôn Ma Thuột - Hồ Lak', price: '3,200,000 VND', image: 'url15' }
-  // ];
+  const handleLogout = () => {
+    localStorage.removeItem('TOKEN');
+    localStorage.removeItem('REFRESHTOKEN');
+    localStorage.removeItem('TOKEN_EXPIRES_IN');
+    localStorage.removeItem('user_info');
+    
+    navigate('/login'); // Chuyển hướng về trang đăng nhập
+  };
   
 
   return (
-    <div className="w-screen h-screen relative overflow-x-hidden">
+    <div className="w-screen h-fit relative overflow-x-hidden">
       <div
-        className="w-full h-full relative px-5 pt-3 opacity-100 "
+        className="w-full h-full  relative px-5 pt-3 opacity-100 "
         style={{
           backgroundImage: `url(${nen1})`,
           backgroundSize: 'cover',
@@ -119,7 +139,6 @@ export default function Home() {
           <div className="absolute bottom-0 left-0 w-full h-30 bg-gradient-to-t from-white to-transparent"></div>
         </div>
 
-        {/* Navbar */}
         <nav className="w-full z-50 flex justify-between items-center py-2 rounded-2xl relative">
           <div className="justify-start flex">
             <img src={logo} alt="logo" className="h-13 w-auto" />
@@ -151,7 +170,6 @@ export default function Home() {
               className="text-white text-[20px] cursor-pointer font-bold hover:scale-105 transition duration-150">
               Blogs
             </span>
-            {/* Tài khoản dropdown */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setOpen(!open)}
@@ -162,7 +180,27 @@ export default function Home() {
 
               {open && (
                 <div className="absolute right-0 mt-2 w-[160px] bg-white shadow-lg rounded-md border border-gray-300 p-3 z-50">
-                  <button
+                  {localStorage.getItem('TOKEN') ? (
+                    <>
+                    <button
+                      className="w-full text-gray-700 py-2 text-[14px] font-semibold hover:bg-gray-100 transition text-left"
+                      onClick={() => navigate('/profile')}>
+                      Thông tin cá nhân
+                    </button>
+                    <button
+                      className="w-full text-gray-700 py-2 text-[14px] font-semibold hover:bg-gray-100 transition text-left"
+                      onClick={() => navigate('/orders')}>
+                      Đơn mua
+                    </button>
+                    <button
+                      className="w-full text-red-600 py-2 text-[14px] font-semibold hover:bg-gray-100 transition text-left"
+                      onClick={handleLogout}>
+                      Đăng xuất
+                    </button>
+                  </>
+                  ) : (
+                    <>
+                     <button
                     className="w-full bg-cyan-800 text-white py-2 rounded-md text-[14px] font-semibold hover:bg-cyan-900 transition"
                     onClick={() => navigate('/login')}>
                     Đăng nhập
@@ -173,6 +211,9 @@ export default function Home() {
                       Đăng ký ngay
                     </span>
                   </p>
+                    </>
+                  )}
+                 
                 </div>
               )}
             </div>
@@ -257,9 +298,9 @@ export default function Home() {
                   onChange={handleChange}
                   style={{ width: 140 }}>
                   {priceOptions.map((option) => (
-                    <Option key={option.value} value={option.value}>
+                    <Select.Option key={option.value} value={option.value}>
                       {option.label}
-                    </Option>
+                    </Select.Option>
                   ))}
                 </Select>
               </div>
@@ -293,26 +334,16 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="p-10 px-35">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {tourList.length > 0 ? (
-  tourList.map((tour) => <ItemTourComponent key={tour.id} tour={tour} />)
-) : (
-  <p>Không có tour nào</p>
-)}
-
+      <div className="p-13 px-25">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10">
+          {Array.isArray(tours) &&
+            tours.map((tour) => (
+              <ItemTourComponent key={tour.tourId} tour={tour} />
+            ))}
         </div>
       </div>
-{/* 
-      <div className="p-10 px-35">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {tours.map((tour) => (
-            <ItemTourComponent key={tour.tourId} data={tour} />
-          ))}
-        </div>
-      </div> */}
 
-      <footer className="bg-gray-900 text-white text-center p-5 mt-200">
+      <footer className="bg-gray-900 text-white text-center p-5 mt-10">
         <p>&copy; 2025 Travelista Tours. All Rights Reserved.</p>
       </footer>
     </div>
