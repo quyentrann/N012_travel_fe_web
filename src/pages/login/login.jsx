@@ -19,8 +19,8 @@ import axios from 'axios';
 import { LOCAL_STORAGE_TOKEN_EXPIRES_IN, login } from '../../apis/auth/auth';
 export default function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('quyentran3101@gmail.com');
+  const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
 
   const loginUser = () => {

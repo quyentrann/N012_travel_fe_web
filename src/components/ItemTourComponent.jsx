@@ -11,7 +11,7 @@ import { useNavigate } from 'react-router-dom';
 export default function ItemTourComponent({ tour }) {
   const navigate = useNavigate();
   const getDuration = (startDate, endDate) => {
-    if (!startDate || !endDate) return "Không xác định";
+    if (!startDate || !endDate) return 'Không xác định';
     const start = new Date(startDate);
     const end = new Date(endDate);
     const days = Math.round((end - start) / (1000 * 60 * 60 * 24));
@@ -25,8 +25,8 @@ export default function ItemTourComponent({ tour }) {
       onClick={() => navigate('/tour-detail', { state: { id: tour.tourId } })}>
       <div className="relative group">
         <img
-          src={card}
-          alt="Travel"
+          src={tour.imageURL || card}
+          alt={tour.name || 'Travel'}
           className="h-44 w-full object-cover rounded-t-lg transition duration-300 relative"
         />
         <span className="absolute top-2 left-2 bg-black/50 text-white px-3 py-1 text-xs rounded-md">
@@ -44,16 +44,29 @@ export default function ItemTourComponent({ tour }) {
         <div className="text-gray-700 text-sm space-y-2">
           <div className="flex items-center space-x-2">
             <ClockCircleOutlined className="text-gray-500 text-sm" />
-            <span>{getDuration(tour.tourDetails[0]?.startDate, tour.tourDetails[0]?.endDate) || '3 ngày 2 đêm'}</span>
+            <span>
+              {getDuration(
+                tour.tourDetails[0]?.startDate,
+                tour.tourDetails[0]?.endDate
+              ) || '3 ngày 2 đêm'}
+            </span>
           </div>
           <div className="flex items-center space-x-2">
             <CalendarOutlined className="text-gray-500 text-sm" />
-            <span>{tour.tourDetails[0]?.startDate ? new Date(tour.tourDetails[0]?.startDate).toLocaleDateString('vi-VN') : '23/03/2025'}</span>
+            <span>
+              {tour.tourDetails[0]?.startDate
+                ? new Date(tour.tourDetails[0]?.startDate).toLocaleDateString(
+                    'vi-VN'
+                  )
+                : '23/03/2025'}
+            </span>
           </div>
           <div className="flex items-center space-x-2">
             <UserOutlined className="text-gray-500 text-sm" />
             <span>
-              {tour.availableSlot ? `Còn ${tour.availableSlot} chỗ` : 'Không xác định'}
+              {tour.availableSlot
+                ? `Còn ${tour.availableSlot} chỗ`
+                : 'Không xác định'}
             </span>
           </div>
         </div>

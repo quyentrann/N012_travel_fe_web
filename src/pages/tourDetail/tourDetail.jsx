@@ -3,7 +3,11 @@ import { useLocation } from 'react-router-dom';
 import { getTourById } from '../../apis/tour';
 import { useNavigate } from 'react-router-dom';
 import TourBookingForm from '../../components/ItemTourBookingDetail';
-import card from '../../images/card.jpg';
+import card1 from '../../images/pq1.jpg';
+import card2 from '../../images/pq2.jpg';
+import card3 from '../../images/pq4.webp';
+import card4 from '../../images/pq5.jpg';
+
 import axios from 'axios';
 import {
   Button,
@@ -22,7 +26,7 @@ import {
 
 import {
   CalendarOutlined,
-  TagOutlined,
+  ArrowLeftOutlined ,
   MinusOutlined,
   PlusOutlined,
   EnvironmentOutlined,
@@ -316,10 +320,10 @@ const finalPrice = totalPrice - discountAmount;
   }, [tourId]);
 
   const listImageTour = [
-    { id: 1, image: card },
-    { id: 2, image: card },
-    { id: 3, image: card },
-    { id: 4, image: card },
+    { id: 1, image: card1 },
+    { id: 2, image: card2 },
+    { id: 3, image: card3 },
+    { id: 4, image: card4 },
   ];
 
   const menu = (
@@ -382,7 +386,18 @@ const finalPrice = totalPrice - discountAmount;
   return (
     <div>
       <div className="h-full w-screen px-10 py-5 bg-[#f8f8f8]">
-        <div>
+      <Button
+            type="link"
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate("/")}
+            className=" font-semibold text-black"
+          >
+            Back
+          </Button>
+      <div className="flex items-center ">
+          {/* Nút Back */}
+     
+
           <p className="text-[23px] font-bold px-5">
             Tour {tour?.location}: {tour?.name}
           </p>

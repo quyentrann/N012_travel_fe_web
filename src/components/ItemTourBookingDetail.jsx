@@ -40,7 +40,8 @@ export default function TourBookingForm({
   
   const handleBooking = async () => {
     const token = localStorage.getItem('TOKEN');
-  
+    console.log('Token:', token);
+
     if (!fullName || !phone) {
       message.warning('Vui lòng nhập đầy đủ Họ tên và Số điện thoại!');
       return;
@@ -51,19 +52,15 @@ export default function TourBookingForm({
         'http://localhost:8080/api/bookings/book',
         {
           tourId,
-          startDate,
           numberPeople: adults + children + infants,
           totalPrice: totalPrice,
-          fullName,
-          phone,
-          email,
-          notes,
         },
         {
           headers: {
             Authorization: `Bearer ${token}`, // Thêm token vào request
             'Content-Type': 'application/json',
           },
+          withCredentials: true,
         }
       );
   
@@ -73,9 +70,34 @@ export default function TourBookingForm({
       message.error('Đặt tour thất bại, vui lòng thử lại!');
       console.error('Booking Error:', error.response?.data || error.message);
     }
+
+    // try {
+    //   const response = await axios.post(
+    //     'http://localhost:8080/api/bookings/book',
+    //     {
+    //       tourId,
+    //       numberPeople: adults + children + infants,
+    //       totalPrice,
+    //     },
+    //     {
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //         // Nếu backend yêu cầu token
+    //         Authorization: `Bearer ${token}`
+    //       },
+    //     }
+    //   );
+    //   console.log('Booking Response:', response.data);
+    // } catch (error) {
+    //   console.error('Error:', error.response?.data || error.message);
+    // }
+     
   };
   
-
+  console.log("tourIdsszzdsss", tourId);
+  console.log("numberPeople: adults + children + infants", adults + children + infants);
+  console.log("numberPeople: adults aS+ Âsssschildren + infants", totalPrice);
+  
   return (
     <div className="px-4 py-2 ">
       <p className="text-gray-600 text-xs mb-3">
