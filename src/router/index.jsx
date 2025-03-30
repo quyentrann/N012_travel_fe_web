@@ -6,11 +6,13 @@ import Home from "../pages/home/home"
 import TourDetail from '../pages/tourDetail/tourDetail'
 import ItemTourBookingDetail from "../components/ItemTourBookingDetail";
 import UserInfo from "../pages/userInfo/userInfo";
+import Orders from "../pages/orders/orders";
 export default function AppRouter() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/profile" element={<UserInfo />} />
+      <Route path="/orders" element={<Orders />} />
       <Route path="/tour-detail" element={<TourDetail />} />
       <Route path="/register" element={<Register />} />
       <Route path="/login" element={<Login />} />
