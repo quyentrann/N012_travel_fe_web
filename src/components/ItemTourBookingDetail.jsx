@@ -2,21 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { getTourById } from '../apis/tour';
 import dayjs from 'dayjs';
 import axios from 'axios';
-import { message } from 'antd';
+import { message,Button,Modal,Spin  } from 'antd';
 
 export default function TourBookingForm({
   tourId,
   adults,
   children,
   infants,
+  discountAmount,
   startDate,
-  totalPrice,discountAmount
+  totalPrice,
+  priceForOneAdult,
+  priceForOneChild,
+  priceForOneInfant,
 }) {
   const [tour, setTour] = useState(null);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [isBookingSuccess, setIsBookingSuccess] = useState(false); // Trạng thái đặt tour thành công
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false); // Thêm trạng thái loading
+  const [bookingId, setBookingId] = useState(null); // Thêm useState để lưu bookingId
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (tourId) {
@@ -40,70 +49,137 @@ export default function TourBookingForm({
   
   const handleBooking = async () => {
     const token = localStorage.getItem('TOKEN');
-    console.log('Token:', token);
 
-    if (!fullName || !phone) {
-      message.warning('Vui lòng nhập đầy đủ Họ tên và Số điện thoại!');
-      return;
+    if (!fullName || !phone || !email) {
+        message.warning('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Email!');
+        return;
     }
-  
+
+    setLoading(true);
+
     try {
-      const response = await axios.post(
-        'http://localhost:8080/api/bookings/book',
-        {
-          tourId,
-          numberPeople: adults + children + infants,
-          totalPrice: totalPrice,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`, // Thêm token vào request
-            'Content-Type': 'application/json',
-          },
-          withCredentials: true,
-        }
-      );
-  
-      message.success('Đặt tour thành công!');
-      console.log('Booking Response:', response.data);
-    } catch (error) {
-      message.error('Đặt tour thất bại, vui lòng thử lại!');
-      console.error('Booking Error:', error.response?.data || error.message);
-    }
+        const response = await axios.post(
+            'http://localhost:8080/api/bookings/book',
+            {
+                tourId,
+                numberPeople: adults + children + infants,
+                totalPrice,
+                fullName,
+                phoneNumber: phone,
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                withCredentials: true,
+            }
+        );
 
-    // try {
-    //   const response = await axios.post(
-    //     'http://localhost:8080/api/bookings/book',
-    //     {
-    //       tourId,
-    //       numberPeople: adults + children + infants,
-    //       totalPrice,
-    //     },
-    //     {
-    //       headers: {
-    //         'Content-Type': 'application/json',
-    //         // Nếu backend yêu cầu token
-    //         Authorization: `Bearer ${token}`
-    //       },
-    //     }
-    //   );
-    //   console.log('Booking Response:', response.data);
-    // } catch (error) {
-    //   console.error('Error:', error.response?.data || error.message);
-    // }
-     
-  };
+        const receivedBookingId = response.data.bookingId;
+        console.log('Booking ID nhận được:', receivedBookingId); // Kiểm tra bookingId
+        if (!receivedBookingId) {
+            throw new Error("Không nhận được bookingId từ API!");
+        }
+        setBookingId(receivedBookingId); // Lưu bookingId để dùng khi thanh toán
+        
+        setIsBookingSuccess(true);
+        setIsModalVisible(true);
+    } catch (error) {
+        message.error(error.response?.data || 'Đặt tour thất bại, vui lòng thử lại!');
+        console.error('Booking Error:', error.response?.data || error.message);
+    } finally {
+        setLoading(false);
+    }
+};
+
   
-  console.log("tourIdsszzdsss", tourId);
-  console.log("numberPeople: adults + children + infants", adults + children + infants);
-  console.log("numberPeople: adults aS+ Âsssschildren + infants", totalPrice);
+  
+const handleRedirectToPayment = async (bookingId, totalPrice) => {
+  if (!bookingId || !totalPrice) {
+    console.error("Thiếu bookingId hoặc totalPrice!");
+    return;
+  }
+
+  try {
+      const response = await fetch("http://localhost:8080/api/payment/vnpay-create", {
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ bookingId, totalPrice }),
+      });
+
+      const data = await response.json();
+      if (data.paymentUrl) {
+          window.location.href = data.paymentUrl; // Chuyển hướng đến trang thanh toán VNPAY
+      } else {
+          console.error("Không nhận được paymentUrl từ API!");
+      }
+  } catch (error) {
+      console.error("Lỗi khi tạo thanh toán:", error);
+  }
+};
+
+
+// Gọi hàm khi nhấn nút "Thanh toán"
+// createPayment(123, 500000);
+
+
+useEffect(() => {
+  if (!bookingId) return; // Chỉ gọi API nếu có bookingId
+  handleRedirectToPayment();
+}, [bookingId]); 
+
+
+  
+
+  const handleKeepBooking = () => {
+    setIsModalVisible(false); // Đóng modal khi người dùng quay lại
+  };
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('TOKEN');
+    if (storedToken) {
+      try {
+        const payload = JSON.parse(atob(storedToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        console.log('Decoded Token:', payload);
+  
+        setEmail(payload.sub || ''); // Email vẫn có trong token
+  
+        // Gọi API lấy thông tin user đầy đủ
+        fetch('http://localhost:8080/api/users/me', {
+          headers: { Authorization: `Bearer ${storedToken}` },
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.customer) {
+              setFullName(data.customer.fullName || '');
+              setPhone(data.customer.phoneNumber || '');
+            }
+          })
+          .catch((error) => console.error('Lỗi khi lấy user info:', error));
+      } catch (error) {
+        console.error('Lỗi khi parse TOKEN:', error);
+      }
+    }
+  }, []);
+  
+  
+  
   
   return (
     <div className="px-4 py-2 ">
       <p className="text-gray-600 text-xs mb-3">
-        Vui lòng cung cấp thông tin dưới đây để chúng tôi hỗ trợ bạn nhanh
+        Vui lòng kiểm tra và cung cấp thông tin đầy đủ trước khi gửi yêu cầu.  Chúng tôi sẽ liên hệ và hỗ trợ bạn nhanh
         chóng.
       </p>
+      {loading && (
+  <div className="flex justify-center items-center fixed top-0 left-0 right-0 bottom-0 bg-opacity-50 z-50">
+    <Spin size="large" />
+  </div>
+)}
+
 
       {/* Bảng thông tin tour */}
       <div className="border-b mb-3">
@@ -158,21 +234,15 @@ export default function TourBookingForm({
             <tr>
               <td className="border p-2 font-medium ">Giá</td>
               <td className="border p-2 text-center">
-              {(tour?.price ? tour.price : 0).toLocaleString(
+              {priceForOneAdult.toLocaleString(
                         'vi-VN'
                       )}đ
               </td>
               <td className="border p-2 text-center">
-              {(tour?.price
-                    ? tour.price * 0.85
-                    : 0
-                  ).toLocaleString('vi-VN')}đ
+              {priceForOneChild.toLocaleString('vi-VN')}đ
               </td>
               <td className="border p-2 text-center">
-              {(tour?.price
-                    ? tour.price * 0.3
-                    : 0
-                  ).toLocaleString('vi-VN')}đ
+              {priceForOneInfant.toLocaleString('vi-VN')}đ
               </td>
             </tr>
             <tr>
@@ -208,6 +278,7 @@ export default function TourBookingForm({
 
       {/* Thông tin cá nhân */}
       <div className="mt-3">
+        
         <label className="block font-medium text-xs mb-1">
           Họ và Tên <span className="text-red-500">*</span>
         </label>
@@ -237,6 +308,7 @@ export default function TourBookingForm({
           type="email"
           className="w-full border p-1.5 rounded-md border-gray-400 text-xs"
           placeholder="Nhập email"
+             
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -252,7 +324,7 @@ export default function TourBookingForm({
           onChange={(e) => setNotes(e.target.value)}
           ></textarea>
 
-        <button
+<button
           style={{
             width: '100%',
             height: 40,
@@ -261,9 +333,30 @@ export default function TourBookingForm({
             borderRadius: 8,
             backgroundColor: '#009EE2',
           }}
-          className="text-white mt-3" onClick={handleBooking} >
+          className="text-white mt-3"
+          onClick={handleBooking}
+          disabled={loading}
+        >
           Gửi yêu cầu
         </button>
+
+      {/* Modal thông báo thành công */}
+      <Modal
+  title="Đặt tour thành công!"
+  visible={isModalVisible}
+  onCancel={handleKeepBooking}
+  footer={[
+    <Button key="back" onClick={handleKeepBooking}>
+      Để sau
+    </Button>,
+    <Button key="submit" type="primary" onClick={() => handleRedirectToPayment(bookingId, totalPrice)}>
+    Đi đến thanh toán
+  </Button>
+  
+  ]}
+>
+  <p>Chúng tôi đã nhận được yêu cầu của bạn. Vui lòng kiểm tra email để biết thêm chi tiết.</p>
+</Modal>
       </div>
     </div>
   );

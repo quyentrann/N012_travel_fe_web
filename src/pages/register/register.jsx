@@ -37,12 +37,20 @@ export default function Register() {
       message.error('You must agree to the terms');
       return;
     }
-
+  
     setLoading(true);
     try {
-      await registerUser(form.email, form.password);
-      message.success('OTP has been sent to your email!');
-      setStep('verifyOtp'); // Chuyển qua bước nhập OTP
+      const response = await registerUser(form.email, form.password);
+  
+      if (response.message === "OTP đã được gửi lại. Vui lòng hoàn tất xác thực để kích hoạt tài khoản.") {
+        message.success('OTP đã được gửi lại! Vui lòng hoàn tất xác thực để kích hoạt tài khoản.');
+        setStep('verifyOtp'); // Chuyển qua bước nhập OTP
+      } else if (response.message === "Tài khoản đã tồn tại.") {
+        message.info('Tài khoản đã tồn tại.');
+      } else {
+        message.success('OTP has been sent to your email!');
+        setStep('verifyOtp'); // Chuyển qua bước nhập OTP
+      }
     } catch (error) {
       console.error('Error Response:', error.response);
       message.error(error.response?.data?.message || 'Registration failed');
@@ -50,6 +58,7 @@ export default function Register() {
       setLoading(false);
     }
   };
+  
 
   const handleVerifyOtp = async () => {
     if (!otp) {
