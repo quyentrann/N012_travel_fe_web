@@ -22,11 +22,14 @@ import {
   Select,
   message,
   Modal,
+  Avatar,
+  Badge,
+  Tag,
 } from 'antd';
 
 import {
   CalendarOutlined,
-  ArrowLeftOutlined ,
+  ArrowLeftOutlined,
   MinusOutlined,
   PlusOutlined,
   EnvironmentOutlined,
@@ -36,10 +39,13 @@ import {
   ClockCircleOutlined,
   CarOutlined,
   ForkOutlined,
+  StarFilled,
   CloseOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 
 import dayjs from 'dayjs';
+import ItemTourBestForYou from '../../components/ItemTourBestForYou';
 
 const promotions = [{ key: '1', label: 'Giảm 10% cho nhóm trên 5 người' }];
 const { Title, Paragraph } = Typography;
@@ -278,16 +284,52 @@ export default function TourDetail() {
   const [children, setChildren] = useState(0);
   const [infants, setInfants] = useState(0);
   const [showForm, setShowForm] = useState(false);
-  
+  const [similarTours, setSimilarTours] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const holidays = [
+    '01-01', // Tết Nguyên Đán (Ngày đầu tiên của Tết Âm lịch)
+    '03-08', // Ngày Quốc Tế Phụ Nữ
+    '04-30', // Ngày Chiến Thắng 30/4
+    '05-01', // Ngày Quốc Tế Lao Động
+    '09-02', // Ngày Quốc Khánh
+    '12-25', // Giáng Sinh
+    '11-20', // Ngày Nhà Giáo Việt Nam
+    '07-27', // Ngày Thương Binh Liệt Sĩ
+    '08-19', // Ngày Cách Mạng Tháng Tám
+    '10-10', // Ngày Giỗ Tổ Hùng Vương
+    '09-15', // Tết Trung Thu (Rằm tháng 8 Âm lịch)
+    '12-23', // Ngày 23 tháng Chạp (Táo Quân)
+  ];
+
+  const holidayRate = 1.2; // Hệ số giá cho ngày lễ (20% tăng thêm)
+
+  const priceForOneAdult = tour?.price
+    ? tour.price *
+      (holidays.includes(dayjs(startDate).format('MM-DD')) ? holidayRate : 1)
+    : 0;
+
+  const priceForOneChild = tour?.price
+    ? tour.price *
+      0.85 *
+      (holidays.includes(dayjs(startDate).format('MM-DD')) ? holidayRate : 1)
+    : 0;
+
+  const priceForOneInfant = tour?.price
+    ? tour.price *
+      0.3 *
+      (holidays.includes(dayjs(startDate).format('MM-DD')) ? holidayRate : 1)
+    : 0;
+
   const totalPrice =
-  (tour?.price ? tour.price * adults : 0) +
-  (tour?.price ? tour.price * 0.85 * children : 0) +
-  (tour?.price ? tour.price * 0.3 * infants : 0);
+    priceForOneAdult * adults +
+    priceForOneChild * children +
+    priceForOneInfant * infants;
 
   const totalGuests = adults + children + infants;
-const discountRate = totalGuests >= 5 ? 0.1 : 0; // Giảm 10% nếu >= 5 người
-const discountAmount = totalPrice * discountRate;
-const finalPrice = totalPrice - discountAmount;
+  const discountRate = totalGuests >= 5 ? 0.1 : 0; // Giảm 10% nếu >= 5 người
+  const discountAmount = totalPrice * discountRate;
+  const finalPrice = totalPrice - discountAmount;
 
   const handleCloseForm = () => {
     setShowForm(false);
@@ -299,12 +341,28 @@ const finalPrice = totalPrice - discountAmount;
     borderRadius: token.borderRadiusLG,
     border: 'none',
   };
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  // useEffect(() => {
+  //   window.scrollTo(0, 0);
+  // }, []);
+
+  const getSimilarTours = async (tourId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8080/api/tours/${tourId}/similar`
+      );
+      if (!response.ok) {
+        throw new Error('Lỗi khi lấy tour tương tự');
+      }
+      return response.json();
+    } catch (error) {
+      console.error(error);
+      return []; // Trả về mảng rỗng nếu có lỗi
+    }
+  };
 
   useEffect(() => {
     if (tourId) {
+      setLoading(true); // Bắt đầu tải dữ liệu
       getTourById(tourId)
         .then((data) => {
           setTour(data);
@@ -316,6 +374,14 @@ const finalPrice = totalPrice - discountAmount;
           }
         })
         .catch((err) => console.error('Lỗi API:', err));
+
+      // Gọi API để lấy các tour tương tự
+      getSimilarTours(tourId)
+        .then((data) => {
+          setSimilarTours(data); // Cập nhật danh sách tour tương tự
+        })
+        .catch((err) => console.error('Lỗi API tour tương tự:', err))
+        .finally(() => setLoading(false)); // Kết thúc trạng thái loading
     }
   }, [tourId]);
 
@@ -375,28 +441,43 @@ const finalPrice = totalPrice - discountAmount;
   }));
 
   const disabledDate = (date) => {
-    return !availableDates.some((d) => d.isSame(dayjs(date), 'day'));
+    const isAvailable = availableDates.some((d) =>
+      d.isSame(dayjs(date), 'day')
+    );
+    const isBeforeLimit = dayjs(date).diff(dayjs(), 'day') < 7;
+    const isHoliday = holidays.includes(dayjs(date).format('MM-DD'));
+
+    // Chỉ disable ngày không có trong availableDates hoặc ngày quá gần
+    return !isAvailable || isBeforeLimit;
   };
 
-  const increase = (setter) => setter((prev) => prev + 1);
+  const increase = (setter, currentValue, maxValue) => {
+    if (totalGuests < maxValue) {
+      setter(currentValue + 1);
+    } else {
+      message.warning(`Tour này chỉ còn ${maxValue} chỗ`);
+    }
+  };
+
   const decrease = (setter, min) =>
     setter((prev) => (prev > min ? prev - 1 : prev));
 
+  useEffect(() => {
+    console.log('ạhakjgiu', JSON.stringify(similarTours, null, 2));
+  }, [similarTours]);
 
   return (
     <div>
       <div className="h-full w-screen px-10 py-5 bg-[#f8f8f8]">
-      <Button
-            type="link"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate("/")}
-            className=" font-semibold text-black"
-          >
-            Back
-          </Button>
-      <div className="flex items-center ">
+        <Button
+          type="link"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/')}
+          className=" font-semibold text-black">
+          Back
+        </Button>
+        <div className="flex items-center ">
           {/* Nút Back */}
-     
 
           <p className="text-[23px] font-bold px-5">
             Tour {tour?.location}: {tour?.name}
@@ -450,8 +531,10 @@ const finalPrice = totalPrice - discountAmount;
               <div className="flex justify-between pb-3 text-[14px] ">
                 <p className="font-medium ">
                   <EnvironmentOutlined className="pr-1" />
-                  Khởi hành từ:{' '}
-                  <span className="font-bold text-[15px]">Hà Nội</span>
+                  Địa điểm:{' '}
+                  <span className="font-bold text-[15px]">
+                    {tour?.location}
+                  </span>
                 </p>
                 <p className="font-medium ">
                   Mã Tour: <span className="font-bold text-[15px]">TO2467</span>
@@ -478,7 +561,13 @@ const finalPrice = totalPrice - discountAmount;
               <div className="text-[16px] font-bold pb-2">
                 Điểm Nhấn Hành Trình
               </div>
-              <p className="text-[14px]">- {tour?.highlights}</p>
+              <p className="text-[14px]">
+                - {tour?.highlights} Trãi nghiệm loại hình du lịch:{' '}
+                <span className="font-medium text-[14px] italic">
+                  {tour?.tourcategory?.categoryName}
+                </span>
+                . {tour?.description}
+              </p>
               <div className="text-[14px] pt-3">
                 <p className="text-[15px] font-medium pb-2 pl-2">
                   Trải nghiệm thú vị trong tour
@@ -522,10 +611,84 @@ const finalPrice = totalPrice - discountAmount;
                 <Tabs defaultActiveKey="1" items={itemss} />
               </div>
             </div>
+            <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
+              <div className="text-[16px] font-bold pb-2">Đánh Giá Tour</div>
+              <div className="space-y-4">
+                {tour?.reviews?.map((review, index) => (
+                  <div key={index} className="border-b pb-4">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center pb-2">
+                        <Avatar
+                          size={40}
+                          src={review?.avatarUrl || undefined}
+                          icon={<UserOutlined />}
+                          className="mr-2"
+                        />
+                        <span className="font-medium text-[14px] pl-3">
+                          {review?.customerFullName || 'Khách hàng'}
+                        </span>
+                      </div>
+                      <div className="flex items-center text-yellow-400 ">
+                        {/* Render stars based on rating */}
+                        {[...Array(5)].map((_, i) => (
+                          <StarFilled
+                            key={i}
+                            style={{
+                              color: i < review.rating ? '#FFD700' : '#d3d3d3',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="pl-13">
+                      <p className="text-[14px] text-gray-600">
+                        {review.comment}
+                      </p>
+                      <p className="text-[12px] text-gray-400">
+                        {review.reviewDate}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
+              <div className="text-[16px] font-bold pb-2">Tour Tương Tự</div>
+              <div className="grid grid-cols-2 gap-5 justify-between">
+                {similarTours.map((similarTour) => (
+                  <ItemTourBestForYou
+                    key={similarTour.tourId}
+                    tour={similarTour}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="w-1/3 max-h-[calc(100vh-40px)] flex justify-center sticky top-7 z-50 mb-2">
-            <div className="bg-amber-50 w-93 h-147 rounded-xl p-6 flex flex-col justify-between mb-5 border-1 border-gray-200 shadow">
+          <div
+            className={`w-1/3 max-h-[calc(100vh-40px)] flex justify-center sticky top-7 z-50 mb-2 ${
+              tour?.availableSlot === 0 ? 'pointer-events-none opacity-50' : ''
+            }`}>
+            <div className="bg-amber-50 w-93 h-147 rounded-xl p-6 flex flex-col justify-between mb-5 border-1 border-gray-200 shadow relative">
+              {tour?.availableSlot === 0 && (
+                <Tag
+                  color="error" // Màu đỏ của thông báo "Hết chỗ"
+                  style={{
+                    position: 'absolute',
+                    top: '13px',
+                    right: '0px',
+                    transform: 'rotate(15deg)', // Xoay nhẹ thông báo
+                    fontSize: '22px', // Kích thước chữ nhỏ nhưng rõ ràng
+                    fontWeight: 'bold', // Chữ đậm để dễ nhìn
+                    padding: '5px 30px', // Tạo không gian xung quanh chữ
+                    textAlign: 'center', // Canh giữa
+                  }}>
+                  Hết chỗ
+                </Tag>
+              )}
+              {tour?.availableSlot === 0 && (
+                <div className="absolute inset-0 bg-gray-10 opacity-1" />
+              )}
               <p className="text-[21px] text-blue-800 font-bold ">
                 Lịch Trình và Giá Tour
               </p>
@@ -533,7 +696,8 @@ const finalPrice = totalPrice - discountAmount;
               <p className="text-[14px] text-gray-500 font-medium">
                 Chọn Lịch Trình và Xem Giá:
               </p>
-              <div className="flex mr-10 h-12 items-center border-1 border-gray-300 w-50 rounded-xl">
+
+              <div className="flex mr-10 h-11 items-center border-1 border-gray-300 w-48 rounded-[8px]">
                 <div className="flex items-center justify-center px-3 mt-2">
                   <CalendarOutlined className="text-gray-500 text-[14px] mb-2" />
                 </div>
@@ -543,12 +707,50 @@ const finalPrice = totalPrice - discountAmount;
                     onChange={(date) => setStartDate(date)}
                     placeholderText="Chọn ngày"
                     dateFormat="dd.MM.yyyy"
-                    className="border-none text-lg"
-                    disabledDate={disabledDate} // Dùng disabledDate thay vì filterDate
+                    className="border-none text-[8px] h-7 w-35"
+                    disabledDate={disabledDate}
+                    dateRender={(current) => {
+                      const isDisabled = disabledDate(current);
+                      const isTooClose =
+                        availableDates.some((d) => d.isSame(current, 'day')) &&
+                        current.diff(dayjs(), 'day') < 7;
+                      const isSelectable =
+                        availableDates.some((d) => d.isSame(current, 'day')) &&
+                        current.diff(dayjs(), 'day') >= 7;
+
+                      return (
+                        <div
+                          className={`ant-picker-cell-inner ${
+                            isDisabled
+                              ? 'text-gray-400'
+                              : isSelectable
+                              ? 'text-black'
+                              : ''
+                          }`}
+                          style={{ position: 'relative' }}>
+                          {current.date()}
+                          {isTooClose && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                color: 'gray',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                              }}>
+                              ❌
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }}
                   />
                 </div>
               </div>
-              <div className="bg-white h-15 rounded-xl flex justify-between p-5 items-center text-center border-1 border-gray-300">
+
+              <div className="bg-white h-14 rounded-xl flex justify-between p-5 items-center text-center border-1 border-gray-300">
                 <div className="text-center">
                   <p className="text-center text-[14px] font-medium">
                     Người lớn <br />{' '}
@@ -556,30 +758,45 @@ const finalPrice = totalPrice - discountAmount;
                   <div className="text-[10px] text-gray-700">&gt; 10 tuổi </div>
                 </div>
                 <p className="text-black text-[14px] font-medium">
-                  <p className="text-black text-[14px] font-medium">
-                    <p className="text-black text-[14px] font-medium">
-                      {(tour?.price ? tour.price * adults : 0).toLocaleString(
-                        'vi-VN'
-                      )}
-                    </p>
-                  </p>
+                  {(tour?.price && tour?.availableSlot > 0
+                    ? tour.price *
+                      adults *
+                      (holidays.includes(dayjs(startDate).format('YYYY-MM-DD'))
+                        ? holidayRate
+                        : 1)
+                    : 0
+                  ).toLocaleString('vi-VN')}
                 </p>
 
                 <div className="flex justify-between w-16 text-[13px] font-medium">
                   <MinusOutlined
                     className={`cursor-pointer ${
-                      adults === 1 ? 'opacity-50 pointer-events-none' : ''
+                      adults === 1 || tour?.availableSlot === 0
+                        ? 'opacity-50 pointer-events-none'
+                        : ''
                     }`}
                     onClick={() => decrease(setAdults, 1)}
                   />
-                  <p>{adults}</p>
+                  <p>{tour?.availableSlot === 0 ? 0 : adults}</p>
                   <PlusOutlined
-                    className="cursor-pointer"
-                    onClick={() => increase(setAdults)}
+                    className={`cursor-pointer ${
+                      totalGuests >= (tour?.availableSlot || 999) ||
+                      tour?.availableSlot === 0
+                        ? 'opacity-50 pointer-events-none'
+                        : ''
+                    }`}
+                    onClick={() =>
+                      increase(
+                        setAdults,
+                        adults,
+                        (tour?.remainingSeats || 999) - children - infants
+                      )
+                    }
                   />
                 </div>
               </div>
-              <div className="bg-white border-1 border-gray-300 text-center h-15 rounded-xl flex justify-between p-5 items-center">
+
+              <div className="bg-white border-1 border-gray-300 text-center h-14 rounded-xl flex justify-between p-5 items-center">
                 <div className="text-center">
                   <p className="text-center text-[14px] font-medium">
                     Trẻ em <br />{' '}
@@ -588,7 +805,12 @@ const finalPrice = totalPrice - discountAmount;
                 </div>
                 <p className="text-black text-[14px] font-medium">
                   {(tour?.price
-                    ? tour.price * 0.85 * children
+                    ? tour.price *
+                      0.85 *
+                      children *
+                      (holidays.includes(dayjs(startDate).format('YYYY-MM-DD'))
+                        ? holidayRate
+                        : 1)
                     : 0
                   ).toLocaleString('vi-VN')}
                 </p>
@@ -601,12 +823,22 @@ const finalPrice = totalPrice - discountAmount;
                   />
                   <p>{children}</p>
                   <PlusOutlined
-                    className="cursor-pointer"
-                    onClick={() => increase(setChildren)}
+                    className={`cursor-pointer ${
+                      totalGuests >= (tour?.availableSlot || 999)
+                        ? 'opacity-50 pointer-events-none'
+                        : ''
+                    }`}
+                    onClick={() =>
+                      increase(
+                        setChildren,
+                        children,
+                        (tour?.remainingSeats || 999) - adults - infants
+                      )
+                    }
                   />
                 </div>
               </div>
-              <div className="bg-white border-1 border-gray-300 text-center h-15 rounded-xl flex justify-between p-5 items-center">
+              <div className="bg-white border-1 border-gray-300 text-center h-14 rounded-xl flex justify-between p-5 items-center">
                 <div className="text-center">
                   <p className="text-center text-[14px] font-medium">
                     Trẻ nhỏ <br />{' '}
@@ -615,7 +847,12 @@ const finalPrice = totalPrice - discountAmount;
                 </div>
                 <p className="text-black text-[14px] font-medium">
                   {(tour?.price
-                    ? tour.price * 0.3 * infants
+                    ? tour.price *
+                      0.3 *
+                      infants *
+                      (holidays.includes(dayjs(startDate).format('YYYY-MM-DD'))
+                        ? holidayRate
+                        : 1)
                     : 0
                   ).toLocaleString('vi-VN')}
                 </p>
@@ -628,8 +865,18 @@ const finalPrice = totalPrice - discountAmount;
                   />
                   <p>{infants}</p>
                   <PlusOutlined
-                    className="cursor-pointer"
-                    onClick={() => increase(setInfants)}
+                    className={`cursor-pointer ${
+                      totalGuests >= (tour?.availableSlot || 999)
+                        ? 'opacity-50 pointer-events-none'
+                        : ''
+                    }`}
+                    onClick={() =>
+                      increase(
+                        setInfants,
+                        infants,
+                        (tour?.remainingSeats || 999) - adults - children
+                      )
+                    }
                   />
                 </div>
               </div>
@@ -639,16 +886,17 @@ const finalPrice = totalPrice - discountAmount;
                     <p className="text-[12px]">Chọn Ưu Đãi</p>
                   </Button>
                 </Dropdown> */}
-                  <div className="flex items-center text-red-500 text-[12px]">
-                <GiftOutlined className="mr-1" />
-            <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span>
-              </div>
-                
+                <div className="flex items-center text-red-500 text-[12px]">
+                  <GiftOutlined className="mr-1" />
+                  <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span>
+                </div>
               </div>
               <div className="flex justify-between">
                 <p className="text-[14px] font-medium">Giảm giá ưu đãi</p>
                 <div className="flex flex-row items-end">
-                  <p className="text-[14px] font-medium text-gray-600">{discountAmount.toLocaleString('vi-VN')}</p>
+                  <p className="text-[14px] font-medium text-gray-600">
+                    {discountAmount.toLocaleString('vi-VN')}
+                  </p>
                   <p className="text-[12px] pl-2 font-medium text-gray-600">
                     VND
                   </p>
@@ -670,14 +918,18 @@ const finalPrice = totalPrice - discountAmount;
                 <p className="text-[16px] font-medium">Tổng Thanh Toán</p>
                 <div className="flex flex-row items-end">
                   <p className="text-[17px] font-bold text-red-700">
-                  {finalPrice.toLocaleString('vi-VN')}
+                    {(tour?.availableSlot === 0
+                      ? 0
+                      : finalPrice
+                    ).toLocaleString('vi-VN')}
                   </p>
+
                   <p className="text-[10px] pl-2 font-medium text-red-700">
                     VND
                   </p>
                 </div>
               </div>
-            
+
               <div>
                 <Button
                   type="primary"
@@ -691,7 +943,9 @@ const finalPrice = totalPrice - discountAmount;
                   }}
                   onClick={() => {
                     if (!startDate) {
-                      message.warning('Vui lòng chọn ngày đi trước khi đặt tour!');
+                      message.warning(
+                        'Vui lòng chọn ngày đi trước khi đặt tour!'
+                      );
                       return;
                     }
 
@@ -704,13 +958,24 @@ const finalPrice = totalPrice - discountAmount;
                   Đặt Tour
                 </Button>
               </div>
+              {holidays.includes(dayjs(startDate).format('YYYY-MM-DD')) && (
+                <p className="text-red-600 text-[10px] font-medium">
+                  ⚠️ Giá tour sẽ có sự thay đổi vào các ngày lễ. Vui lòng kiểm
+                  tra lại tổng giá khi chọn ngày.
+                </p>
+              )}
+
+              <p className="text-[11px] text-red-500 font-medium">
+                Lưu ý: Vui lòng đặt tour trước ngày khởi hành ít nhất 7 ngày.
+              </p>
             </div>
           </div>
+
           <Modal
             open={showForm}
             onCancel={handleCloseForm}
             footer={null}
-            width={600} // Đặt chiều rộng cho Modal
+            width={600}
             closeIcon={<CloseOutlined />}
             title="Chi Tiết Đặt Tour"
             destroyOnClose={true}
@@ -726,7 +991,10 @@ const finalPrice = totalPrice - discountAmount;
                   ? startDate.format('YYYY-MM-DD')
                   : startDate
               }
-              totalPrice={finalPrice}
+              totalPrice={totalPrice} // Truyền tổng giá vào đây
+              priceForOneAdult={priceForOneAdult} // Truyền giá cho 1 người lớn vào đây
+              priceForOneChild={priceForOneChild} // Truyền giá cho 1 trẻ em vào đây
+              priceForOneInfant={priceForOneInfant} // Truyền giá cho 1 trẻ nhỏ vào đây
             />
           </Modal>
         </div>

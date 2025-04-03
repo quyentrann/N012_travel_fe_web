@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom';
 import ItemCradComponent from '../../components/ItemCradComponent';
 import ItemTourComponent from '../../components/ItemTourComponent';
 import ItemTourBestForYou from '../../components/ItemTourBestForYou';
+import ItemBagTourBestForYou from '../../components/ItemBagTourBestForYou';
 
 const categories = [
   'Hot Deals',
@@ -202,18 +203,12 @@ export default function Home() {
 
   //POPULAR
   const sortedTours = [...tours].sort((a, b) => {
-    const avgRatingA = a.reviews?.length
-      ? a.reviews.reduce((sum, review) => sum + review.rating, 0) /
-        a.reviews.length
-      : 0;
-
-    const avgRatingB = b.reviews?.length
-      ? b.reviews.reduce((sum, review) => sum + review.rating, 0) /
-        b.reviews.length
-      : 0;
-
-    return avgRatingB - avgRatingA; // Sắp xếp giảm dần (từ 5 -> 0)
+    const totalOrdersA = a.bookings ? a.bookings.length : 0;
+    const totalOrdersB = b.bookings ? b.bookings.length : 0;
+    
+    return totalOrdersB - totalOrdersA; // Sắp xếp giảm dần theo lượt đặt
   });
+  
 
   return (
     <div className="w-screen h-fit relative overflow-x-hidden bg-gray-50">
@@ -477,7 +472,7 @@ export default function Home() {
             <Button
               type="primary"
               size="large"
-              className="bg-green-500 hover:bg-green-600 px-6">
+              className="bg-green-500 hover:bg-green-600 px-6" onClick={()=> navigate("/bestforyou")}>
               Discover More
             </Button>
           </div>
