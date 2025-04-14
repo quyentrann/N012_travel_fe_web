@@ -19,7 +19,7 @@ export default function ItemTourComponent({ tour }) {
   };
   return (
     <div
-      className="bg-white shadow-lg rounded-lg cursor-pointer border border-gray-300 hover:shadow-2xl transition duration-300 overflow-hidden w-83"
+      className="bg-white shadow-lg rounded-lg cursor-pointer border border-gray-300 hover:shadow-xl transition duration-300 overflow-hidden w-83 h-105 "
       role="button"
       tabIndex={0}
       onClick={() => navigate('/tour-detail', { state: { id: tour.tourId } })}>
@@ -66,13 +66,13 @@ export default function ItemTourComponent({ tour }) {
             <span>
               {tour.availableSlot
                 ? `Còn ${tour.availableSlot} chỗ`
-                : 'Không xác định'}
+                : 'Hết chỗ'}
             </span>
           </div>
         </div>
 
-        <div className="flex justify-between items-center border-t pt-2 mt-2 text-sm mb-4">
-          <div className="flex items-center space-x-1 text-gray-700">
+        <div className="flex justify-between items-end border-t pt-2 mt-2 text-sm h-full">
+          <div className="flex items-center space-x-1 text-gray-700 h-full">
             <EnvironmentOutlined className="text-xs" />
             <span>{tour.location || 'Đà Nẵng'}</span>
           </div>

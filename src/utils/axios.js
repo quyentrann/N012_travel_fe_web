@@ -1,3 +1,6 @@
+import { store } from '../redux/store'; // Import store
+import { logout } from '../redux/userSlice';
+
 const LOCAL_STORAGE_TOKEN = 'TOKEN';
 const LOCAL_STORAGE_REFRESHTOKEN = 'REFRESHTOKEN';
 const LOCAL_STORAGE_TOKEN_EXPIRES_IN = 'TOKEN_EXPIRES_IN';
@@ -56,6 +59,7 @@ const handleLogout = () => {
   localStorage.removeItem(LOCAL_STORAGE_REFRESHTOKEN);
   localStorage.removeItem(LOCAL_STORAGE_TOKEN_EXPIRES_IN);
   localStorage.removeItem(LOCAL_STORAGE_USER_INFO);
+  store.dispatch(logout());
   window.location.href = LOGIN_ROUTE;
 };
 

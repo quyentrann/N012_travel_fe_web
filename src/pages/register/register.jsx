@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Input, Button, Checkbox, message } from 'antd';
 import { MailOutlined, UserOutlined, LockOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { registerUser, verifyOtp,resendOtp } from '../../apis/user';
+import { registerUser, verifyOtp, resendOtp } from '../../apis/user';
 
 import nen from '../../images/nen.webp';
 import logo from '../../images/logo.png';
@@ -37,15 +37,20 @@ export default function Register() {
       message.error('You must agree to the terms');
       return;
     }
-  
+
     setLoading(true);
     try {
       const response = await registerUser(form.email, form.password);
-  
-      if (response.message === "OTP đã được gửi lại. Vui lòng hoàn tất xác thực để kích hoạt tài khoản.") {
-        message.success('OTP đã được gửi lại! Vui lòng hoàn tất xác thực để kích hoạt tài khoản.');
+
+      if (
+        response.message ===
+        'OTP đã được gửi lại. Vui lòng hoàn tất xác thực để kích hoạt tài khoản.'
+      ) {
+        message.success(
+          'OTP đã được gửi lại! Vui lòng hoàn tất xác thực để kích hoạt tài khoản.'
+        );
         setStep('verifyOtp'); // Chuyển qua bước nhập OTP
-      } else if (response.message === "Tài khoản đã tồn tại.") {
+      } else if (response.message === 'Tài khoản đã tồn tại.') {
         message.info('Tài khoản đã tồn tại.');
       } else {
         message.success('OTP has been sent to your email!');
@@ -58,7 +63,6 @@ export default function Register() {
       setLoading(false);
     }
   };
-  
 
   const handleVerifyOtp = async () => {
     if (!otp) {
@@ -95,7 +99,7 @@ export default function Register() {
   };
   return (
     <div
-      className="min-h-screen w-full flex overflow-hidden"
+      className="min-h-screen w-screen flex overflow-hidden"
       style={{ backgroundImage: `url(${nen})` }}>
       {/* Left Section */}
       <div className="w-1/2 min-h-full flex flex-col pt-6">
@@ -113,10 +117,14 @@ export default function Register() {
 
       {/* Right Section */}
       <div
-        className="w-1/2 min-h-screen flex flex-col p-5 bg-white shadow-lg"
-        style={{ clipPath: 'ellipse(120% 80% at 100% 50%)' }}>
+        className="w-1/2 min-h-screen flex flex-col pt-4 bg-white"
+        style={{ clipPath: 'ellipse(120% 80% at 102% 50%)' }}>
         <div className="flex justify-end">
-          <img src={plan} alt="plan" className="w-1/2 object-contain h-12" />
+          <img
+            src={plan}
+            alt="plan"
+            className="w-1/2 object-contain h-12 pt-1"
+          />
         </div>
 
         <div className="flex flex-col items-center">
@@ -155,7 +163,7 @@ export default function Register() {
                 checked={form.agree}
                 onChange={(e) => setForm({ ...form, agree: e.target.checked })}>
                 I agree to the{' '}
-                <Link to="/terms" className="text-blue-500">
+                <Link to="/about" className="text-blue-500"  style={{color:'#009EE2'}}>
                   Terms & Conditions
                 </Link>
               </Checkbox>
@@ -168,7 +176,7 @@ export default function Register() {
               </Button>
               <div className="text-center text-gray-600">
                 Already have an account?{' '}
-                <Link className="text-[#009EE2] font-medium" to="/login">
+                <Link className="text-[#009EE2] font-medium" to="/login" style={{color:'#009EE2'}}>
                   Login
                 </Link>
               </div>

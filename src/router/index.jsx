@@ -9,7 +9,10 @@ import UserInfo from "../pages/userInfo/userInfo";
 import Orders from "../pages/orders/orders";
 import BestForYouBagTour from "../pages/BestForYouBagTour/BestForYouBagTour";
 import BookingDetail from "../pages/bookingDetail/BookingDetail";
-import PaymentPage from "../pages/paymentPage/paymentPage";
+import CardChatBotPress from "../pages/CardChatBotPress/cardChatBotPress";
+import LocationTour from "../pages/LocationTour/locationTour";
+import PriceTour from "../pages/PricePage/priceTour";
+import About from "../pages/About/about";
 export default function AppRouter() {
   return (
     <Routes>
@@ -23,7 +26,10 @@ export default function AppRouter() {
       <Route path="/tour-booking" element={<ItemTourBookingDetail />} />
       <Route path="/bestforyou" element={<BestForYouBagTour />} />
       <Route path="/booking-detail" element={<BookingDetail />} />
-      {/* <Route path="/payment" element={<PaymentPage />} /> */}
+      <Route path="/cardChatBotpress" element={<CardChatBotPress />} />
+      <Route path="/locationtour" element={<LocationTour />} />
+      <Route path="/pricetour" element={<PriceTour />} />
+      <Route path="/about" element={<About />} />
     </Routes>
   );
 }

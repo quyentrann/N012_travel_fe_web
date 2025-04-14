@@ -1,494 +1,805 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import {
-  RightCircleOutlined,
-  CalendarOutlined,
-  DollarOutlined,
-  FieldTimeOutlined,
   SearchOutlined,
   UserOutlined,
+  MenuOutlined,
+  CloseOutlined,
   LeftCircleOutlined,
-  LeftOutlined,
-  RightOutlined,
+  RightCircleOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
-import { Cascader, DatePicker, Select, Input, Button, Carousel } from 'antd';
 import axios from 'axios';
+import { Input, Button, Dropdown, Menu, Avatar, Carousel } from 'antd';
 import { getTours } from '../../apis/tour';
-import { useDispatch, useSelector } from 'react-redux';
 import logo from '../../images/logo.png';
-import nen1 from '../../images/BgHome.png';
+import nen1 from '../../images/nen5.png';
 import nen2 from '../../images/Boat.png';
-import { useNavigate } from 'react-router-dom';
 import ItemCradComponent from '../../components/ItemCradComponent';
-import ItemTourComponent from '../../components/ItemTourComponent';
 import ItemTourBestForYou from '../../components/ItemTourBestForYou';
-import ItemBagTourBestForYou from '../../components/ItemBagTourBestForYou';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Tab } from '@headlessui/react';
+import ItemTourComponent from '../../components/ItemTourComponent';
+import { logout } from '../../redux/userSlice';
+import {setFilteredTours, fetchTours } from '../../redux/tourSlice'
+import {fetchLocations} from '../../redux/locationSlice'
+import {fetchUnreadCount} from '../../redux/notificationSlice'
+import {setSearchTerm} from '../../redux/searchSlice'
 
-const categories = [
-  'Hot Deals',
-  'Backpack',
-  'South Asia',
-  'Honeymoon',
-  'Europe',
-  'More',
-];
-const tours1 = [
-  {
-    id: 1,
-    image: 'https://via.placeholder.com/300',
-    title: '3 Days, 2 Nights',
-    price: '$500 / Person',
-    description:
-      'Explore the Beauty of the island for 3 days and 2 nights with our travel agency',
-    location: 'Indonesia',
-  },
-  {
-    id: 2,
-    image: 'https://via.placeholder.com/300',
-    title: '3 Days, 2 Nights',
-    price: '$800 / Person',
-    description:
-      'Enjoy the Shrines and blossoms here in this beautiful country',
-    location: 'Japan',
-  },
-  {
-    id: 3,
-    image: 'https://via.placeholder.com/300',
-    title: '3 Days, 2 Nights',
-    price: '$600 / Person',
-    description: 'Explore the majestic mountains and landscapes day and nights',
-    location: 'Mountains',
-  },
+const defaultAvatar = 'https://via.placeholder.com/40?text=User';
+
+// Navigation links for unauthenticated users
+const navLinks = [
+  { label: 'Trang Chủ', path: '/' },
+  { label: 'Giới Thiệu', path: '/about' },
+  { label: 'Tour', path: '/tours' },
+  { label: 'Tour Yêu Thích', path: '/tours' },
 ];
 
-export default function Home() {
+const CustomPrevArrow = ({ onClick }) => (
+  <div
+    className="absolute z-10 left-0 top-1/2 transform -translate-y-1/2 cursor-pointer"
+    onClick={onClick}>
+    <LeftCircleOutlined style={{ fontSize: '17px', color: 'gray' }} />
+  </div>
+);
+
+const CustomNextArrow = ({ onClick }) => (
+  <div
+    className="absolute z-10 right-0 top-1/2 transform -translate-y-1/2 cursor-pointer"
+    onClick={onClick}>
+    <RightCircleOutlined style={{ fontSize: '17px', color: 'gray' }} />
+  </div>
+);
+
+const Home = () => {
   const navigate = useNavigate();
-  const [locations, setLocations] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [open, setOpen] = useState(false);
-  const dropdownRef = useRef(null);
   const dispatch = useDispatch();
-  const [tours, setTours] = useState([]);
-  const { Option } = Select;
-  const [visibleCount, setVisibleCount] = useState(6); // Ban đầu hiển thị 6 tour
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredTours, setFilteredTours] = useState(tours);
-  const [user, setUser] = useState('');
+  // const [tours, setTours] = useState([]);
+  const { tours, filteredTours } = useSelector((state) => state.tours);
+  // const [filteredTours, setFilteredTours] = useState([]);
+  // const [searchTerm, setSearchTerm] = useState('');
+  const searchTerm = useSelector((state) => state.search.searchTerm);
+  // const [locations, setLocations] = useState([]);
+  const locations = useSelector((state) => state.locations.locations);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [open, setOpen] = useState(false); // State for user dropdown
+  const dropdownRef = useRef(null);
+  // const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useSelector((state) => state.notifications.unreadCount);
+  const userState = useSelector((state) => state.user);
+  const { isAuthenticated, user } = useSelector((state) => state.user);
+
+  console.log('State user thay đổi nèeee', userState);
+  console.log('user nèeee', user, 'isAuthenticated nèeee', isAuthenticated);
+  console.log('user_info nèeee', localStorage.getItem('user_info'));
+
+  
+
+  // Fetch unread notifications
   // useEffect(() => {
-  //   window.scrollTo(0, 0);
+  //   const fetchUnreadNotifications = async () => {
+  //     try {
+  //       const response = await axios.get('/api/notifications/unread-count');
+  //       setUnreadCount(response.data.count);
+  //     } catch (err) {
+  //       console.error('Failed to fetch unread notifications');
+  //     }
+  //   };
+  //   if (isAuthenticated) {
+  //     fetchUnreadNotifications();
+  //   }
+  // }, [isAuthenticated]);
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch(fetchUnreadCount());
+    }
+  }, [isAuthenticated, dispatch]);
+
+  
+
+  // Fetch locations
+  // useEffect(() => {
+  //   axios
+  //     .get('https://provinces.open-api.vn/api/')
+  //     .then((response) => {
+  //       const data = response.data.map((province) => ({
+  //         value: province.code,
+  //         label: province.name,
+  //       }));
+  //       setLocations(data);
+  //     })
+  //     .catch((error) => console.error('Error fetching locations:', error));
   // }, []);
 
-  // const tours  = useSelector((state) => state.user.tours);
   useEffect(() => {
-    function handleClickOutside(event) {
+    dispatch(fetchLocations());
+  }, [dispatch]);
+
+  // Fetch tours
+  // useEffect(() => {
+  //   const fetchTours = async () => {
+  //     try {
+  //       const data = await getTours();
+  //       setTours(data);
+  //       setFilteredTours(data);
+  //     } catch (error) {
+  //       console.error('Error fetching tours:', error);
+  //     }
+  //   };
+  //   fetchTours();
+  // }, []);
+  useEffect(() => {
+    dispatch(fetchTours());
+  }, [dispatch]);
+
+  // Handle search
+  // useEffect(() => {
+  //   if (!searchTerm.trim()) {
+  //     setFilteredTours(tours);
+  //   } else {
+  //     const filtered = tours.filter((tour) =>
+  //       tour.name.toLowerCase().includes(searchTerm.toLowerCase())
+  //     );
+  //     setFilteredTours(filtered);
+  //   }
+  // }, [searchTerm, tours]);
+
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      dispatch(setFilteredTours(tours));
+    } else {
+      const filtered = tours.filter((tour) =>
+        tour.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      dispatch(setFilteredTours(filtered));
+    }
+  }, [searchTerm, tours, dispatch]);
+
+  const handleSearchChange = (e) => {
+    dispatch(setSearchTerm(e.target.value));
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.clear();
+    dispatch(logout());
+    navigate('/login');
+  };
+
+  // Handle dropdown outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setOpen(false);
       }
-    }
-
+    };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  //search
-  const handleSearch = () => {
-    console.log('Tìm kiếm:', searchTerm);
-
-    if (!searchTerm.trim()) {
-      // Nếu input trống, hiển thị toàn bộ danh sách
-      setFilteredTours(tours);
-      return;
-    }
-
-    //truyền orders
-    const handleNavigate = async () => {
-      const userInfo = await getUserInfo(); // Gọi API lấy thông tin user
-      navigate('/orders', { state: { user: userInfo } }); // Truyền user qua state
-    };
-
-    useEffect(() => {
-      if (!searchTerm.trim()) {
-        setFilteredTours(tours); // Nếu input trống, hiển thị toàn bộ danh sách
-      } else {
-        setFilteredTours(
-          tours.filter((tour) =>
-            tour.name.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-        );
-      }
-    }, [searchTerm, tours]);
-
-    // Lọc danh sách tour theo tên nhập vào
-    const filteredTours = tours.filter((tour) =>
-      tour.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    setFilteredTours(filteredTours);
-  };
-
-  const priceOptions = [
-    { label: 'Dưới 1 triệu', value: '0-1000000' },
-    { label: '1 triệu - 3 triệu', value: '1000000-3000000' },
-    { label: '3 triệu - 5 triệu', value: '3000000-5000000' },
-    { label: '5 triệu - 10 triệu', value: '5000000-10000000' },
-    { label: 'Trên 10 triệu', value: '10000000-999999999' },
-  ];
-
-  const handleChange = (value) => {
-    setSelected(value);
-    onChange(value);
-  };
-
-  useEffect(() => {
-    axios
-      .get('https://provinces.open-api.vn/api/')
-      .then((response) => {
-        const data = response.data.map((province) => ({
-          value: province.code,
-          label: province.name,
-        }));
-        setLocations(data);
-      })
-      .catch((error) => console.error('Lỗi khi tải dữ liệu:', error));
-  }, []);
-
-  useEffect(() => {
-    async function fetchTours() {
-      try {
-        const data = await getTours();
-        setTours(data);
-      } catch (error) {
-        console.error('Lỗi khi tải danh sách tour:', error);
-        setTours([]);
-      }
-    }
-
-    fetchTours();
-  }, []);
-
-  useEffect(() => {
-    setFilteredTours(tours);
-  }, [tours]);
-
-  const getUserInfo = async () => {
-    try {
-      const token = localStorage.getItem('TOKEN');
-      if (!token) return null; // Nếu không có token thì không gọi API
-
-      const response = await axios.get('http://localhost:8080/api/users/me', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      console.log('Thông tin user:', response.data);
-      setUser(response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Lỗi lấy thông tin user:', error);
-      return null;
-    }
-  };
-
-  // Gọi hàm để lấy thông tin user
-  useEffect(() => {
-    getUserInfo();
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('TOKEN');
-    localStorage.removeItem('REFRESHTOKEN');
-    localStorage.removeItem('TOKEN_EXPIRES_IN');
-    localStorage.removeItem('user_info');
-
-    navigate('/login'); // Chuyển hướng về trang đăng nhập
-  };
-
-  //POPULAR
+  // Sorted tours for popular section
   const sortedTours = [...tours].sort((a, b) => {
     const totalOrdersA = a.bookings ? a.bookings.length : 0;
     const totalOrdersB = b.bookings ? b.bookings.length : 0;
-    
-    return totalOrdersB - totalOrdersA; // Sắp xếp giảm dần theo lượt đặt
+    return totalOrdersB - totalOrdersA;
   });
-  
 
   return (
-    <div className="w-screen h-fit relative overflow-x-hidden bg-gray-50">
-      <div
-        className="w-full h-full  relative px-5 pt-3 opacity-100 "
-        style={{
-          backgroundImage: `url(${nen1})`,
-          backgroundSize: 'cover',
-        }}>
-        <div className="absolute bottom-0 left-0 w-full h-30 bg-gradient-to-t from-white to-transparent"></div>
-        <div
-          className="absolute right-0 top-0 w-1/2 opacity-100 h-full"
-          style={{
-            backgroundImage: `url(${nen2})`,
-            backgroundSize: 'cover',
-            backgroundRepeat: 'no-repeat',
-          }}>
-          <div className="absolute bottom-0 left-0 w-full h-30 bg-gradient-to-t from-white to-transparent"></div>
-        </div>
-
-        <nav className="w-full z-50 flex justify-between items-center py-2 rounded-2xl relative">
-          <div className="justify-start flex">
-            <img src={logo} alt="logo" className="h-13 w-auto" />
+    <div className="min-h-screen font-sans w-screen">
+      {/* Navbar */}
+      <motion.nav
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3]  py-2">
+        <div className="mx-[30px] flex justify-between items-center">
+          {/* Left Section: Logo and Title */}
+          <div className="flex items-center ">
+            <img src={logo} alt="logo" className="h-8 w-auto" />
             <span
-              className="text-[26px] font-bold text-gray-900"
+              className="text-[16px] font-bold text-black "
               style={{ fontFamily: 'Dancing Script, cursive' }}>
-              TADA
+              Travel TADA
             </span>
+            <div className="pl-10">
+              <div className="hidden md:flex items-center space-x-6">
+                {navLinks.map((link) => (
+                  <span
+                    key={link.label}
+                    onClick={() => navigate(link.path)}
+                    className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer">
+                    {link.label}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="space-x-13 text-lg flex justify-end items-center">
-            <span
-              onClick={() => navigate('/home')}
-              className="text-white text-[20px] cursor-pointer font-bold hover:scale-110 transition duration-150">
-              Home
-            </span>
-            <span
-              onClick={() => navigate('/home')}
-              className="text-white text-[20px] cursor-pointer font-bold hover:scale-110 transition duration-150">
-              About Us
-            </span>
-            <span
-              onClick={() => navigate('/home')}
-              className="text-white text-[20px] cursor-pointer font-bold hover:scale-105 transition duration-150">
-              Premium
-            </span>
-            <span
-              onClick={() => navigate('/home')}
-              className="text-white text-[20px] cursor-pointer font-bold hover:scale-105 transition duration-150">
-              Blogs
-            </span>
+          {/* Right Section: User Actions */}
+          <div className="flex items-center space-x-2">
+            {/* 🔍 Tìm kiếm - Only show if user is logged in */}
+            {isAuthenticated && (
+              <motion.div
+                whileHover={{ scale: 1.1, rotate: 10 }}
+                className="cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
+                onClick={() => navigate('/search')}>
+                <SearchOutlined />
+              </motion.div>
+            )}
+
+            {/* 🔔 Thông báo - Only show if user is logged in */}
+            {isAuthenticated && (
+              <motion.div
+                whileHover={{ scale: 1.1, rotate: 10 }}
+                className="relative cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
+                onClick={() => navigate('/notifications')}>
+                <BellOutlined />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[12px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">
+                    {unreadCount}
+                  </span>
+                )}
+              </motion.div>
+            )}
+
+            {/* 👤 Dropdown tài khoản */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setOpen(!open)}
-                className="flex items-center space-x-2 text-white text-[18px] font-bold hover:scale-105 transition duration-150 ">
-                <UserOutlined className="text-[20px]" />
-                <span>Tài khoản</span>
+                className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200">
+                {isAuthenticated && user ? (
+                  <>
+                    <motion.span
+                      whileHover={{ scale: 1.05 }}
+                      className="text-sm font-medium truncate max-w-[140px]">
+                      {user.customer?.fullName || 'User'}
+                    </motion.span>
+                    <motion.div whileHover={{ scale: 1.1 }}>
+                      <Avatar
+                        src={user.customer?.avatarUrl || defaultAvatar}
+                        size={28}
+                        icon={<UserOutlined />}
+                        className="border border-gray-200 shadow-sm"
+                      />
+                    </motion.div>
+                  </>
+                ) : (
+                  <>
+                    <motion.div whileHover={{ scale: 1.1 }}>
+                      <UserOutlined className="text-[16px]" />
+                    </motion.div>
+                    <motion.span
+                      whileHover={{ scale: 1.05 }}
+                      className="text-sm font-medium">
+                      Tài khoản
+                    </motion.span>
+                  </>
+                )}
               </button>
 
               {open && (
-                <div className="absolute right-0 mt-2 w-[160px] bg-white shadow-lg rounded-md border border-gray-300 p-3 z-50">
-                  {localStorage.getItem('TOKEN') ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50">
+                  {isAuthenticated && user ? (
                     <>
                       <button
-                        className="w-full text-gray-700 py-2 text-[14px] font-semibold hover:bg-gray-100 transition text-left"
-                        onClick={() => navigate('/profile')}>
+                        className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                        onClick={() => {
+                          navigate('/profile');
+                          setOpen(false);
+                        }}>
                         Thông tin cá nhân
                       </button>
                       <button
-                        className="w-full text-gray-700 py-2 text-[14px] font-semibold hover:bg-gray-100 transition text-left"
-                        onClick={() =>
-                          navigate('/orders', { state: { user } })
-                        }>
+                        className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                        onClick={() => {
+                          navigate('/orders');
+                          setOpen(false);
+                        }}>
                         Đơn mua
                       </button>
                       <button
-                        className="w-full text-red-600 py-2 text-[14px] font-semibold hover:bg-gray-100 transition text-left"
-                        onClick={handleLogout}>
+                        className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                        onClick={() => {
+                          handleLogout();
+                          setOpen(false);
+                        }}>
                         Đăng xuất
                       </button>
                     </>
                   ) : (
                     <>
                       <button
-                        className="w-full bg-cyan-800 text-white py-2 rounded-md text-[14px] font-semibold hover:bg-cyan-900 transition"
-                        onClick={() => navigate('/login')}>
+                        className="w-full bg-cyan-600 text-white py-1.5 px-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition"
+                        onClick={() => {
+                          navigate('/login');
+                          setOpen(false);
+                        }}>
                         Đăng nhập
                       </button>
-                      <p className="text-center text-gray-600 text-[11px] mt-2">
+                      <p className="text-center text-gray-600 text-xs mt-2 px-2">
                         Bạn chưa có tài khoản?{' '}
-                        <span className="text-cyan-800 font-semibold cursor-pointer hover:underline" onClick={()=> navigate('/register')}>
+                        <span
+                          className="text-cyan-600 font-medium cursor-pointer hover:underline"
+                          onClick={() => {
+                            navigate('/register');
+                            setOpen(false);
+                          }}>
                           Đăng ký ngay
                         </span>
                       </p>
                     </>
                   )}
-                </div>
+                </motion.div>
               )}
             </div>
           </div>
-        </nav>
-
-        <div className="w-1/2 pl-10 ">
-          <div
-            className="space-x-5 text-white mt-6 text-[14px]"
-            style={{ fontFamily: 'Montserrat, sans-serif' }}>
-            <span className="cursor-pointer hover:underline">MOUNTAIN</span>
-            <span>|</span>
-            <span className="cursor-pointer hover:underline">PLAINS</span>
-            <span>|</span>
-            <span className="cursor-pointer hover:underline">BEACHES</span>
-          </div>
-          <div
-            className="text-[26px] font-bold text-white pt-2 ml-8"
-            style={{ fontFamily: 'Montserrat, sans-serif' }}>
-            Spend your vacation <br />
-            with our activites
-          </div>
-          <div className="flex-row flex justify-between mt-5 items-center">
-            <div className="text-[18px] font-bold text-white pb-2">
-              MOST POPULAR
-            </div>
-          </div>
-          <div className="cursor-pointer hover:scale-101"></div>
-          <Carousel
-            dots={false} // Ẩn dấu chấm
-            arrows={true} // Hiện mũi tên
-            prevArrow={
-              <LeftCircleOutlined
-                style={{ fontSize: '30px', color: 'white' }}
-              />
-            }
-            nextArrow={
-              <RightCircleOutlined
-                style={{ fontSize: '30px', color: 'white' }}
-              />
-            }
-            slidesToShow={3} // Hiển thị 3 tour một lúc
-            slidesToScroll={1} // Trượt từng cái một
-            infinite={false} // Dừng khi hết danh sách
-          >
-            {sortedTours.map((tour) => (
-              <div key={tour.tourId} className="px-2">
-                <ItemCradComponent tour={tour} />
-              </div>
-            ))}
-          </Carousel>
-          ;
         </div>
-        <div className="h-35 bg-white/30 relative rounded-2xl flex items-center p-4 shadow-md mt-5">
-          <div className="h-21 bg-white flex flex-1 rounded-xl items-center p-4 shadow">
-            <div className="flex justify-center items-center mr-7 w-60">
-              <Input
-                placeholder="Nhập mô tả ..."
-                prefix={
-                  <SearchOutlined className="text-gray-400 text-[11px] pr-3 " />
-                }
-                className="h-9 border border-gray-300 focus:ring-blue-500 !text-[12px] rounded-2xl"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onPressEnter={handleSearch}
-              />
-            </div>
+      </motion.nav>
 
-            <div className="border-1 border-gray-200 h-20 ml-5 mr-4"></div>
+      {/* Hero Section */}
+      <section
+        className="relative h-[85vh] flex items-center justify-center bg-cover bg-center"
+        style={{
+          backgroundImage: `url(${nen1})`,
+          backgroundPosition: 'center bottom',
+        }}>
+        <div className="absolute inset-0 bg-black/40"></div>
+        <div className="relative z-10 text-center text-white px-5">
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-4xl md:text-6xl font-bold mb-4">
+            Discover Your Next Adventure
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-lg md:text-xl mb-8">
+            Explore breathtaking destinations with TADA
+          </motion.p>
 
-            <div className="mr-6">
-              <Cascader
-                options={locations}
-                placeholder="Chọn tỉnh/thành phố"
-                style={{ width: 182, height: 38 }}
-                showSearch
-                dropdownMatchSelectWidth={false}
-              />
-            </div>
-            <div className="flex mr-6 h-16 justify-center items-center border-1 border-gray-300 w-55 rounded-[5px]">
-              <div className="flex items-center justify-center mr-2">
-                <CalendarOutlined className="text-gray-500 text-xl" />
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-gray-400 text-[13px]">Check-in</span>
-                <DatePicker
-                  format="DD.MM.YYYY"
-                  className="border-none text-lg"
-                />
-              </div>
-            </div>
-            <div className="flex mr-6 h-15 justify-center items-center border-1 border-gray-300 w-50 rounded-[5px]">
-              <div className="flex items-center justify-center mr-2">
-                <DollarOutlined className="text-gray-500 text-2xl mb-2" />
-              </div>
-              <div className="flex flex-col items-center">
-                <Select
-                  placeholder="Chọn mức giá"
-                  value={selected}
-                  onChange={handleChange}
-                  style={{ width: 140 }}>
-                  {priceOptions.map((option) => (
-                    <Select.Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Select.Option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-            <div className="flex mr-5 h-15 justify-center items-center border-1 border-gray-300 w-45 rounded-[5px]">
-              <div className="flex items-center justify-center mr-2">
-                <FieldTimeOutlined className="text-gray-500 text-2xl" />
-              </div>
-              <div className="flex flex-col items-center">
-                <Select
-                  placeholder="Chọn số ngày"
-                  className="border-none "
-                  style={{ width: 120 }}>
-                  {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-                    <Select.Option key={day} value={day}>
-                      {day} ngày
-                    </Select.Option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-end flex-1">
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                style={{ height: 40, width: 120, fontSize: 16 }}>
-                Search
-              </Button>
-            </div>
-          </div>
+          {/* Search Bar */}
+<motion.div
+  initial={{ opacity: 0, scale: 0.9 }}
+  animate={{ opacity: 1, scale: 1 }}
+  transition={{ delay: 0.4 }}
+  className="bg-white/90 rounded-xl p-4 max-w-3xl mx-auto shadow-lg">
+  <div className="flex items-center space-x-4">
+    <div className="flex-1">
+      <input
+        type="text"
+        placeholder="Where to go?"
+        value={searchTerm}
+        onChange={handleSearchChange} // Sử dụng handleSearchChange
+        className="w-full p-3 rounded-lg border-none focus:ring-2 focus:ring-cyan-600 text-gray-900"
+      />
+    </div>
+    <button
+      onClick={() => setIsSearchOpen(!isSearchOpen)}
+      className="p-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition">
+      <SearchOutlined />
+    </button>
+  </div>
+  {/* Advanced Filters */}
+  <AnimatePresence>
+    {isSearchOpen && (
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: 'auto', opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <select
+          className="p-3 rounded-lg border-none bg-gray-100 text-gray-900"
+          defaultValue="">
+          <option value="" disabled>
+            Select Location
+          </option>
+          {locations.map((loc) => (
+            <option key={loc.value} value={loc.value}>
+              {loc.label}
+            </option>
+          ))}
+        </select>
+        <input
+          type="date"
+          className="p-3 rounded-lg border-none bg-gray-100 text-gray-900"
+        />
+        <select
+          className="p-3 rounded-lg border-none bg-gray-100 text-gray-900"
+          defaultValue="">
+          <option value="" disabled>
+            Select Price Range
+          </option>
+          {[
+            { label: 'Under 1M', value: '0-1000000' },
+            { label: '1M - 3M', value: '1000000-3000000' },
+            { label: '3M - 5M', value: '3000000-5000000' },
+            { label: '5M - 10M', value: '5000000-10000000' },
+            { label: 'Over 10M', value: '10000000-999999999' },
+          ].map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </motion.div>
+    )}
+  </AnimatePresence>
+</motion.div>
         </div>
-      </div>
+      </section>
 
-      <div className="">
-        <div className="bg-gray-100 min-h-screen p-5 pt-7">
-          <h2 className="text-3xl font-bold text-center mb-4">
-            Best Packages For You
-          </h2>
-          {/* Categories */}
-          <div className="flex justify-center gap-15">
-            {categories.map((cat, index) => (
-              <Button
-                key={index}
-                type={cat === 'Hot Deals' ? 'primary' : 'default'}
-                className="px-4 py-2 "
-                style={{ fontSize: '17px', width: '110px', height: '35px' }}>
-                {cat}
-              </Button>
-            ))}
+      {/* Popular Tours */}
+      <section className="py-10 bg-gray-200">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex justify-between items-center mb-8">
+            <div className="w-full">
+              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+                Most Popular Tours
+              </h2>
+            </div>
+            <div className="text-end w-[75px]">
+              <span
+                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[13px]">
+                Xem tất cả
+              </span>
+            </div>
           </div>
-          {/* Tour Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 p-13 px-25 items-stretch">
-            {filteredTours.slice(0, visibleCount).map((tour) => (
-              <ItemTourBestForYou key={tour.tourId} tour={tour} />
-            ))}
-            
-          </div>
-          {/* Discover More Button */}
-          <div className="flex justify-center ">
-            <Button
-              type="primary"
-              size="large"
-              className="bg-green-500 hover:bg-green-600 px-6" onClick={()=> navigate("/bestforyou")}>
-              Discover More
-            </Button>
+          <div className="relative">
+            {sortedTours.length === 0 ? (
+              <div className="text-center text-gray-600">
+                No popular tours available.
+              </div>
+            ) : (
+              <Carousel
+                dots={false}
+                arrows={true}
+                prevArrow={<CustomPrevArrow />}
+                nextArrow={<CustomNextArrow />}
+                slidesToShow={Math.min(4, sortedTours.length)}
+                slidesToScroll={1}
+                infinite={sortedTours.length > 3}
+                // autoplay={true}
+                // autoplaySpeed={3000}
+                className="w-full carousel-container">
+                {sortedTours.map((tour) => (
+                  <div key={tour.tourId} className="px-3">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center">
+                      <ItemCradComponent tour={tour} />
+                    </motion.div>
+                  </div>
+                ))}
+              </Carousel>
+            )}
           </div>
         </div>
+      </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10 p-13 px-25">
-          {Array.isArray(tours) &&
-            filteredTours.map((tour) => (
-              <ItemTourComponent key={tour.tourId} tour={tour} />
-            ))}
+      {/* <section className="py-10 bg-gray-100">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex justify-between items-center mb-8">
+            <div className="w-full ">
+              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+                Best Packages For You
+              </h2>
+            </div>
+            <div className="text-end w-[75px]">
+              <span
+                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
+                Xem tất cả
+              </span>
+            </div>
+          </div>
+
+          {filteredTours.length === 0 ? (
+            <div className="text-center text-gray-600">No tours available.</div>
+          ) : (
+            <div className="relative">
+              <Carousel
+                dots={false}
+                arrows={true}
+                prevArrow={<CustomPrevArrow />}
+                nextArrow={<CustomNextArrow />}
+                slidesToShow={Math.min(3, filteredTours.length)}
+                slidesToScroll={1}
+                infinite={filteredTours.length > 3}
+                className="w-full">
+                {filteredTours.map((tour) => (
+                  <div key={tour.tourId} className="px-3 h-full">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center h-full">
+                      <ItemTourBestForYou tour={tour} />
+                    </motion.div>
+                  </div>
+                ))}
+              </Carousel>
+            </div>
+          )}
         </div>
-      </div>
+      </section> */}
 
-      <footer className="bg-gray-900 text-white text-center p-5 mt-10">
-        <p>&copy; 2025 Travelista Tours. All Rights Reserved.</p>
+      {/* <section className="py-12 bg-gray-200">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex justify-between items-center mb-10">
+            <div className="w-full ">
+            <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+              Island & Beach Escapes
+              </h2>
+            </div>
+            <div className="text-end w-[75px]">
+              <span
+                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
+                Xem tất cả
+              </span>
+            </div>
+          </div>
+
+          {filteredTours.length === 0 ? (
+            <div className="text-center text-gray-600">No tours available.</div>
+          ) : (
+            <div className="relative">
+              <Carousel
+                dots={false}
+                arrows={true}
+                prevArrow={<CustomPrevArrow />}
+                nextArrow={<CustomNextArrow />}
+                slidesToShow={Math.min(3, filteredTours.length)}
+                slidesToScroll={1}
+                infinite={filteredTours.length > 3}
+                className="w-full">
+                {filteredTours.map((tour) => (
+                  <div key={tour.tourId} className="px-3 h-full">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center h-full">
+                      <ItemTourComponent tour={tour} />
+                    </motion.div>
+                  </div>
+                ))}
+              </Carousel>
+            </div>
+          )}
+        </div>
+      </section> */}
+
+      {/* <section className="py-12 bg-gray-100">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex justify-between items-center mb-10">
+            <div className="w-full ">
+            <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+            Mountain & Nature Retreats
+              </h2>
+            </div>
+            <div className="text-end w-[75px]">
+              <span
+                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
+                Xem tất cả
+              </span>
+            </div>
+          </div>
+
+          {filteredTours.length === 0 ? (
+            <div className="text-center text-gray-600">No tours available.</div>
+          ) : (
+            <div className="relative">
+              <Carousel
+                dots={false}
+                arrows={true}
+                prevArrow={<CustomPrevArrow />}
+                nextArrow={<CustomNextArrow />}
+                slidesToShow={Math.min(3, filteredTours.length)}
+                slidesToScroll={1}
+                infinite={filteredTours.length > 3}
+                className="w-full">
+                {filteredTours.map((tour) => (
+                  <div key={tour.tourId} className="px-3 h-full">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center h-full">
+                      <ItemTourComponent tour={tour} />
+                    </motion.div>
+                  </div>
+                ))}
+              </Carousel>
+            </div>
+          )}
+        </div>
+      </section> */}
+
+      {/* <section className="py-12 bg-gray-200">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex justify-between items-center mb-10">
+            <div className="w-full ">
+            <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+            City Adventures
+              </h2>
+            </div>
+            <div className="text-end w-[75px]">
+              <span
+                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
+                Xem tất cả
+              </span>
+            </div>
+          </div>
+
+          {filteredTours.length === 0 ? (
+            <div className="text-center text-gray-600">No tours available.</div>
+          ) : (
+            <div className="relative">
+              <Carousel
+                dots={false}
+                arrows={true}
+                prevArrow={<CustomPrevArrow />}
+                nextArrow={<CustomNextArrow />}
+                slidesToShow={Math.min(3, filteredTours.length)}
+                slidesToScroll={1}
+                infinite={filteredTours.length > 3}
+                className="w-full">
+                {filteredTours.map((tour) => (
+                  <div key={tour.tourId} className="px-3 h-full">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center h-full">
+                      <ItemTourComponent tour={tour} />
+                    </motion.div>
+                  </div>
+                ))}
+              </Carousel>
+            </div>
+          )}
+        </div>
+      </section> */}
+
+      {/* <section className="py-12 bg-gray-100">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex justify-between items-center mb-10">
+            <div className="w-full ">
+            <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+            River & Countryside Tours
+              </h2>
+            </div>
+            <div className="text-end w-[75px]">
+              <span
+                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
+                Xem tất cả
+              </span>
+            </div>
+          </div>
+
+          {filteredTours.length === 0 ? (
+            <div className="text-center text-gray-600">No tours available.</div>
+          ) : (
+            <div className="relative">
+              <Carousel
+                dots={false}
+                arrows={true}
+                prevArrow={<CustomPrevArrow />}
+                nextArrow={<CustomNextArrow />}
+                slidesToShow={Math.min(3, filteredTours.length)}
+                slidesToScroll={1}
+                infinite={filteredTours.length > 3}
+                className="w-full">
+                {filteredTours.map((tour) => (
+                  <div key={tour.tourId} className="px-3 h-full">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center h-full">
+                      <ItemTourComponent tour={tour} />
+                    </motion.div>
+                  </div>
+                ))}
+              </Carousel>
+            </div>
+          )}
+        </div>
+      </section> */}
+
+      {/* <section className="py-12 bg-gray-200">
+        <div className="max-w-7xl mx-auto px-5">
+          <div className="flex justify-between items-center mb-10">
+            <div className="w-full ">
+            <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+            Eco & Discovery Tours
+              </h2>
+            </div>
+            <div className="text-end w-[75px]">
+              <span
+                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
+                Xem tất cả
+              </span>
+            </div>
+          </div>
+
+          {filteredTours.length === 0 ? (
+            <div className="text-center text-gray-600">No tours available.</div>
+          ) : (
+            <div className="relative">
+              <Carousel
+                dots={false}
+                arrows={true}
+                prevArrow={<CustomPrevArrow />}
+                nextArrow={<CustomNextArrow />}
+                slidesToShow={Math.min(3, filteredTours.length)}
+                slidesToScroll={1}
+                infinite={filteredTours.length > 3}
+                className="w-full">
+                {filteredTours.map((tour) => (
+                  <div key={tour.tourId} className="px-3 h-full">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center h-full">
+                      <ItemTourComponent tour={tour} />
+                    </motion.div>
+                  </div>
+                ))}
+              </Carousel>
+            </div>
+          )}
+        </div>
+      </section> */}
+
+      {/* Footer */}
+      <footer className="bg-[#f0ede3] text-black py-3">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Về Travel TADA</h4>
+              <p className="text-sm">
+                Nền tảng du lịch trực tuyến mang đến những hành trình đáng nhớ,
+                an toàn và tiện lợi.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Chính sách</h4>
+              <ul className="text-sm space-y-2">
+                <li>
+                  <a href="/about" className="hover:underline">
+                    Chính sách hoàn hủy
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Liên hệ</h4>
+              <p className="text-sm">Email: support@traveltada.vn</p>
+              <p className="text-sm">Hotline: 1900 8888</p>
+            </div>
+          </div>
+          <p className="text-sm">© 2025 Travel TADA. All rights reserved.</p>
+        </div>
       </footer>
     </div>
   );
-}
+};
+
+export default Home;

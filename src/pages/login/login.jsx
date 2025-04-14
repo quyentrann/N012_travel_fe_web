@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
-import { Input } from 'antd';
-import { MailOutlined } from '@ant-design/icons';
-import { EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
-import { LockOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { Input, Button, message } from 'antd';
+import { MailOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-
-import { Button } from 'antd';
-
+import { useDispatch, useSelector } from 'react-redux';
+import { loginSuccess, loginFailure, initializeAuth } from '../../redux/userSlice';
+import { login, LOCAL_STORAGE_USER_INFO } from '../../apis/auth/auth';
 import nen from '../../images/nen.webp';
 import logo from '../../images/logo.png';
 import plan from '../../images/maybay.png';
@@ -15,21 +13,53 @@ import fb from '../../images/fb.png';
 import ap from '../../images/apple.png';
 import vt1 from '../../images/Vector.png';
 import vt2 from '../../images/Group688.png';
-import axios from 'axios';
-import { LOCAL_STORAGE_TOKEN_EXPIRES_IN, login } from '../../apis/auth/auth';
+
 export default function Login() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [email, setEmail] = useState('quyentran3101@gmail.com');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState('');
+  const { isAuthenticated } = useSelector((state) => state.user);
 
-  const loginUser = () => {
-    login(email, password);
+  // useEffect(() => {
+  //   if (isAuthenticated) {
+  //     navigate('/');
+  //   }
+  // }, [isAuthenticated, navigate]);
+
+  const loginUser = async () => {
+    if (!email || !password) {
+      message.error('Vui lòng nhập email và mật khẩu!');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await login(email, password);
+      console.log("API login nèeee", res.data);
+      if (res?.status === 200) {
+        const { user } = res.data;
+        console.log("Dispatching nèeee", { user });
+        dispatch(loginSuccess({ user }));
+        message.success('Đăng nhập thành công');
+        navigate('/');
+      } else {
+        dispatch(loginFailure('Email hoặc mật khẩu không đúng'));
+        message.error('Email hoặc mật khẩu không đúng');
+      }
+    } catch (error) {
+      console.error("Lỗi login nèeee", error);
+      dispatch(loginFailure(error.message));
+      message.error('Đã xảy ra lỗi khi đăng nhập');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div
-      className="min-h-screen w-full flex  overflow-hidden"
+      className="min-h-screen w-screen flex  overflow-hidden"
       style={{
         backgroundImage: `url(${nen})`,
       }}>
@@ -84,7 +114,6 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
 
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
             <div
               className="text-right text-sm text-blue-500 pt-1 pb-3"
@@ -107,7 +136,8 @@ export default function Login() {
                   borderRadius: 8,
                   backgroundColor: '#009EE2',
                 }}
-                onClick={() => loginUser()}>
+                onClick={loginUser}
+                loading={loading}>
                 Login
               </Button>
             </div>
