@@ -42,7 +42,7 @@ function ItemBagTourBestForYou({ tour }) {
     : 'Chưa có';
 
   return (
-    <div className="w-[1230px] flex justify-center items-center">
+    <div className="w-[1230px] flex justify-center items-center ">
     <Card
       key={tour.id}
       hoverable

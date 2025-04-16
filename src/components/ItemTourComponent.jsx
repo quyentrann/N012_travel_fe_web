@@ -1,15 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import card from '../images/card.jpg';
 import {
   EnvironmentOutlined,
   UserOutlined,
   ClockCircleOutlined,
-  CalendarOutlined,
+  CalendarOutlined,HeartOutlined,HeartFilled
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 export default function ItemTourComponent({ tour }) {
   const navigate = useNavigate();
+  const [isFavorite, setIsFavorite] = useState(false);
+
   const getDuration = (startDate, endDate) => {
     if (!startDate || !endDate) return 'Không xác định';
     const start = new Date(startDate);
@@ -17,6 +19,12 @@ export default function ItemTourComponent({ tour }) {
     const days = Math.round((end - start) / (1000 * 60 * 60 * 24));
     return `${days} ngày ${days - 1} đêm`;
   };
+
+  const handleToggleFavorite = (e) => {
+    e.stopPropagation(); // Ngăn chặn sự kiện click lan ra ngoài
+    setIsFavorite(!isFavorite);
+  };
+
   return (
     <div
       className="bg-white shadow-lg rounded-lg cursor-pointer border border-gray-300 hover:shadow-xl transition duration-300 overflow-hidden w-83 h-105 "
@@ -32,6 +40,15 @@ export default function ItemTourComponent({ tour }) {
         <span className="absolute top-2 left-2 bg-black/50 text-white px-3 py-1 text-xs rounded-md">
           Từ Hà Nội
         </span>
+          <div
+                       className="absolute top-1 right-1 cursor-pointer text-[20px] "
+                       onClick={handleToggleFavorite}>
+                       {isFavorite ? (
+                         <HeartFilled style={{ color: '#CC0000', fontSize: '34x' }} />
+                       ) : (
+                         <HeartFilled style={{ color: '#CCCCCC', fontSize: '34px' }} />
+                       )}
+                     </div>
       </div>
 
       <div className="pt-2 px-5 space-y-2">
@@ -64,9 +81,7 @@ export default function ItemTourComponent({ tour }) {
           <div className="flex items-center space-x-2">
             <UserOutlined className="text-gray-500 text-sm" />
             <span>
-              {tour.availableSlot
-                ? `Còn ${tour.availableSlot} chỗ`
-                : 'Hết chỗ'}
+              {tour.availableSlot ? `Còn ${tour.availableSlot} chỗ` : 'Hết chỗ'}
             </span>
           </div>
         </div>

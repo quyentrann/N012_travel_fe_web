@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import card from '../images/card.jpg';
-import { StarFilled } from '@ant-design/icons';
+import { StarFilled, HeartOutlined, HeartFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
 export default function ItemCradComponent({ tour }) {
   const navigate = useNavigate();
+  const [isFavorite, setIsFavorite] = useState(false);
   const averageRating = tour.reviews?.length
     ? (
         tour.reviews.reduce((sum, review) => sum + review.rating, 0) /
@@ -23,15 +24,31 @@ export default function ItemCradComponent({ tour }) {
 
   // Số lượt đặt tour (số booking)
   const totalOrders = allBookings.length;
+
+  const handleToggleFavorite = (e) => {
+    e.stopPropagation(); // Ngăn chặn sự kiện click lan ra ngoài
+    setIsFavorite(!isFavorite);
+  };
+
   return (
     <div
-      className="bg-[#fffcfa] h-67 w-52 rounded-[8px] cursor-pointer hover:scale-101 p-4 flex flex-col"
+      className="bg-[#fffcfa] h-67 w-52 rounded-[8px] cursor-pointer hover:scale-101 p-4 flex flex-col relative"
       onClick={() => navigate('/tour-detail', { state: { id: tour.tourId } })}>
+      <div
+        className="absolute top-1 right-1.5 cursor-pointer text-[20px]"
+        onClick={handleToggleFavorite}>
+        {isFavorite ? (
+          <HeartFilled style={{ color: '#FF6666', fontSize: '20px' }}/>
+        ) : (
+          <HeartOutlined style={{ color: '#CC6666', fontSize: '20px' }} />
+        )}
+      </div>
+
       <div className="flex justify-center flex-col items-center ">
         <img
           src={tour.imageURL || card}
           alt={tour.name || 'Travel'}
-          className="h-33 w-49 rounded-[3px]"
+          className="h-33 w-49 rounded-[3px] m-0.5"
         />
       </div>
       <div className="flex flex-col justify-between pt-1 h-1/2 ">
