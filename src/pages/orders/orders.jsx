@@ -39,137 +39,89 @@ const statusColors = {
 const Orders = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
+  const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
   const [reason, setReason] = useState('');
   const [bookingIdToCancel, setBookingIdToCancel] = useState(null);
-  const [refundAmount, setRefundAmount] = useState(null);
-  const [cancellationFee, setCancellationFee] = useState(0);
-  const [refundConfirmed, setRefundConfirmed] = useState(false);
+  const [cancellationInfo, setCancellationInfo] = useState(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const navigate = useNavigate();
 
-  const goToBookingDetail = (bookingId) => {
-    if (!bookingId) {
-      message.error('Không có thông tin booking!');
-      return;
-    }
-    navigate('/booking-detail', { state: { id: bookingId } });
-  };
-
-  const showCancelModal = (bookingId) => {
-    setBookingIdToCancel(bookingId);
-    setIsModalVisible(true);
-  };
-
-  const handleCancelModal = () => {
-    setIsModalVisible(false);
-    setReason('');
-  };
-
-  const handleConfirmCancel = async () => {
-    if (!reason) {
-      message.error('Vui lòng nhập lý do hủy.');
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('TOKEN');
-      const response = await axios.put(
-        `http://localhost:8080/api/bookings/cancel/${bookingIdToCancel}`,
-        {
-          reason,
-          cancelDate: new Date(),
-          isHoliday: false,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.data.refundAmount === 0) {
-        Modal.confirm({
-          title: 'Tour sắp khởi hành',
-          content: 'Quý khách có chắc chắn muốn hủy tour này không?',
-          onOk: async () => {
-            message.success('Tour đã được hủy thành công.');
-            setHistory((prevHistory) =>
-              prevHistory.map((item) =>
-                item.key === bookingIdToCancel
-                  ? { ...item, status: 'CANCELED' }
-                  : item
-              )
-            );
-            setIsModalVisible(false);
-          },
-          onCancel() {
-            message.info('Đã hủy bỏ hành động hủy tour.');
-          },
-        });
-      } else {
-        setRefundAmount(response.data.refundAmount);
-        setCancellationFee(response.data.cancellationFee);
-        console.log('Refund Amount:', response.data.refundAmount);
-        setIsModalVisible(false);
-      }
-    } catch (error) {
-      console.error('Lỗi khi hủy tour:', error.response || error.message);
-      message.error('Không thể hủy tour');
-    }
-  };
-
-  const handleRefundConfirmation = () => {
-    setRefundConfirmed(true);
-    setIsModalVisible(false);
-    Modal.success({
-      title: 'Tour đã bị hủy thành công',
-      content: `Số tiền của bạn sẽ được hoàn lại trong thời gian sớm nhất: ${refundAmount.toLocaleString()} VND.`,
-      onOk() {
-        setRefundConfirmed(false);
-      },
-    });
-  };
-
+  // Kiểm tra token và lấy lịch sử đặt tour
   useEffect(() => {
+    const token = localStorage.getItem('TOKEN');
+    if (!token) {
+      message.error('Vui lòng đăng nhập!');
+      navigate('/login');
+      return;
+    }
+
     const fetchHistory = async () => {
       try {
-        const token = localStorage.getItem('TOKEN');
-        const response = await axios.get(
-          'http://localhost:8080/api/bookings/history',
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        console.log('Token:', token);
+        const response = await axios.get('http://localhost:8080/api/bookings/history', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        console.log('API Response:', response.data);
 
-        const formattedData = response.data.map((item) => ({
-          key: item.bookingId,
-          tourImage: item.tourImage || 'https://via.placeholder.com/80',
-          tourName: item.tourName || 'Tour không xác định',
-          bookingDate: item.bookingDate,
-          status: item.status || 'PENDING',
-          price: item.totalPrice.toLocaleString() + 'đ',
-          numberPeople: item.numberPeople,
-        }));
+        const formattedData = response.data.map((item) => {
+          console.log('Booking Item:', item);
+          return {
+            key: item.bookingId,
+            tourImage: item.tour?.imageURL || 'https://via.placeholder.com/80',
+            tourName: item.tour?.name || 'Tour không xác định',
+            bookingDate: item.bookingDate,
+            status: item.status || 'PENDING',
+            price: item.totalPrice ? item.totalPrice.toLocaleString('vi-VN') + 'đ' : 'N/A',
+            numberPeople: item.numberPeople || 'N/A',
+          };
+        });
 
         formattedData.reverse();
         setHistory(formattedData);
       } catch (error) {
-        console.error('Lỗi khi lấy lịch sử đặt tour:', error);
-        message.error('Không thể lấy lịch sử đặt tour');
+        console.error('Lỗi khi lấy lịch sử đặt tour:', error.response || error.message);
+        message.error(
+          error.response?.status === 403
+            ? 'Bạn không có quyền truy cập lịch sử đặt tour'
+            : 'Không thể lấy lịch sử đặt tour'
+        );
       } finally {
         setLoading(false);
       }
     };
 
     fetchHistory();
-  }, []);
+  }, [navigate]);
 
-  const cancelTour = async (bookingId) => {
+  // Hiển thị modal nhập lý do hủy
+  const showCancelModal = (bookingId) => {
+    setBookingIdToCancel(bookingId);
+    setIsCancelModalVisible(true);
+  };
+
+  // Đóng modal nhập lý do
+  const handleCancelModal = () => {
+    setIsCancelModalVisible(false);
+    setReason('');
+    setCancellationInfo(null);
+  };
+
+  // Lấy thông tin phí hủy và số tiền hoàn lại
+  const handleSubmitCancel = async () => {
+    if (!reason) {
+      message.error('Vui lòng nhập lý do hủy.');
+      return;
+    }
+
+    setCancelLoading(true);
     try {
       const token = localStorage.getItem('TOKEN');
-      const response = await axios.put(
-        `http://localhost:8080/api/bookings/cancel/${bookingId}`,
+      const response = await axios.post(
+        `http://localhost:8080/api/bookings/calculate-cancellation-fee/${bookingIdToCancel}`,
         {
-          reason: 'Không có lý do cụ thể',
-          cancelDate: new Date(),
+          reason,
+          cancelDate: new Date().toISOString(),
           isHoliday: false,
         },
         {
@@ -177,29 +129,93 @@ const Orders = () => {
         }
       );
 
-      console.log('API Response:', response);
-      message.success(response.data.message);
-      setHistory((prevHistory) =>
-        prevHistory.map((item) =>
-          item.key === bookingId ? { ...item, status: 'CANCELED' } : item
-        )
-      );
+      setCancellationInfo({
+        cancellationFee: response.data.cancellationFee,
+        refundAmount: response.data.refundAmount,
+        message: response.data.message,
+      });
+      setIsCancelModalVisible(false);
+      setIsConfirmModalVisible(true);
     } catch (error) {
-      console.error('Lỗi khi hủy tour:', error);
-      message.error('Không thể hủy tour');
+      console.error('Lỗi khi lấy thông tin hủy:', error.response || error.message);
+      let errorMessage = 'Không thể lấy thông tin hủy tour';
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage = 'Không tìm thấy booking';
+        } else if (error.response.status === 403) {
+          errorMessage = error.response.data.error || 'Không thể hủy tour do trạng thái hiện tại';
+        } else if (error.response.status === 400) {
+          errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
+        }
+      }
+      message.error(errorMessage);
+    } finally {
+      setCancelLoading(false);
     }
   };
 
-  const fetchBookings = async () => {
+  // Xác nhận hủy tour
+  const handleConfirmCancel = async () => {
+    setCancelLoading(true);
     try {
       const token = localStorage.getItem('TOKEN');
-      const response = await axios.get('http://localhost:8080/api/bookings', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setHistory(response.data);
+      const response = await axios.put(
+        `http://localhost:8080/api/bookings/cancel/${bookingIdToCancel}`,
+        {
+          reason,
+          cancelDate: new Date().toISOString(),
+          isHoliday: false,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setHistory((prevHistory) =>
+        prevHistory.map((item) =>
+          item.key === bookingIdToCancel ? { ...item, status: 'CANCELED' } : item
+        )
+      );
+      setIsConfirmModalVisible(false);
+      message.success(response.data.message || 'Tour đã được hủy thành công!');
+      setReason('');
+      setBookingIdToCancel(null);
+      setCancellationInfo(null);
     } catch (error) {
-      console.error('Lỗi khi tải danh sách đặt tour:', error);
+      console.error('Lỗi khi hủy tour:', error.response || error.message);
+      let errorMessage = 'Không thể hủy tour';
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage = 'Không tìm thấy booking';
+        } else if (error.response.status === 403) {
+          errorMessage = error.response.data.error || 'Không thể hủy tour do trạng thái hiện tại';
+        } else if (error.response.status === 400) {
+          errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
+        }
+      }
+      message.error(errorMessage);
+    } finally {
+      setCancelLoading(false);
     }
+  };
+
+  // Đóng modal xác nhận
+  const handleCancelConfirmModal = () => {
+    setIsConfirmModalVisible(false);
+    setCancellationInfo(null);
+    setReason('');
+    setBookingIdToCancel(null);
+    message.info('Đã hủy bỏ hành động hủy tour.');
+  };
+
+  // Chuyển đến chi tiết booking
+  const goToBookingDetail = (bookingId) => {
+    if (!bookingId) {
+      message.error('Không có thông tin booking!');
+      return;
+    }
+    console.log('Navigating to BookingDetail with bookingId:', bookingId);
+    navigate('/booking-detail', { state: { id: bookingId } });
   };
 
   const columns = [
@@ -218,6 +234,7 @@ const Orders = () => {
       title: 'Ngày Đặt',
       dataIndex: 'bookingDate',
       key: 'bookingDate',
+      render: (date) => (date ? new Date(date).toLocaleDateString('vi-VN') : 'N/A'),
     },
     {
       title: 'Trạng Thái',
@@ -248,9 +265,7 @@ const Orders = () => {
               <Menu.Item
                 key="view"
                 icon={<EyeOutlined />}
-                onClick={() =>
-                  navigate('/booking-detail', { state: { id: record.key } })
-                }
+                onClick={() => goToBookingDetail(record.key)}
               >
                 Xem chi tiết
               </Menu.Item>
@@ -349,115 +364,62 @@ const Orders = () => {
         </motion.div>
       </Content>
 
-      {/* Modals */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isModalVisible ? 1 : 0 }}
-        transition={{ duration: 0.3 }}
+      {/* Modal nhập lý do hủy */}
+      <Modal
+        title="Nhập lý do hủy tour"
+        visible={isCancelModalVisible}
+        onOk={handleSubmitCancel}
+        onCancel={handleCancelModal}
+        okText="Tiếp tục"
+        cancelText="Hủy"
+        okButtonProps={{ disabled: cancelLoading, className: 'bg-blue-600 hover:bg-blue-700' }}
+        confirmLoading={cancelLoading}
       >
+        <Input.TextArea
+          rows={4}
+          placeholder="Vui lòng nhập lý do hủy tour"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className="rounded-lg border-gray-300"
+        />
+      </Modal>
+
+      {/* Modal xác nhận hủy tour */}
+      {cancellationInfo && (
         <Modal
-          title="Nhập lý do hủy"
-          visible={isModalVisible}
+          title="Xác nhận hủy tour"
+          visible={isConfirmModalVisible}
           onOk={handleConfirmCancel}
-          onCancel={handleCancelModal}
-          okText="Xác nhận"
-          cancelText="Hủy"
-          okButtonProps={{ className: 'bg-blue-600 hover:bg-blue-700' }}
+          onCancel={handleCancelConfirmModal}
+          okText="Xác nhận hủy"
+          cancelText="Hủy bỏ"
+          okButtonProps={{ className: 'bg-red-600 hover:bg-red-700', loading: cancelLoading }}
         >
-          <Input.TextArea
-            rows={4}
-            placeholder="Nhập lý do hủy tour"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            className="rounded-lg border-gray-300"
-          />
+          <p className="text-sm text-gray-600">
+            Bạn sắp hủy tour này. Dưới đây là thông tin chi tiết:
+          </p>
+          <p className="text-sm text-gray-600 mt-2">
+            {cancellationInfo.cancellationFee > 0 ? (
+              <>
+                Phí hủy:{' '}
+                <span className="font-medium">
+                  {cancellationInfo.cancellationFee.toLocaleString('vi-VN')} VND
+                </span>
+              </>
+            ) : (
+              'Không có phí hủy.'
+            )}
+          </p>
+          <p className="text-sm text-gray-600">
+            Số tiền hoàn lại:{' '}
+            <span className="font-medium text-green-600">
+              {cancellationInfo.refundAmount.toLocaleString('vi-VN')} VND
+            </span>
+          </p>
+          <p className="text-sm text-gray-600 mt-4">
+            Bạn có chắc chắn muốn hủy tour này không?
+          </p>
         </Modal>
-      </motion.div>
-
-      {refundAmount !== null && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Modal
-            visible={true}
-            footer={null}
-            onCancel={() => setRefundAmount(null)}
-          >
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Thông tin hủy tour
-              </h3>
-              <p className="text-sm text-gray-600">
-                Bạn đã thanh toán cho chuyến đi này. Nếu bạn hủy, sẽ có phí hủy tour.
-                {cancellationFee > 0 ? (
-                  <>
-                    <br />
-                    Phí hủy: <span className="font-medium">{cancellationFee.toLocaleString()} VND</span>.
-                  </>
-                ) : (
-                  <>
-                    <br />
-                    Không có phí hủy.
-                  </>
-                )}
-                <br />
-                Nếu hủy, chúng tôi sẽ hoàn lại cho bạn:{' '}
-                <span className="font-medium text-green-600">{refundAmount.toLocaleString()} VND</span>.
-              </p>
-              <p className="text-sm text-gray-600 mt-4">
-                So với lúc thanh toán, bạn có chắc chắn muốn hủy chuyến đi này không?
-              </p>
-              <div className="mt-6 flex justify-center space-x-4">
-                <Button
-                  type="primary"
-                  onClick={handleRefundConfirmation}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Xác nhận hủy
-                </Button>
-                <Button
-                  onClick={() => {
-                    setRefundAmount(null);
-                    message.info('Đã hủy bỏ hành động hủy tour.');
-                  }}
-                >
-                  Hủy bỏ
-                </Button>
-              </div>
-            </div>
-          </Modal>
-        </motion.div>
-      )}
-
-      {refundConfirmed && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Modal
-            visible={true}
-            footer={null}
-            onCancel={() => setRefundConfirmed(false)}
-          >
-            <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Tour đã bị hủy thành công
-              </h3>
-              <p className="text-sm text-gray-600">
-                Số tiền của bạn sẽ được hoàn lại trong thời gian sớm nhất.
-              </p>
-              <Button
-                onClick={() => setRefundConfirmed(false)}
-                className="mt-6 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                OK
-              </Button>
-            </div>
-          </Modal>
-        </motion.div>
       )}
 
       {/* Footer */}

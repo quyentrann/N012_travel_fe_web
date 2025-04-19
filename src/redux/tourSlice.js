@@ -1,4 +1,3 @@
-// tourSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { getTours } from '../apis/tour';
 
@@ -13,20 +12,36 @@ const tourSlice = createSlice({
     tours: [],
     filteredTours: [],
     loading: false,
+    error: null,
   },
   reducers: {
     setFilteredTours: (state, action) => {
       state.filteredTours = action.payload;
     },
+    filterByCategory: (state, action) => {
+      const category = action.payload;
+      state.filteredTours = state.tours.filter((tour) =>
+        tour.category?.toLowerCase().includes(category.toLowerCase())
+      );
+    },
   },
   extraReducers: (builder) => {
-    builder.addCase(fetchTours.fulfilled, (state, action) => {
-      state.tours = action.payload;
-      state.filteredTours = action.payload;
-      state.loading = false;
-    });
+    builder
+      .addCase(fetchTours.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTours.fulfilled, (state, action) => {
+        state.tours = action.payload;
+        state.filteredTours = action.payload;
+        state.loading = false;
+      })
+      .addCase(fetchTours.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+      });
   },
 });
 
-export const { setFilteredTours } = tourSlice.actions;
+export const { setFilteredTours, filterByCategory } = tourSlice.actions;
 export default tourSlice.reducer;

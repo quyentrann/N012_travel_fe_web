@@ -16,6 +16,7 @@ import { fetchUnreadCount } from '../../redux/notificationSlice';
 import { logout } from '../../redux/userSlice';
 import ItemTourBestForYou from '../../components/ItemTourBestForYou';
 import logo from '../../images/logo.png';
+import axios from 'axios';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -26,22 +27,49 @@ const defaultAvatar = 'https://via.placeholder.com/40?text=User';
 const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
-  { label: 'Tour', path: '/tours' },
+  { label: 'Tour Gợi Ý', path: '/recommended' },
   { label: 'Tour Yêu Thích', path: '/tours' },
 ];
 
 // Hàm chuẩn hóa location để so sánh
 const cleanLocation = (location) => {
-    if (!location || typeof location !== 'string') return '';
-    return location.replace(/^(Tỉnh|Thành phố)\s+/i, '').trim();
-  };
-  
-  
-  const simplifyLocation = (location) => {
-    if (!location) return '';
-    const parts = location.split('-').map((part) => part.trim());
-    return parts[parts.length - 1];
-  };
+  if (!location || typeof location !== 'string') return '';
+  return location.replace(/^(Tỉnh|Thành phố)\s+/i, '').trim();
+};
+
+const simplifyLocation = (location) => {
+  if (!location) return '';
+  const parts = location.split('-').map((part) => part.trim());
+  return parts[parts.length - 1];
+};
+
+const cleanText = (text) => {
+  if (!text || typeof text !== 'string') return '';
+  return text.replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+const computeSimilarity = (query, text, weight) => {
+  if (!query || !text) return 0.0;
+  const cleanedQuery = cleanText(query).toLowerCase();
+  const cleanedText = cleanText(text).toLowerCase();
+  const queryWords = cleanedQuery.split(' ').filter(word => word);
+  const textWords = cleanedText.split(' ').filter(word => word);
+  let matches = 0;
+  for (const queryWord of queryWords) {
+    for (const textWord of textWords) {
+      if (
+        textWord.includes(queryWord) ||
+        queryWord.includes(textWord) ||
+        textWord === queryWord
+      ) {
+        matches += 1.0;
+      }
+    }
+  }
+  const lengthPenalty = textWords.length <= 2 ? 1.5 : 1.0;
+  return (matches / Math.max(textWords.length, 1)) * weight * lengthPenalty;
+};
+
 
 const SearchPage = () => {
   const dispatch = useDispatch();
@@ -54,15 +82,15 @@ const SearchPage = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [open, setOpen] = useState(false); // State for user dropdown
   const dropdownRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(6);
   const [filter, setFilter] = useState({
     location: '',
     dates: null,
     priceRange: '',
   });
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm); // để hiển thị trong input
 
-  console.log("tour", tours);
-  
-  
+  console.log('tour', tours);
 
   // Fetch unread notifications
   useEffect(() => {
@@ -72,28 +100,98 @@ const SearchPage = () => {
   }, [isAuthenticated, dispatch]);
 
   // Handle search and filtering
-  useEffect(() => {
+  // useEffect(() => {
+  //   let filtered = tours;
+
+  //   // Filter by search term
+  //   if (searchTerm.trim()) {
+  //     filtered = filtered.filter((tour) =>
+  //       tour.name.toLowerCase().includes(searchTerm.toLowerCase())
+  //     );
+  //   }
+
+  //   // Filter by location
+  //   if (filter.location) {
+  //     const cleanedFilterLocation = cleanLocation(filter.location);
+  //     const simplifiedFilterLocation = simplifyLocation(cleanedFilterLocation);
+  //     filtered = filtered.filter(
+  //       (tour) =>
+  //         typeof tour?.location === 'string' &&
+  //         tour?.location
+  //           .toLowerCase()
+  //           .includes(simplifiedFilterLocation.toLowerCase())
+  //     );
+  //   }
+
+  //   // Filter by price range
+  //   if (filter.priceRange) {
+  //     const [min, max] = filter.priceRange.split('-').map(Number);
+  //     filtered = filtered.filter(
+  //       (tour) => tour.price >= min && tour.price <= max
+  //     );
+  //   }
+
+  //   if (filter.dates) {
+  //     const [start, end] = filter.dates;
+  //     filtered = filtered.filter((tour) => {
+  //       // Kiểm tra tour.tourDetails là mảng và không rỗng
+  //       if (!tour.tourDetails || !Array.isArray(tour.tourDetails)) {
+  //         return false;
+  //       }
+  //       // Tìm lịch trình có giao với [start, end]
+  //       return tour.tourDetails.some((detail) => {
+  //         const tourStart = new Date(detail.startDate);
+  //         const tourEnd = new Date(detail.endDate);
+  //         return (
+  //           tourStart &&
+  //           tourEnd &&
+  //           !isNaN(tourStart) &&
+  //           !isNaN(tourEnd) &&
+  //           tourStart <= end &&
+  //           tourEnd >= start
+  //         );
+  //       });
+  //     });
+  //   }
+
+  //   dispatch(setFilteredTours(filtered));
+  // }, [searchTerm, filter, tours, dispatch]);
+
+  const handleSearch = () => {
     let filtered = tours;
+    let scoredTours = [];
 
-    // Filter by search term
-    if (searchTerm.trim()) {
-      filtered = filtered.filter((tour) =>
-        tour.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    } 
-    console.log('Raw location filter:', filter.location);
+    if (localSearchTerm.trim()) {
+      scoredTours = filtered.map(tour => {
+        let score = 0.0;
+        const query = localSearchTerm.trim();
+        score += computeSimilarity(query, tour.name || '', 2.0);
+        score += computeSimilarity(query, tour.description || '', 1.0);
+        score += computeSimilarity(query, tour.location || '', 1.5);
+        if (tour.tourcategory && tour.tourcategory.categoryName) {
+          score += computeSimilarity(query, tour.tourcategory.categoryName, 1.2);
+        }
+        console.log(`Tour: ${tour.name}, Score: ${score}`);
+        return { tour, score };
+      });
+      filtered = scoredTours
+        .filter(item => item.score > 0.1)
+        .sort((a, b) => b.score - a.score)
+        .map(item => item.tour);
+    }
 
-    // Filter by location
     if (filter.location) {
-        const cleanedFilterLocation = cleanLocation(filter.location);
-        const simplifiedFilterLocation = simplifyLocation(cleanedFilterLocation);
-        filtered = filtered.filter((tour) =>
+      const cleanedFilterLocation = cleanLocation(filter.location);
+      const simplifiedFilterLocation = simplifyLocation(cleanedFilterLocation);
+      filtered = filtered.filter(
+        (tour) =>
           typeof tour?.location === 'string' &&
-          tour?.location.toLowerCase().includes(simplifiedFilterLocation.toLowerCase())
-        );
-      }
+          cleanText(tour?.location)
+            .toLowerCase()
+            .includes(simplifiedFilterLocation.toLowerCase())
+      );
+    }
 
-    // Filter by price range
     if (filter.priceRange) {
       const [min, max] = filter.priceRange.split('-').map(Number);
       filtered = filtered.filter(
@@ -102,30 +200,33 @@ const SearchPage = () => {
     }
 
     if (filter.dates) {
-        const [start, end] = filter.dates;
-        filtered = filtered.filter((tour) => {
-          // Kiểm tra tour.tourDetails là mảng và không rỗng
-          if (!tour.tourDetails || !Array.isArray(tour.tourDetails)) {
-            return false;
-          }
-          // Tìm lịch trình có giao với [start, end]
-          return tour.tourDetails.some((detail) => {
-            const tourStart = new Date(detail.startDate);
-            const tourEnd = new Date(detail.endDate);
-            return (
-              tourStart &&
-              tourEnd &&
-              !isNaN(tourStart) &&
-              !isNaN(tourEnd) &&
-              tourStart <= end &&
-              tourEnd >= start
-            );
-          });
+      const [start, end] = filter.dates;
+      filtered = filtered.filter((tour) => {
+        if (!tour.tourDetails || !Array.isArray(tour.tourDetails)) {
+          return false;
+        }
+        return tour.tourDetails.some((detail) => {
+          const tourStart = new Date(detail.startDate);
+          const tourEnd = new Date(detail.endDate);
+          return (
+            tourStart &&
+            tourEnd &&
+            !isNaN(tourStart) &&
+            !isNaN(tourEnd) &&
+            tourStart <= end &&
+            tourEnd >= start
+          );
         });
-      }
-  
-      dispatch(setFilteredTours(filtered));
-    }, [searchTerm, filter, tours, dispatch]);
+      });
+    }
+
+    dispatch(setFilteredTours(filtered));
+    return scoredTours;
+  };
+
+  useEffect(() => {
+    handleSearch();
+  }, [searchTerm, filter, tours, dispatch]);
 
   // Handle dropdown outside click
   useEffect(() => {
@@ -138,9 +239,38 @@ const SearchPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // const handleSearchChange = (e) => {
+  //   dispatch(setSearchTerm(e.target.value));
+  // };
   const handleSearchChange = (e) => {
-    dispatch(setSearchTerm(e.target.value));
+    setLocalSearchTerm(e.target.value); // Không dispatch liền
   };
+
+  const triggerSearch = async () => {
+    dispatch(setSearchTerm(localSearchTerm)); // Cập nhật Redux
+    handleSearch(); // Lọc trên frontend, giữ nguyên UI
+  
+    // Gửi request đến backend để lưu lịch sử + kết quả tìm kiếm
+    if (isAuthenticated && localSearchTerm.trim()) {
+      try {
+        await axios.post(
+          `http://localhost:8080/api/search-history/search?query=${encodeURIComponent(localSearchTerm.trim())}`,
+          {}, // body rỗng
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('TOKEN')}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+  
+        console.log('✅ Đã lưu lịch sử + danh sách tour tìm được');
+      } catch (error) {
+        console.error('❌ Lỗi khi lưu lịch sử tìm kiếm:', error);
+      }
+    }
+  };
+  
 
   const handleClearFilters = () => {
     setFilter({ location: '', dates: null, priceRange: '' });
@@ -193,10 +323,23 @@ const SearchPage = () => {
                 whileHover={{ scale: 1.05 }}>
                 <Input
                   placeholder="Tìm kiếm tour..."
-                  value={searchTerm}
+                  value={localSearchTerm}
                   onChange={handleSearchChange}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      triggerSearch();
+                    }
+                  }}
                   className="w-40 md:w-60 rounded-full text-sm py-1 pl-4 pr-10 border-none shadow-sm"
                   suffix={<SearchOutlined className="text-gray-500" />}
+                />
+
+                <Button
+                  type="primary"
+                  icon={<SearchOutlined />}
+                  className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-4 py-1 text-sm flex items-center ml-1"
+                  style={{ width: '37px', height: '30px' }}
+                  onClick={triggerSearch}
                 />
               </motion.div>
             )}
@@ -330,29 +473,31 @@ const SearchPage = () => {
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                 className="flex-1 overflow-hidden">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-md border border-gray-100">
-                <div className="flex flex-col">
+                  <div className="flex flex-col">
                     <label className="text-sm font-semibold text-gray-800 mb-2">
                       Địa điểm
                     </label>
                     <Select
-  showSearch
-  placeholder="Chọn địa điểm"
-  value={filter.location}
-  onChange={(value) => handleFilterChange('location', value)}
-  className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
-  allowClear
-  optionFilterProp="children"  // để tìm theo label
-  filterOption={(input, option) =>
-    option?.children?.toLowerCase().includes(input.toLowerCase())
-  }
->
-  {locations.map((loc) => (
-    <Option key={loc.label} value={loc.label}>
-      {loc.label}
-    </Option>
-  ))}
-</Select>
-
+                      showSearch
+                      placeholder="Chọn địa điểm"
+                      value={filter.location}
+                      onChange={(value) =>
+                        handleFilterChange('location', value)
+                      }
+                      className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
+                      allowClear
+                      optionFilterProp="children" // để tìm theo label
+                      filterOption={(input, option) =>
+                        option?.children
+                          ?.toLowerCase()
+                          .includes(input.toLowerCase())
+                      }>
+                      {locations.map((loc) => (
+                        <Option key={loc.label} value={loc.label}>
+                          {loc.label}
+                        </Option>
+                      ))}
+                    </Select>
                   </div>
                   <div className="flex flex-col">
                     <label className="text-sm font-semibold text-gray-800 mb-2">
@@ -427,26 +572,37 @@ const SearchPage = () => {
             <p className="text-gray-600 text-lg mb-4">
               Không tìm thấy tour nào phù hợp.
             </p>
-           <Button
-  type="primary"
-  className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-6 py-2 text-sm font-medium"
-  onClick={handleClearFilters}>
-  Xóa bộ lọc và thử lại
-</Button>
+            <Button
+              type="primary"
+              className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-6 py-2 text-sm font-medium"
+              onClick={handleClearFilters}>
+              Xóa bộ lọc và thử lại
+            </Button>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTours.map((tour) => (
-              <motion.div
-                key={tour.tourId}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}>
-                <ItemTourBestForYou tour={tour} />
-              </motion.div>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTours.slice(0, visibleCount).map((tour) => (
+                <motion.div
+                  key={tour.tourId}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4 }}
+                  whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}>
+                  <ItemTourBestForYou tour={tour} />
+                </motion.div>
+              ))}
+            </div>
+            {visibleCount < filteredTours.length && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={() => setVisibleCount((prev) => prev + 6)}
+                  className="px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition">
+                  Load More
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
 

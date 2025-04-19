@@ -10,11 +10,11 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import { Button, Input, Radio, Upload, Form, Avatar, message, Spin, Divider } from 'antd';
-import axios from 'axios';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import defaultAvatar from '../../images/defaultAvatar.png'; // Local default avatar
-import logo from '../../images/logo.png'; // From Home page context
+import defaultAvatar from '../../images/defaultAvatar.png';
+import logo from '../../images/logo.png';
+import { fetchUserProfile, handleUpdateProfile, handleAvatarUpload } from '../../apis/userApi';
 
 const Profile = () => {
   const [form] = Form.useForm();
@@ -26,24 +26,21 @@ const Profile = () => {
   const [editMode, setEditMode] = useState(false);
   const navigate = useNavigate();
 
+  // Hàm xử lý chữ cái đầu từ fullName, hỗ trợ Unicode
+  const getFirstChar = (fullName) => {
+    if (!fullName) return 'U';
+    const normalized = fullName.normalize('NFC');
+    return normalized[0]?.toUpperCase() || 'U';
+  };
+
   // Fetch user profile
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const loadProfile = async () => {
       setLoading(true);
-      try {
-        const token = localStorage.getItem('TOKEN');
-        if (!token) {
-          message.error('Vui lòng đăng nhập lại!');
-          navigate('/login');
-          return;
-        }
-
-        const response = await axios.get('http://localhost:8080/api/users/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const user = response.data;
+      const user = await fetchUserProfile(navigate);
+      if (user) {
         setUserData(user);
+        console.log(user);
 
         if (user?.customer) {
           form.setFieldsValue({
@@ -52,43 +49,37 @@ const Profile = () => {
             phoneNumber: user.customer.phoneNumber || '',
             address: user.customer.address || '',
             dob: user.customer.dob || '',
-            gender: user.customer.gender ? 'male' : user.customer.gender === false ? 'female' : 'other',
+            gender: user.customer.gender ? 'female' : user.customer.gender === false ? 'male' : 'other',
           });
 
+          // Cập nhật avatarText từ fullName
           if (user.customer.fullName) {
-            setAvatarText(user.customer.fullName[0].toUpperCase());
+            setAvatarText(getFirstChar(user.customer.fullName));
           }
-          if (user.customer.avatar) {
-            setAvatarUrl(user.customer.avatar);
+          // Cập nhật avatarUrl
+          if (user.customer.avatarUrl) {
+            setAvatarUrl(user.customer.avatarUrl);
           }
         }
-      } catch (error) {
-        message.error('Không thể tải thông tin hồ sơ!');
-        console.error('Lỗi lấy hồ sơ:', error);
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     };
 
-    fetchUserProfile();
+    loadProfile();
   }, [form, navigate]);
 
   // Handle profile update
-  const handleUpdateProfile = async (values) => {
+  const onUpdateProfile = async (values) => {
     setLoading(true);
-    try {
-      const token = localStorage.getItem('TOKEN');
-      if (!token) {
-        message.error('Vui lòng đăng nhập lại!');
-        return;
-      }
-
-      await axios.put('http://localhost:8080/api/users/update-profile', values, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      message.success('Cập nhật hồ sơ thành công!');
+    const token = localStorage.getItem('TOKEN');
+    const success = await handleUpdateProfile(values, token);
+    if (success) {
       setEditMode(false);
+
+      // Cập nhật avatarText nếu fullName thay đổi
+      if (values.fullName) {
+        setAvatarText(getFirstChar(values.fullName));
+      }
 
       // Update local userData
       setUserData((prev) => ({
@@ -96,37 +87,19 @@ const Profile = () => {
         customer: { ...prev.customer, ...values },
         email: values.email || prev.email,
       }));
-    } catch (error) {
-      message.error('Cập nhật thất bại, vui lòng thử lại!');
-      console.error('Lỗi cập nhật hồ sơ:', error);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   };
 
   // Handle avatar upload
-  const handleAvatarUpload = async ({ file }) => {
+  const onAvatarUpload = async ({ file }) => {
     setUploading(true);
-    try {
-      const token = localStorage.getItem('TOKEN');
-      const formData = new FormData();
-      formData.append('avatar', file);
-
-      const response = await axios.post('http://localhost:8080/api/users/upload-avatar', formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      setAvatarUrl(response.data.avatarUrl);
-      message.success('Tải ảnh đại diện thành công!');
-    } catch (error) {
-      message.error('Tải ảnh thất bại, vui lòng thử lại!');
-      console.error('Lỗi tải ảnh:', error);
-    } finally {
-      setUploading(false);
+    const token = localStorage.getItem('TOKEN');
+    const newAvatarUrl = await handleAvatarUpload(file, token);
+    if (newAvatarUrl) {
+      setAvatarUrl(newAvatarUrl);
     }
+    setUploading(false);
   };
 
   // Handle logout
@@ -135,6 +108,12 @@ const Profile = () => {
     setUserData(null);
     message.success('Đăng xuất thành công!');
     navigate('/login');
+  };
+
+  // Xử lý lỗi tải ảnh
+  const handleAvatarError = () => {
+    console.error('Lỗi tải ảnh từ avatarUrl:', avatarUrl);
+    setAvatarUrl(null); // Reset avatarUrl để hiển thị avatarText
   };
 
   return (
@@ -184,12 +163,12 @@ const Profile = () => {
       </motion.header>
 
       {/* Main Content */}
-      <div className="flex-grow flex items-center justify-center p-4 sm:p-8 bg-gradient-to-b from-gray-100 to-gray-50">
+      <div className="flex-grow flex items-center justify-center p-4 sm:p-8 bg-[#fefcf8f4]">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="max-w-3xl w-full bg-[#fffcfa]  rounded-3xl shadow-2xl p-6 sm:p-8"
+          className="max-w-3xl w-full bg-[#fffcfa] rounded-3xl shadow-2xl p-6 sm:p-8"
         >
           {loading ? (
             <div className="flex justify-center items-center h-64">
@@ -202,10 +181,10 @@ const Profile = () => {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="flex items-center space-x-6 mb-6 "
+                className="flex items-center space-x-6 mb-6"
               >
                 <Avatar
-                  src={avatarUrl || defaultAvatar}
+                  src={avatarUrl ? <img src={avatarUrl} onError={handleAvatarError} alt="Avatar" /> : defaultAvatar}
                   size={100}
                   className="ring-4 ring-blue-100 shadow-md transition-transform hover:scale-105"
                   icon={!avatarUrl && !avatarText ? <UserOutlined /> : null}
@@ -213,10 +192,10 @@ const Profile = () => {
                   {!avatarUrl && avatarText}
                 </Avatar>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
+                  <h1 className="text-2xl font-bold text-gray-900 pl-3">
                     {userData?.customer?.fullName || 'Khách hàng'}
                   </h1>
-                  <p className="text-sm text-gray-500">{userData?.email || 'N/A'}</p>
+                  <p className="text-sm text-gray-500 pl-5 pt-1">{userData?.email || 'N/A'}</p>
                 </div>
               </motion.div>
 
@@ -228,7 +207,7 @@ const Profile = () => {
                 className="flex space-x-4 mb-6"
               >
                 <Upload
-                  customRequest={handleAvatarUpload}
+                  customRequest={onAvatarUpload}
                   showUploadList={false}
                   accept="image/*"
                   disabled={uploading}
@@ -236,7 +215,7 @@ const Profile = () => {
                   <Button
                     icon={<UploadOutlined />}
                     loading={uploading}
-                    className="bg-blue-600 text-white border-none rounded-lg px-4 py-2 text-sm hover:bg-blue-700 transition-all"
+                    className="bg-blue-600 text-white border-none rounded-lg mr-2 py-2 text-sm hover:bg-blue-700 transition-all"
                     aria-label="Tải ảnh đại diện"
                   >
                     {uploading ? 'Đang tải...' : 'Thay ảnh đại diện'}
@@ -264,7 +243,7 @@ const Profile = () => {
                   <Form
                     form={form}
                     layout="vertical"
-                    onFinish={handleUpdateProfile}
+                    onFinish={onUpdateProfile}
                     className="space-y-4"
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -382,9 +361,9 @@ const Profile = () => {
                     <div>
                       <p className="text-sm text-gray-500">Giới tính</p>
                       <p className="text-gray-900 font-medium">
-                        {userData?.customer?.gender === 'male'
+                        {userData?.customer?.gender === false
                           ? 'Nam'
-                          : userData?.customer?.gender === 'female'
+                          : userData?.customer?.gender === true
                           ? 'Nữ'
                           : 'Khác'}
                       </p>
@@ -401,10 +380,13 @@ const Profile = () => {
                 className="mt-6"
               >
                 <Divider className="my-6" />
-                <div className="bg-gray-50 rounded-xl p-4">
+                <div className="rounded-xl p-4">
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Thông Tin Bổ Sung</h3>
                   <p className="text-sm text-gray-600">
-                    Thành viên từ: <span className="text-gray-900">{userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString('vi-VN') : 'N/A'}</span>
+                    Thành viên từ:{' '}
+                    <span className="text-gray-900">
+                      {userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                    </span>
                   </p>
                   <p className="text-sm text-gray-600 mt-2">
                     Cấp độ: <span className="text-blue-600 font-medium">Thành viên Vàng</span>
@@ -439,8 +421,13 @@ const Profile = () => {
           <div>
             <h4 className="text-gray-900 font-semibold mb-2">Liên kết</h4>
             <p>
-              <a href="/about" className="hover:text-blue-600">Giới thiệu</a> |{' '}
-              <a href="/contact" className="hover:text-blue-600">Liên hệ</a>
+              <a href="/about" className="hover:text-blue-600">
+                Giới thiệu
+              </a>{' '}
+              |{' '}
+              <a href="/contact" className="hover:text-blue-600">
+                Liên hệ
+              </a>
             </p>
           </div>
           <div>

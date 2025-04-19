@@ -8,12 +8,13 @@ import ItemTourBookingDetail from "../components/ItemTourBookingDetail";
 import UserInfo from "../pages/userInfo/userInfo";
 import Orders from "../pages/orders/orders";
 import BestForYouBagTour from "../pages/BestForYouBagTour/BestForYouBagTour";
-import BookingDetail from "../pages/bookingDetail/BookingDetail";
+import BookingDetail from "../pages/bookingDetail/bookingDetail";
 import CardChatBotPress from "../pages/CardChatBotPress/cardChatBotPress";
 import LocationTour from "../pages/LocationTour/locationTour";
 import PriceTour from "../pages/PricePage/priceTour";
 import About from "../pages/About/about";
 import SearchPage from "../pages/SearchPage/SearchPage";
+import Recommended from "../pages/Recommended/recommended";
 export default function AppRouter() {
   return (
     <Routes>
@@ -32,6 +33,7 @@ export default function AppRouter() {
       <Route path="/pricetour" element={<PriceTour />} />
       <Route path="/about" element={<About />} />
       <Route path="/search" element={<SearchPage />} />
+      <Route path="/recommended" element={<Recommended />} />
     </Routes>
   );
 }

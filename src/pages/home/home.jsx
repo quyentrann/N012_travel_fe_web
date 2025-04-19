@@ -11,7 +11,7 @@ import {
   BellOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
-import { Input, Button, Dropdown, Menu, Avatar, Carousel } from 'antd';
+import { Input, Button, Dropdown, Menu, Avatar, Carousel, Spin } from 'antd';
 import { getTours } from '../../apis/tour';
 import logo from '../../images/logo.png';
 import nen1 from '../../images/nen5.png';
@@ -26,14 +26,14 @@ import { setFilteredTours, fetchTours } from '../../redux/tourSlice';
 import { fetchLocations } from '../../redux/locationSlice';
 import { fetchUnreadCount } from '../../redux/notificationSlice';
 import { setSearchTerm } from '../../redux/searchSlice';
-
-const defaultAvatar = 'https://via.placeholder.com/40?text=User';
+import { fetchSearchHistory } from '../../redux/searchHistorySlice';
+import defaultAvatar from '../../images/defaultAvatar.png'; 
 
 // Navigation links for unauthenticated users
 const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
-  { label: 'Tour', path: '/search' },
+  { label: 'Tour Gợi Ý', path: '/recommended' },
   { label: 'Tour Yêu Thích', path: '/tours' },
 ];
 
@@ -56,7 +56,13 @@ const CustomNextArrow = ({ onClick }) => (
 const Home = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { tours, filteredTours } = useSelector((state) => state.tours);
+  // const { tours, filteredTours } = useSelector((state) => state.tours);
+  const {
+    tours,
+    filteredTours,
+    loading: toursLoading,
+    error: toursError,
+  } = useSelector((state) => state.tours);
   const searchTerm = useSelector((state) => state.search.searchTerm);
   const locations = useSelector((state) => state.locations.locations);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -65,75 +71,29 @@ const Home = () => {
   const unreadCount = useSelector((state) => state.notifications.unreadCount);
   const userState = useSelector((state) => state.user);
   const { isAuthenticated, user } = useSelector((state) => state.user);
-
+  const {
+    history,
+    loading: historyLoading,
+    error: historyError,
+  } = useSelector((state) => state.searchHistory);
   const [recommendations, setRecommendations] = useState([]);
-  // console.log('tour', tours);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      const fetchSearchHistory = async () => {
-        try {
-          const token = localStorage.getItem('TOKEN');
-          if (!token) {
-            console.error('No token found in localStorage');
-            return;
-          }
-  
-          const response = await axios.get('http://localhost:8080/api/search-history/my-history', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-  
-          setRecommendations(response.data);
-          console.log('Search History:', response.data);
-        } catch (err) {
-          console.error('Failed to fetch search history:', err.response?.data || err.message);
-        } 
-      };
-  
-      fetchSearchHistory();
-    } else {
-      console.log('Not authenticated, skipping search history fetch');
-    }
-  }, [isAuthenticated]);
-  
-
-  // Fetch unread notifications
-  useEffect(() => {
-    if (isAuthenticated) {
-      dispatch(fetchUnreadCount());
-    }
-  }, [isAuthenticated, dispatch]);
-
-  // Fetch locations
-  useEffect(() => {
-    dispatch(fetchLocations());
-  }, [dispatch]);
-
-  // Fetch tours
-  useEffect(() => {
-    dispatch(fetchTours());
-  }, [dispatch]);
-
-  // Handle search
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      dispatch(setFilteredTours(tours));
-    } else {
-      const filtered = tours.filter((tour) =>
-        tour.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      dispatch(setFilteredTours(filtered));
-    }
-  }, [searchTerm, tours, dispatch]);
-
-  const handleSearchChange = (e) => {
-    dispatch(setSearchTerm(e.target.value));
-  };
+    const fetchData = async () => {
+      const promises = [dispatch(fetchTours()), dispatch(fetchLocations())];
+      if (isAuthenticated) {
+        promises.push(
+          dispatch(fetchSearchHistory()),
+          dispatch(fetchUnreadCount())
+        );
+      }
+      await Promise.all(promises);
+    };
+    fetchData();
+  }, [dispatch, isAuthenticated]);
 
   // Handle logout
-  const handleLogout = () => { 
+  const handleLogout = () => {
     localStorage.clear();
     dispatch(logout());
     navigate('/login');
@@ -190,18 +150,15 @@ const Home = () => {
             {/* Search Bar */}
             {isAuthenticated && (
               <div
-              className="relative flex items-center cursor-pointer"
-              onClick={() => navigate('/search')}
-            >
-              <motion.div
-                className="flex items-center w-40 md:w-60 rounded-[18px] h-[35px] text-sm py-1 pl-4 pr-10 bg-white border border-gray-300 text-gray-500"
-                whileHover={{ scale: 1.02 }}
-              >
-                <span className=" text-[12px]">Tìm kiếm tour...</span>
-                <SearchOutlined className="absolute right-3 text-gray-500" />
-              </motion.div>
-            </div>
-  
+                className="relative flex items-center cursor-pointer"
+                onClick={() => navigate('/search')}>
+                <motion.div
+                  className="flex items-center w-40 md:w-60 rounded-[18px] h-[35px] text-sm py-1 pl-4 pr-10 bg-white border border-gray-300 text-gray-500"
+                  whileHover={{ scale: 1.02 }}>
+                  <span className=" text-[12px]">Tìm kiếm tour...</span>
+                  <SearchOutlined className="absolute right-3 text-gray-500" />
+                </motion.div>
+              </div>
             )}
 
             {/* Notification Icon */}
@@ -228,13 +185,13 @@ const Home = () => {
                   <>
                     <motion.span
                       whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium truncate max-w-[140px]">
+                      className="text-sm font-medium truncate max-w-[140px] pr-2">
                       {user.customer?.fullName || 'User'}
                     </motion.span>
                     <motion.div whileHover={{ scale: 1.1 }}>
                       <Avatar
                         src={user.customer?.avatarUrl || defaultAvatar}
-                        size={28}
+                        size={25}
                         icon={<UserOutlined />}
                         className="border border-gray-200 shadow-sm"
                       />
@@ -341,40 +298,32 @@ const Home = () => {
           </motion.p>
 
           {/* Search Bar */}
-           <div
-      onClick={() => navigate('/search')}
-      className="cursor-pointer"
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.4 }}
-        className="bg-white/90 rounded-xl p-4 max-w-3xl mx-auto shadow-lg"
-      >
-        <div className="flex items-center space-x-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Where to go?"
-              value={searchTerm}
-              onChange={handleSearchChange}
-              readOnly
-              onFocus={(e) => e.target.blur()}
-              className="w-full p-3 rounded-lg border-none focus:ring-2 focus:ring-cyan-600 text-gray-900 cursor-pointer"
-            />
+          <div onClick={() => navigate('/search')} className="cursor-pointer">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white/90 rounded-xl p-4 max-w-3xl mx-auto shadow-lg">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    placeholder="Where to go?"
+                    readOnly
+                    className="w-full p-3 rounded-lg border-none focus:ring-2 focus:ring-cyan-600 text-gray-900 cursor-pointer"
+                  />
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsSearchOpen(!isSearchOpen);
+                  }}
+                  className="p-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition">
+                  <SearchOutlined onClick={() => navigate('/search')} />
+                </button>
+              </div>
+            </motion.div>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsSearchOpen(!isSearchOpen);
-            }}
-            className="p-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition"
-          >
-            <SearchOutlined onClick={()=> navigate('/search')}/>
-          </button>
-        </div>
-      </motion.div>
-    </div>
         </div>
       </section>
 
@@ -389,14 +338,22 @@ const Home = () => {
             </div>
             <div className="text-end w-[75px]">
               <span
-                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
+                onClick={() => navigate('/bestforyou')}
                 className="text-[#258dba] font-medium hover:underline cursor-pointer text-[13px]">
                 Xem tất cả
               </span>
             </div>
           </div>
           <div className="relative">
-            {sortedTours.length === 0 ? (
+            {toursLoading ? (
+              <div className="flex justify-center items-center h-32">
+                <Spin size="large" tip="Loading popular tours..." />
+              </div>
+            ) : toursError ? (
+              <div className="text-center text-red-600">
+                Error: {toursError}
+              </div>
+            ) : sortedTours.length === 0 ? (
               <div className="text-center text-gray-600">
                 No popular tours available.
               </div>
@@ -409,8 +366,6 @@ const Home = () => {
                 slidesToShow={Math.min(4, sortedTours.length)}
                 slidesToScroll={1}
                 infinite={sortedTours.length > 3}
-                // autoplay={true}
-                // autoplaySpeed={3000}
                 className="w-full carousel-container">
                 {sortedTours.map((tour) => (
                   <div key={tour.tourId} className="px-3">
@@ -429,56 +384,64 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-10 bg-gray-100">
-      
-        <div className="max-w-7xl mx-auto px-5">
-          <div className="flex justify-between items-center mb-8">
-            <div className="w-full ">
-              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
-                Best Packages For You
-              </h2>
+      {history.length > 0 && (
+        <section className="py-10 bg-gray-100">
+          <div className="max-w-7xl mx-auto px-5">
+            <div className="flex justify-between items-center mb-8">
+              <div className="w-full">
+                <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+                  Best Packages For You
+                </h2>
+              </div>
+              <div className="text-end w-[75px]">
+                <span
+                  onClick={() => navigate('/bestforyou')}
+                  className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
+                  Xem tất cả
+                </span>
+              </div>
             </div>
-            <div className="text-end w-[75px]">
-              <span
-                onClick={() => navigate('/bestforyou')} // Navigate to /all-tours
-                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
-                Xem tất cả
-              </span>
+
+            <div className="relative">
+              {historyLoading ? (
+                <div className="flex justify-center items-center h-32">
+                  <Spin size="large" tip="Loading recommendations..." />
+                </div>
+              ) : historyError ? (
+                <div className="text-center text-red-600">
+                  Error: {historyError}
+                </div>
+              ) : (
+                <Carousel
+                  dots={false}
+                  arrows={true}
+                  prevArrow={<CustomPrevArrow />}
+                  nextArrow={<CustomNextArrow />}
+                  slidesToShow={Math.min(3, history.length)}
+                  slidesToScroll={1}
+                  infinite={history.length > 3}
+                  className="w-full">
+                  {history
+                    .filter((item) => item.tour !== null)
+                    .map((item) => (
+                      <div
+                        key={item.tour?.tourId || item.id}
+                        className="px-3 h-full">
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5 }}
+                          className="flex justify-center h-full">
+                          <ItemTourBestForYou tour={item.tour} />
+                        </motion.div>
+                      </div>
+                    ))}
+                </Carousel>
+              )}
             </div>
           </div>
-
-          {recommendations.length === 0 ? (
-            <div className="text-center text-gray-600">No tours available.</div>
-          ) : (
-            <div className="relative">
-              <Carousel
-                dots={false}
-                arrows={true}
-                prevArrow={<CustomPrevArrow />}
-                nextArrow={<CustomNextArrow />}
-                slidesToShow={Math.min(3, recommendations.length)}
-                slidesToScroll={1}
-                infinite={recommendations.length > 3}
-                className="w-full">
-                {recommendations
-  .filter((item) => item.tour !== null) // Lọc ra các mục có tour không null
-  .map((item) => (
-    <div key={item.tour.tourId} className="px-3 h-full">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex justify-center h-full">
-        <ItemTourBestForYou tour={item.tour} />
-      </motion.div>
-    </div>
-  ))}
-
-              </Carousel>
-            </div>
-          )}
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="py-12 bg-gray-200">
         <div className="max-w-7xl mx-auto px-5">
@@ -496,8 +459,13 @@ const Home = () => {
               </span>
             </div>
           </div>
-
-          {filteredTours.length === 0 ? (
+          {toursLoading ? (
+            <div className="flex justify-center items-center h-32">
+              <Spin size="large" tip="Loading popular tours..." />
+            </div>
+          ) : toursError ? (
+            <div className="text-center text-red-600">Error: {toursError}</div>
+          ) : filteredTours.length === 0 ? (
             <div className="text-center text-gray-600">No tours available.</div>
           ) : (
             <div className="relative">
@@ -544,7 +512,13 @@ const Home = () => {
             </div>
           </div>
 
-          {filteredTours.length === 0 ? (
+          {toursLoading ? (
+            <div className="flex justify-center items-center h-32">
+              <Spin size="large" tip="Loading popular tours..." />
+            </div>
+          ) : toursError ? (
+            <div className="text-center text-red-600">Error: {toursError}</div>
+          ) : filteredTours.length === 0 ? (
             <div className="text-center text-gray-600">No tours available.</div>
           ) : (
             <div className="relative">
@@ -591,7 +565,13 @@ const Home = () => {
             </div>
           </div>
 
-          {filteredTours.length === 0 ? (
+          {toursLoading ? (
+            <div className="flex justify-center items-center h-32">
+              <Spin size="large" tip="Loading popular tours..." />
+            </div>
+          ) : toursError ? (
+            <div className="text-center text-red-600">Error: {toursError}</div>
+          ) : filteredTours.length === 0 ? (
             <div className="text-center text-gray-600">No tours available.</div>
           ) : (
             <div className="relative">
@@ -638,7 +618,13 @@ const Home = () => {
             </div>
           </div>
 
-          {filteredTours.length === 0 ? (
+          {toursLoading ? (
+            <div className="flex justify-center items-center h-32">
+              <Spin size="large" tip="Loading popular tours..." />
+            </div>
+          ) : toursError ? (
+            <div className="text-center text-red-600">Error: {toursError}</div>
+          ) : filteredTours.length === 0 ? (
             <div className="text-center text-gray-600">No tours available.</div>
           ) : (
             <div className="relative">
@@ -685,7 +671,13 @@ const Home = () => {
             </div>
           </div>
 
-          {filteredTours.length === 0 ? (
+          {toursLoading ? (
+            <div className="flex justify-center items-center h-32">
+              <Spin size="large" tip="Loading popular tours..." />
+            </div>
+          ) : toursError ? (
+            <div className="text-center text-red-600">Error: {toursError}</div>
+          ) : filteredTours.length === 0 ? (
             <div className="text-center text-gray-600">No tours available.</div>
           ) : (
             <div className="relative">

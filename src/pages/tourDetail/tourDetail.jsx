@@ -494,11 +494,13 @@ export default function TourDetail() {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <motion.div variants={buttonVariants} whileHover="hover">
-              <Button
-                onClick={() => navigate('/')}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4">
-                <ArrowLeftOutlined />
-              </Button>
+            <Button
+  onClick={() => navigate(-1)} // Quay lại trang trước
+  className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
+>
+  <ArrowLeftOutlined />
+</Button>
+
             </motion.div>
             <img src={logo} alt="Travel TADA" className="h-8 w-auto" />
             <span
