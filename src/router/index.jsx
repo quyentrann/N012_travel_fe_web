@@ -15,6 +15,8 @@ import PriceTour from "../pages/PricePage/priceTour";
 import About from "../pages/About/about";
 import SearchPage from "../pages/SearchPage/SearchPage";
 import Recommended from "../pages/Recommended/recommended";
+import PaymentResult from "../pages/paymentPage/paymentPage";
+import FavouriteTours from "../pages/FavouriteTours/FavouriteTours";
 export default function AppRouter() {
   return (
     <Routes>
@@ -34,6 +36,8 @@ export default function AppRouter() {
       <Route path="/about" element={<About />} />
       <Route path="/search" element={<SearchPage />} />
       <Route path="/recommended" element={<Recommended />} />
+      <Route path="/payment-result" element={<PaymentResult />} />
+      <Route path="/favourite-tours" element={<FavouriteTours />} />
     </Routes>
   );
 }

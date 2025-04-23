@@ -1115,6 +1115,7 @@ export default function TourDetail() {
                 priceForOneAdult={priceForOneAdult}
                 priceForOneChild={priceForOneChild}
                 priceForOneInfant={priceForOneInfant}
+                tour={tour}
               />
             </motion.div>
           </Modal>

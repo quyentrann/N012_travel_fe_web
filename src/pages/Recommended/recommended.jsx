@@ -4,10 +4,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   SearchOutlined,
   UserOutlined,
-  MenuOutlined,
-  CloseOutlined,
-  LeftCircleOutlined,
-  RightCircleOutlined,
   BellOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
@@ -27,6 +23,8 @@ import { fetchLocations } from '../../redux/locationSlice';
 import { fetchUnreadCount } from '../../redux/notificationSlice';
 import { setSearchTerm } from '../../redux/searchSlice';
 import { fetchSearchHistory } from '../../redux/searchHistorySlice';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
 
 const defaultAvatar = 'https://via.placeholder.com/40?text=User';
 
@@ -35,24 +33,8 @@ const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
   { label: 'Tour Gợi Ý', path: '/recommended' },
-  { label: 'Tour Yêu Thích', path: '/tours' },
+  { label: 'Tour Yêu Thích', path: '/favourite-tours' },
 ];
-
-const CustomPrevArrow = ({ onClick }) => (
-  <div
-    className="absolute z-10 left-0 top-1/2 transform -translate-y-1/2 cursor-pointer"
-    onClick={onClick}>
-    <LeftCircleOutlined style={{ fontSize: '17px', color: 'gray' }} />
-  </div>
-);
-
-const CustomNextArrow = ({ onClick }) => (
-  <div
-    className="absolute z-10 right-0 top-1/2 transform -translate-y-1/2 cursor-pointer"
-    onClick={onClick}>
-    <RightCircleOutlined style={{ fontSize: '17px', color: 'gray' }} />
-  </div>
-);
 
 const Home = () => {
   const navigate = useNavigate();
@@ -80,34 +62,6 @@ const Home = () => {
   const [recommendations, setRecommendations] = useState([]);
   // console.log('tour', tours);
 
-  // useEffect(() => {
-  //   if (isAuthenticated) {
-  //     const fetchSearchHistory = async () => {
-  //       try {
-  //         const token = localStorage.getItem('TOKEN');
-  //         if (!token) {
-  //           console.error('No token found in localStorage');
-  //           return;
-  //         }
-
-  //         const response = await axios.get('http://localhost:8080/api/search-history/my-history', {
-  //           headers: {
-  //             Authorization: `Bearer ${token}`,
-  //           },
-  //         });
-
-  //         setRecommendations(response.data);
-  //         console.log('Search History:', response.data);
-  //       } catch (err) {
-  //         console.error('Failed to fetch search history:', err.response?.data || err.message);
-  //       }
-  //     };
-
-  //     fetchSearchHistory();
-  //   } else {
-  //     console.log('Not authenticated, skipping search history fetch');
-  //   }
-  // }, [isAuthenticated]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -122,32 +76,6 @@ const Home = () => {
     };
     fetchData();
   }, [dispatch, isAuthenticated]);
-
-  // Fetch locations
-  // useEffect(() => {
-  //   dispatch(fetchLocations());
-  // }, [dispatch]);
-
-  // Fetch tours
-  // useEffect(() => {
-  //   dispatch(fetchTours());
-  // }, [dispatch]);
-
-  // Handle search
-  // useEffect(() => {
-  //   if (!searchTerm.trim()) {
-  //     dispatch(setFilteredTours(tours));
-  //   } else {
-  //     const filtered = tours.filter((tour) =>
-  //       tour.name.toLowerCase().includes(searchTerm.toLowerCase())
-  //     );
-  //     dispatch(setFilteredTours(filtered));
-  //   }
-  // }, [searchTerm, tours, dispatch]);
-
-  // const handleSearchChange = (e) => {
-  //   dispatch(setSearchTerm(e.target.value));
-  // };
 
   // Handle logout
   const handleLogout = () => {
@@ -177,159 +105,7 @@ const Home = () => {
   return (
     <div className="min-h-screen font-sans w-screen">
       {/* Navbar */}
-      <nav
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3] py-2">
-        <div className="mx-[30px] flex justify-between items-center">
-          {/* Left Section: Logo and Title */}
-          <div className="flex items-center">
-            <img src={logo} alt="logo" className="h-8 w-auto" />
-            <span
-              className="text-[16px] font-bold text-black"
-              style={{ fontFamily: 'Dancing Script, cursive' }}>
-              Travel TADA
-            </span>
-            <div className="pl-10 hidden md:flex items-center space-x-6">
-              {navLinks.map((link) => (
-                <span
-                  key={link.label}
-                  onClick={() => navigate(link.path)}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer">
-                  {link.label}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* Right Section: User Actions */}
-          <div className="flex items-center space-x-2 cursor-pointer">
-            {/* Search Bar */}
-            {isAuthenticated && (
-              <div
-                className="relative flex items-center cursor-pointer"
-                onClick={() => navigate('/search')}>
-                <motion.div
-                  className="flex items-center w-40 md:w-60 rounded-[18px] h-[35px] text-sm py-1 pl-4 pr-10 bg-white border border-gray-300 text-gray-500"
-                  whileHover={{ scale: 1.02 }}>
-                  <span className=" text-[12px]">Tìm kiếm tour...</span>
-                  <SearchOutlined className="absolute right-3 text-gray-500" />
-                </motion.div>
-              </div>
-            )}
-
-            {/* Notification Icon */}
-            {isAuthenticated && (
-              <motion.div
-                whileHover={{ scale: 1.1, rotate: 10 }}
-                className="relative cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
-                onClick={() => navigate('/notifications')}>
-                <BellOutlined />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[12px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">
-                    {unreadCount}
-                  </span>
-                )}
-              </motion.div>
-            )}
-
-            {/* User Dropdown */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                onClick={() => setOpen(!open)}
-                className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200">
-                {isAuthenticated && user ? (
-                  <>
-                    <motion.span
-                      whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium truncate max-w-[140px]">
-                      {user.customer?.fullName || 'User'}
-                    </motion.span>
-                    <motion.div whileHover={{ scale: 1.1 }}>
-                      <Avatar
-                        src={user.customer?.avatarUrl || defaultAvatar}
-                        size={28}
-                        icon={<UserOutlined />}
-                        className="border border-gray-200 shadow-sm"
-                      />
-                    </motion.div>
-                  </>
-                ) : (
-                  <>
-                    <motion.div whileHover={{ scale: 1.1 }}>
-                      <UserOutlined className="text-[16px]" />
-                    </motion.div>
-                    <motion.span
-                      whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium">
-                      Tài khoản
-                    </motion.span>
-                  </>
-                )}
-              </button>
-              {/* Dropdown Menu */}
-              {open && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50">
-                  {isAuthenticated && user ? (
-                    <>
-                      <button
-                        className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                        onClick={() => {
-                          navigate('/profile');
-                          setOpen(false);
-                        }}>
-                        Thông tin cá nhân
-                      </button>
-                      <button
-                        className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                        onClick={() => {
-                          navigate('/orders');
-                          setOpen(false);
-                        }}>
-                        Đơn mua
-                      </button>
-                      <button
-                        className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                        onClick={() => {
-                          handleLogout();
-                          setOpen(false);
-                        }}>
-                        Đăng xuất
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        className="w-full bg-cyan-600 text-white py-1.5 px-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition"
-                        onClick={() => {
-                          navigate('/login');
-                          setOpen(false);
-                        }}>
-                        Đăng nhập
-                      </button>
-                      <p className="text-center text-gray-600 text-xs mt-2 px-2">
-                        Bạn chưa có tài khoản?{' '}
-                        <span
-                          className="text-cyan-600 font-medium cursor-pointer hover:underline"
-                          onClick={() => {
-                            navigate('/register');
-                            setOpen(false);
-                          }}>
-                          Đăng ký ngay
-                        </span>
-                      </p>
-                    </>
-                  )}
-                </motion.div>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Header/>
 
 
       {history.length > 0 && (
@@ -384,35 +160,7 @@ const Home = () => {
 
 
       {/* Footer */}
-      <footer className="bg-[#f0ede3] text-black py-3">
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Về Travel TADA</h4>
-              <p className="text-sm">
-                Nền tảng du lịch trực tuyến mang đến những hành trình đáng nhớ,
-                an toàn và tiện lợi.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Chính sách</h4>
-              <ul className="text-sm space-y-2">
-                <li>
-                  <a href="/about" className="hover:underline">
-                    Chính sách hoàn hủy
-                  </a>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Liên hệ</h4>
-              <p className="text-sm">Email: support@traveltada.vn</p>
-              <p className="text-sm">Hotline: 1900 8888</p>
-            </div>
-          </div>
-          <p className="text-sm">© 2025 Travel TADA. All rights reserved.</p>
-        </div>
-      </footer>
+     <Footer/>
     </div>
   );
 };

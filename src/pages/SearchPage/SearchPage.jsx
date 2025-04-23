@@ -99,63 +99,6 @@ const SearchPage = () => {
     }
   }, [isAuthenticated, dispatch]);
 
-  // Handle search and filtering
-  // useEffect(() => {
-  //   let filtered = tours;
-
-  //   // Filter by search term
-  //   if (searchTerm.trim()) {
-  //     filtered = filtered.filter((tour) =>
-  //       tour.name.toLowerCase().includes(searchTerm.toLowerCase())
-  //     );
-  //   }
-
-  //   // Filter by location
-  //   if (filter.location) {
-  //     const cleanedFilterLocation = cleanLocation(filter.location);
-  //     const simplifiedFilterLocation = simplifyLocation(cleanedFilterLocation);
-  //     filtered = filtered.filter(
-  //       (tour) =>
-  //         typeof tour?.location === 'string' &&
-  //         tour?.location
-  //           .toLowerCase()
-  //           .includes(simplifiedFilterLocation.toLowerCase())
-  //     );
-  //   }
-
-  //   // Filter by price range
-  //   if (filter.priceRange) {
-  //     const [min, max] = filter.priceRange.split('-').map(Number);
-  //     filtered = filtered.filter(
-  //       (tour) => tour.price >= min && tour.price <= max
-  //     );
-  //   }
-
-  //   if (filter.dates) {
-  //     const [start, end] = filter.dates;
-  //     filtered = filtered.filter((tour) => {
-  //       // Kiểm tra tour.tourDetails là mảng và không rỗng
-  //       if (!tour.tourDetails || !Array.isArray(tour.tourDetails)) {
-  //         return false;
-  //       }
-  //       // Tìm lịch trình có giao với [start, end]
-  //       return tour.tourDetails.some((detail) => {
-  //         const tourStart = new Date(detail.startDate);
-  //         const tourEnd = new Date(detail.endDate);
-  //         return (
-  //           tourStart &&
-  //           tourEnd &&
-  //           !isNaN(tourStart) &&
-  //           !isNaN(tourEnd) &&
-  //           tourStart <= end &&
-  //           tourEnd >= start
-  //         );
-  //       });
-  //     });
-  //   }
-
-  //   dispatch(setFilteredTours(filtered));
-  // }, [searchTerm, filter, tours, dispatch]);
 
   const handleSearch = () => {
     let filtered = tours;
@@ -239,23 +182,17 @@ const SearchPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // const handleSearchChange = (e) => {
-  //   dispatch(setSearchTerm(e.target.value));
-  // };
   const handleSearchChange = (e) => {
     setLocalSearchTerm(e.target.value); // Không dispatch liền
   };
 
   const triggerSearch = async () => {
-    dispatch(setSearchTerm(localSearchTerm)); // Cập nhật Redux
-    handleSearch(); // Lọc trên frontend, giữ nguyên UI
-  
-    // Gửi request đến backend để lưu lịch sử + kết quả tìm kiếm
+    dispatch(setSearchTerm(localSearchTerm));
     if (isAuthenticated && localSearchTerm.trim()) {
       try {
-        await axios.post(
+        const response = await axios.post(
           `http://localhost:8080/api/search-history/search?query=${encodeURIComponent(localSearchTerm.trim())}`,
-          {}, // body rỗng
+          {},
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('TOKEN')}`,
@@ -263,11 +200,14 @@ const SearchPage = () => {
             },
           }
         );
-  
-        console.log('✅ Đã lưu lịch sử + danh sách tour tìm được');
+        console.log('✅ Đã lưu lịch sử + danh sách tour tìm được:', response.data);
+        dispatch(setFilteredTours(response.data)); // Dùng kết quả từ API
       } catch (error) {
         console.error('❌ Lỗi khi lưu lịch sử tìm kiếm:', error);
+        handleSearch(); // Fallback: lọc trên client nếu API lỗi
       }
+    } else {
+      handleSearch(); // Lọc trên client nếu không authenticated
     }
   };
   
@@ -290,8 +230,7 @@ const SearchPage = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white font-sans w-screen">
       {/* Navbar */}
       <motion.nav
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
+       z
         className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3] py-2">
         <div className="mx-[30px] flex justify-between items-center">
           {/* Left Section: Logo and Title */}

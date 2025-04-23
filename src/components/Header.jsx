@@ -12,7 +12,8 @@ import defaultAvatar from '../images/defaultAvatar.png';
 const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
-  { label: 'Tour Gợi Ý', path: '/recommended' },
+  { label: 'Tours', path: '/search' },
+  { label: 'Dành cho bạn', path: '/recommended' },
   { label: 'Tour Yêu Thích', path: '/favourite-tours' },
 ];
 
@@ -48,36 +49,37 @@ const Header = () => {
           <img src={logo} alt="logo" className="h-8 w-auto" />
           <span
             className="text-[16px] font-bold text-black"
-            style={{ fontFamily: 'Dancing Script, cursive' }}
-          >
+            style={{ fontFamily: 'Dancing Script, cursive' }}>
             Travel TADA
           </span>
           <div className="pl-10 hidden md:flex items-center space-x-6">
-            {navLinks.map((link) => (
-              <NavLink
-                key={link.label}
-                to={link.path}
-                className={({ isActive }) =>
-                  `text-base font-medium transition duration-150 cursor-pointer ${
-                    isActive ? 'text-cyan-600' : 'text-gray-700 hover:text-cyan-600'
-                  }`
-                }
-              >
-                {link.label}
-              </NavLink>
-            ))}
+            {navLinks.map((link) => {
+              if (
+                (link.label === 'Dành cho bạn' ||
+                  link.label === 'Tour Yêu Thích') &&
+                !isAuthenticated
+              ) {
+                return null;
+              }
+              return (
+                <span
+                  key={link.label}
+                  onClick={() => navigate(link.path)}
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer">
+                  {link.label}
+                </span>
+              );
+            })}
           </div>
         </div>
         <div className="flex items-center space-x-2 cursor-pointer">
           {isAuthenticated && (
             <div
               className="relative flex items-center cursor-pointer"
-              onClick={() => navigate('/search')}
-            >
+              onClick={() => navigate('/search')}>
               <motion.div
                 className="flex items-center w-40 md:w-60 rounded-[18px] h-[35px] text-sm py-1 pl-4 pr-10 bg-white border border-gray-300 text-gray-500"
-                whileHover={{ scale: 1.02 }}
-              >
+                whileHover={{ scale: 1.02 }}>
                 <span className="text-[12px]">Tìm kiếm tour...</span>
                 <SearchOutlined className="absolute right-3 text-gray-500" />
               </motion.div>
@@ -87,8 +89,7 @@ const Header = () => {
             <motion.div
               whileHover={{ scale: 1.1, rotate: 10 }}
               className="relative cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
-              onClick={() => navigate('/notifications')}
-            >
+              onClick={() => navigate('/notifications')}>
               <BellOutlined />
               {unreadCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[12px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">
@@ -100,14 +101,12 @@ const Header = () => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setOpen(!open)}
-              className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200"
-            >
+              className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200">
               {isAuthenticated && user ? (
                 <>
                   <motion.span
                     whileHover={{ scale: 1.05 }}
-                    className="text-sm font-medium truncate max-w-[140px] mr-2"
-                  >
+                    className="text-sm font-medium truncate max-w-[140px] mr-2">
                     {user.customer?.fullName || 'User'}
                   </motion.span>
                   <motion.div whileHover={{ scale: 1.1 }}>
@@ -130,8 +129,7 @@ const Header = () => {
                   </motion.div>
                   <motion.span
                     whileHover={{ scale: 1.05 }}
-                    className="text-sm font-medium"
-                  >
+                    className="text-sm font-medium">
                     Tài khoản
                   </motion.span>
                 </>
@@ -142,8 +140,7 @@ const Header = () => {
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50"
-              >
+                className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50">
                 {isAuthenticated && user ? (
                   <>
                     <button
@@ -151,8 +148,7 @@ const Header = () => {
                       onClick={() => {
                         navigate('/profile');
                         setOpen(false);
-                      }}
-                    >
+                      }}>
                       Thông tin cá nhân
                     </button>
                     <button
@@ -160,14 +156,15 @@ const Header = () => {
                       onClick={() => {
                         navigate('/orders');
                         setOpen(false);
-                      }}
-                    >
+                      }}>
                       Đơn mua
                     </button>
                     <button
                       className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                      onClick={handleLogout}
-                    >
+                      onClick={() => {
+                        handleLogout();
+                        setOpen(false);
+                      }}>
                       Đăng xuất
                     </button>
                   </>
@@ -178,8 +175,7 @@ const Header = () => {
                       onClick={() => {
                         navigate('/login');
                         setOpen(false);
-                      }}
-                    >
+                      }}>
                       Đăng nhập
                     </button>
                     <p className="text-center text-gray-600 text-xs mt-2 px-2">
@@ -189,8 +185,7 @@ const Header = () => {
                         onClick={() => {
                           navigate('/register');
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Đăng ký ngay
                       </span>
                     </p>

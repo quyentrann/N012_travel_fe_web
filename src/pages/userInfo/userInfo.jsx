@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useDispatch } from 'react-redux';
 import {
   UserOutlined,
   MailOutlined,
   PhoneOutlined,
   HomeOutlined,
-  CalendarOutlined,
   UploadOutlined,
   EditOutlined,
   LogoutOutlined,
@@ -25,84 +25,107 @@ const Profile = () => {
   const [userData, setUserData] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
-  // Hàm xử lý chữ cái đầu từ fullName, hỗ trợ Unicode
   const getFirstChar = (fullName) => {
     if (!fullName) return 'U';
     const normalized = fullName.normalize('NFC');
     return normalized[0]?.toUpperCase() || 'U';
   };
 
-  // Fetch user profile
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
-      const user = await fetchUserProfile(navigate);
-      if (user) {
-        setUserData(user);
-        console.log(user);
-
-        if (user?.customer) {
-          form.setFieldsValue({
-            fullName: user.customer.fullName || '',
-            email: user.email || '',
-            phoneNumber: user.customer.phoneNumber || '',
-            address: user.customer.address || '',
-            dob: user.customer.dob || '',
-            gender: user.customer.gender ? 'female' : user.customer.gender === false ? 'male' : 'other',
-          });
-
-          // Cập nhật avatarText từ fullName
-          if (user.customer.fullName) {
-            setAvatarText(getFirstChar(user.customer.fullName));
-          }
-          // Cập nhật avatarUrl
-          if (user.customer.avatarUrl) {
-            setAvatarUrl(user.customer.avatarUrl);
+      try {
+        const user = await fetchUserProfile(navigate, dispatch);
+        if (user) {
+          setUserData(user);
+          console.log('User data loaded:', user); // Debug
+          if (user?.customer) {
+            form.setFieldsValue({
+              fullName: user.customer.fullName || '',
+              email: user.email || '',
+              phoneNumber: user.customer.phoneNumber || '',
+              address: user.customer.address || '',
+              dob: user.customer.dob || '',
+              gender: user.customer.gender ? 'female' : 'male',
+            });
+            if (user.customer.fullName) {
+              setAvatarText(getFirstChar(user.customer.fullName));
+            }
+            if (user.customer.avatarUrl) {
+              setAvatarUrl(user.customer.avatarUrl);
+            }
           }
         }
+      } catch (error) {
+        message.error('Lỗi tải hồ sơ: ' + (error.response?.data?.message || error.message));
       }
       setLoading(false);
     };
-
     loadProfile();
-  }, [form, navigate]);
+  }, [form, navigate, dispatch]);
 
-  // Handle profile update
   const onUpdateProfile = async (values) => {
     setLoading(true);
     const token = localStorage.getItem('TOKEN');
-    const success = await handleUpdateProfile(values, token);
-    if (success) {
-      setEditMode(false);
 
-      // Cập nhật avatarText nếu fullName thay đổi
-      if (values.fullName) {
-        setAvatarText(getFirstChar(values.fullName));
+    const payload = {
+      fullName: values.fullName || '',
+      email: values.email || userData?.email || '',
+      phoneNumber: values.phoneNumber || '',
+      address: values.address || '',
+      dob: values.dob || '',
+      gender: values.gender === 'female', // Chuyển thành boolean
+    };
+
+    try {
+      console.log('Payload sent to API:', payload); // Debug
+      const success = await handleUpdateProfile(payload, token);
+      if (success) {
+        // Làm mới dữ liệu người dùng
+        const updatedUser = await fetchUserProfile(navigate, dispatch);
+        if (updatedUser) {
+          setUserData(updatedUser);
+          form.setFieldsValue({
+            fullName: updatedUser.customer?.fullName || '',
+            email: updatedUser.email || '',
+            phoneNumber: updatedUser.customer?.phoneNumber || '',
+            address: updatedUser.customer?.address || '',
+            dob: updatedUser.customer?.dob || '',
+            gender: updatedUser.customer?.gender ? 'female' : 'male',
+          });
+          if (updatedUser.customer?.fullName) {
+            setAvatarText(getFirstChar(updatedUser.customer.fullName));
+          }
+          if (updatedUser.customer?.avatarUrl) {
+            setAvatarUrl(updatedUser.customer.avatarUrl);
+          }
+          message.success('Cập nhật hồ sơ thành công!');
+        }
+        setEditMode(false);
       }
-
-      // Update local userData
-      setUserData((prev) => ({
-        ...prev,
-        customer: { ...prev.customer, ...values },
-        email: values.email || prev.email,
-      }));
+    } catch (error) {
+      message.error('Cập nhật hồ sơ thất bại: ' + (error.response?.data?.message || error.message));
     }
     setLoading(false);
   };
 
-  // Handle avatar upload
   const onAvatarUpload = async ({ file }) => {
     setUploading(true);
     const token = localStorage.getItem('TOKEN');
-    const newAvatarUrl = await handleAvatarUpload(file, token);
-    if (newAvatarUrl) {
-      setAvatarUrl(newAvatarUrl);
+    try {
+      const newAvatarUrl = await handleAvatarUpload(file, token, dispatch, navigate);
+      if (newAvatarUrl) {
+        setAvatarUrl(newAvatarUrl);
+        message.success('Tải ảnh đại diện thành công!');
+      }
+    } catch (error) {
+      message.error('Tải ảnh thất bại: ' + (error.response?.data?.message || error.message));
     }
     setUploading(false);
   };
 
-  // Handle logout
   const handleLogout = () => {
     localStorage.clear();
     setUserData(null);
@@ -110,15 +133,13 @@ const Profile = () => {
     navigate('/login');
   };
 
-  // Xử lý lỗi tải ảnh
   const handleAvatarError = () => {
     console.error('Lỗi tải ảnh từ avatarUrl:', avatarUrl);
-    setAvatarUrl(null); // Reset avatarUrl để hiển thị avatarText
+    setAvatarUrl(null);
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col w-screen">
-      {/* Header */}
       <motion.header
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
@@ -133,19 +154,13 @@ const Profile = () => {
             </span>
           </div>
           <div className="flex items-center space-x-4">
-            <Button
-              type="text"
-              onClick={() => navigate('/')}
-              className="text-gray-600 hover:text-blue-600 text-sm"
-              aria-label="Quay về trang chủ"
-            >
+            <Button type="text" onClick={() => navigate('/')} className="text-gray-600 hover:text-blue-600 text-sm">
               Trang chủ
             </Button>
             <Button
               type="text"
               onClick={() => navigate('/orders')}
               className="text-gray-600 hover:text-blue-600 text-sm"
-              aria-label="Đơn mua"
             >
               Đơn mua
             </Button>
@@ -154,7 +169,6 @@ const Profile = () => {
               icon={<LogoutOutlined />}
               onClick={handleLogout}
               className="text-gray-600 hover:text-red-600 text-sm"
-              aria-label="Đăng xuất"
             >
               Đăng xuất
             </Button>
@@ -162,7 +176,6 @@ const Profile = () => {
         </div>
       </motion.header>
 
-      {/* Main Content */}
       <div className="flex-grow flex items-center justify-center p-4 sm:p-8 bg-[#fefcf8f4]">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
@@ -176,7 +189,6 @@ const Profile = () => {
             </div>
           ) : (
             <>
-              {/* Profile Header */}
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -199,24 +211,17 @@ const Profile = () => {
                 </div>
               </motion.div>
 
-              {/* Profile Actions */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
                 className="flex space-x-4 mb-6"
               >
-                <Upload
-                  customRequest={onAvatarUpload}
-                  showUploadList={false}
-                  accept="image/*"
-                  disabled={uploading}
-                >
+                <Upload customRequest={onAvatarUpload} showUploadList={false} accept="image/*" disabled={uploading}>
                   <Button
                     icon={<UploadOutlined />}
                     loading={uploading}
                     className="bg-blue-600 text-white border-none rounded-lg mr-2 py-2 text-sm hover:bg-blue-700 transition-all"
-                    aria-label="Tải ảnh đại diện"
                   >
                     {uploading ? 'Đang tải...' : 'Thay ảnh đại diện'}
                   </Button>
@@ -225,7 +230,6 @@ const Profile = () => {
                   icon={<EditOutlined />}
                   onClick={() => setEditMode(!editMode)}
                   className="bg-transparent text-blue-600 border border-blue-600 rounded-lg px-4 py-2 text-sm hover:bg-blue-600 hover:text-white transition-all"
-                  aria-label={editMode ? 'Xem thông tin' : 'Chỉnh sửa hồ sơ'}
                 >
                   {editMode ? 'Xem thông tin' : 'Chỉnh sửa'}
                 </Button>
@@ -233,19 +237,13 @@ const Profile = () => {
 
               <Divider className="my-6" />
 
-              {/* Profile Details */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
               >
                 {editMode ? (
-                  <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={onUpdateProfile}
-                    className="space-y-4"
-                  >
+                  <Form form={form} layout="vertical" onFinish={onUpdateProfile} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <Form.Item
                         label={<span className="text-gray-700 text-sm font-medium">Họ và Tên</span>}
@@ -256,10 +254,8 @@ const Profile = () => {
                           prefix={<UserOutlined className="text-gray-400 text-sm" />}
                           placeholder="Họ và tên"
                           className="rounded-lg py-2 px-3 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          aria-required="true"
                         />
                       </Form.Item>
-
                       <Form.Item
                         label={<span className="text-gray-700 text-sm font-medium">Email</span>}
                         name="email"
@@ -268,13 +264,18 @@ const Profile = () => {
                           prefix={<MailOutlined className="text-gray-400 text-sm" />}
                           disabled
                           className="rounded-lg py-2 px-3 bg-gray-100 border-gray-300"
-                          aria-disabled="true"
                         />
                       </Form.Item>
-
                       <Form.Item
                         label={<span className="text-gray-700 text-sm font-medium">Số điện thoại</span>}
                         name="phoneNumber"
+                        rules={[
+                          {
+                            pattern: /^[0-9]{10,11}$/,
+                            message: 'Số điện thoại phải có 10-11 chữ số!',
+                            validateTrigger: 'onSubmit',
+                          },
+                        ]}
                       >
                         <Input
                           prefix={<PhoneOutlined className="text-gray-400 text-sm" />}
@@ -282,7 +283,6 @@ const Profile = () => {
                           className="rounded-lg py-2 px-3 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </Form.Item>
-
                       <Form.Item
                         label={<span className="text-gray-700 text-sm font-medium">Địa chỉ</span>}
                         name="address"
@@ -293,44 +293,51 @@ const Profile = () => {
                           className="rounded-lg py-2 px-3 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
                       </Form.Item>
-
                       <Form.Item
                         label={<span className="text-gray-700 text-sm font-medium">Ngày sinh</span>}
                         name="dob"
+                        rules={[
+                          {
+                            validator: (_, value) =>
+                              !value || new Date(value) <= new Date()
+                                ? Promise.resolve()
+                                : Promise.reject('Ngày sinh không hợp lệ!'),
+                            validateTrigger: 'onSubmit',
+                          },
+                        ]}
                       >
                         <Input
                           type="date"
                           className="rounded-lg py-2 px-3 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          aria-label="Ngày sinh"
                         />
                       </Form.Item>
-
                       <Form.Item
                         label={<span className="text-gray-700 text-sm font-medium">Giới tính</span>}
                         name="gender"
+                        rules={[{ required: true, message: 'Vui lòng chọn giới tính!' }]}
                       >
                         <Radio.Group className="flex space-x-4">
-                          <Radio value="male" className="text-gray-600 text-sm">Nam</Radio>
-                          <Radio value="female" className="text-gray-600 text-sm">Nữ</Radio>
-                          <Radio value="other" className="text-gray-600 text-sm">Khác</Radio>
+                          <Radio value="male" className="text-gray-600 text-sm">
+                            Nam
+                          </Radio>
+                          <Radio value="female" className="text-gray-600 text-sm">
+                            Nữ
+                          </Radio>
                         </Radio.Group>
                       </Form.Item>
                     </div>
-
                     <div className="flex space-x-4">
                       <Button
                         type="primary"
                         htmlType="submit"
                         loading={loading}
                         className="w-1/2 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 border-none text-white text-sm font-medium"
-                        aria-label="Lưu thay đổi"
                       >
                         Lưu
                       </Button>
                       <Button
                         onClick={() => setEditMode(false)}
                         className="w-1/2 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 border-none text-gray-700 text-sm font-medium"
-                        aria-label="Hủy chỉnh sửa"
                       >
                         Hủy
                       </Button>
@@ -361,18 +368,13 @@ const Profile = () => {
                     <div>
                       <p className="text-sm text-gray-500">Giới tính</p>
                       <p className="text-gray-900 font-medium">
-                        {userData?.customer?.gender === false
-                          ? 'Nam'
-                          : userData?.customer?.gender === true
-                          ? 'Nữ'
-                          : 'Khác'}
+                        {userData?.customer?.gender ? 'Nữ' : 'Nam'}
                       </p>
                     </div>
                   </div>
                 )}
               </motion.div>
 
-              {/* Additional Info */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -395,7 +397,6 @@ const Profile = () => {
                     type="link"
                     onClick={() => navigate('/settings')}
                     className="mt-3 text-blue-600 text-sm hover:underline"
-                    aria-label="Chỉnh sửa cài đặt"
                   >
                     Quản lý cài đặt tài khoản
                   </Button>
@@ -406,7 +407,6 @@ const Profile = () => {
         </motion.div>
       </div>
 
-      {/* Footer */}
       <motion.footer
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

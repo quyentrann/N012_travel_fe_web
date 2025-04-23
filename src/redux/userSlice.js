@@ -29,8 +29,13 @@ const userSlice = createSlice({
       state.isAuthenticated = !!action.payload.user;
       state.error = null;
     },
+    updateUser: (state, action) => {
+      state.user = action.payload; // Cập nhật toàn bộ thông tin user
+      state.isAuthenticated = true; // Đảm bảo vẫn đăng nhập
+      state.error = null;
+    },
   },
 });
 
-export const { loginSuccess, loginFailure, logout, initializeAuth } = userSlice.actions;
+export const { loginSuccess, loginFailure, logout, initializeAuth, updateUser } = userSlice.actions;
 export default userSlice.reducer;

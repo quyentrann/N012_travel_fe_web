@@ -1,60 +1,50 @@
-import React, { useState } from 'react';
-import { Button, Card, Tag } from 'antd';
-import {
-  EnvironmentOutlined,
-  HeartOutlined,
-  HeartFilled,
-} from '@ant-design/icons';
+import React from 'react';
+import { Card, Tag, message } from 'antd';
+import { EnvironmentOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import card from '../images/card.jpg';
+import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
-import { useSelector } from 'react-redux';
+import card from '../images/card.jpg';
+import { fetchFavoriteTours } from '../redux/tourSlice';
 
-function ItemTourBestForYou({ tour }) {
+function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
   const navigate = useNavigate();
-  const [isFavorite, setIsFavorite] = useState(false);
+  const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state) => state.user);
 
-  const averageRating = tour.reviews?.length
-    ? (
-        tour.reviews.reduce((sum, review) => sum + review.rating, 0) /
-        tour.reviews.length
-      ).toFixed(1)
-    : 'Chưa có';
-
-  const allBookings = tour.reviews?.map((review) => review.booking) || [];
-  const totalSeatsBooked = allBookings.reduce(
-    (sum, booking) => sum + (booking?.numberPeople || 0),
-    0
-  );
-  const totalOrders = allBookings.length;
-
-  const handleToggleFavorite = (e) => {
+  const handleToggleFavorite = async (e) => {
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
-  };
 
-  const handleTourClick = async () => {
-    // Gửi sự kiện click tới backend nếu đã đăng nhập
-    if (isAuthenticated) {
-      try {
-        await axios.post(
-          `http://localhost:8080/api/search-history/click/${tour.tourId}`, // Cập nhật URL
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('TOKEN')}`,
-              'Content-Type': 'application/json',
-            }, 
-          }
-        );
-        console.log('✅ Đã gửi sự kiện click tour:', tour.tourId);
-      } catch (error) {
-        console.error('❌ Lỗi khi gửi sự kiện click tour:', error);
-      }
+    if (!isAuthenticated) {
+      message.error('Vui lòng đăng nhập để thêm/xóa tour yêu thích!');
+      return;
     }
 
-    // Điều hướng tới trang chi tiết tour
+    try {
+      if (isFavorite) {
+        await axios.delete(`http://localhost:8080/api/tour-favourites/${tour.tourId}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('TOKEN')}` },
+        });
+        message.success('Đã xóa tour khỏi yêu thích!');
+        onFavoriteChange(tour.tourId, false);
+      } else {
+        await axios.post(
+          'http://localhost:8080/api/tour-favourites',
+          { tourId: tour.tourId },
+          { headers: { Authorization: `Bearer ${localStorage.getItem('TOKEN')}` } }
+        );
+        message.success('Đã thêm tour vào yêu thích!');
+        onFavoriteChange(tour.tourId, true);
+      }
+      // Cập nhật favoriteTours trong Redux
+      dispatch(fetchFavoriteTours());
+    } catch (error) {
+      console.error('Lỗi khi cập nhật yêu thích:', error);
+      message.error(error.response?.data?.message || 'Có lỗi xảy ra!');
+    }
+  };
+
+  const handleTourClick = () => {
     navigate('/tour-detail', { state: { id: tour.tourId } });
   };
 
@@ -68,9 +58,7 @@ function ItemTourBestForYou({ tour }) {
               alt={tour.name || 'Travel'}
               className="w-full h-[150px] object-cover rounded-t-lg"
             />
-            <div
-              className="absolute top-2 right-2 cursor-pointer text-[20px]"
-              onClick={handleToggleFavorite}>
+            <div className="absolute top-2 right-2 cursor-pointer text-[20px]" onClick={handleToggleFavorite}>
               {isFavorite ? (
                 <HeartFilled style={{ color: '#CC0000', fontSize: '24px' }} />
               ) : (
@@ -89,24 +77,17 @@ function ItemTourBestForYou({ tour }) {
           </div>
           <div>
             <p className="text-red-700 font-bold text-[13px]">
-              {tour.price
-                ? `${tour.price.toLocaleString()}đ`
-                : 'Giá không có'}
-              /Người
+              {tour.price ? `${tour.price.toLocaleString()}đ` : 'Giá không có'}/Người
             </p>
           </div>
           <div>
-            <p className="text-gray-600 text-[12px] mt-2 line-clamp-2">
-              {tour.description}
-            </p>
+            <p className="text-gray-600 text-[12px] mt-2 line-clamp-2">{tour.description}</p>
           </div>
           <div className="flex justify-between items-center mt-3">
             <Tag icon={<EnvironmentOutlined />} color="black">
               <span className="text-[10px]">{tour.location}</span>
             </Tag>
-            <p className="text-gray-700 text-[13px]">
-              Còn {tour.availableSlot} chỗ
-            </p>
+            <p className="text-gray-700 text-[13px]">Còn {tour.availableSlot} chỗ</p>
           </div>
         </div>
       </Card>
