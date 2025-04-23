@@ -1,117 +1,151 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, Radio, DatePicker, message, Modal } from 'antd';
-import dayjs from 'dayjs';
-import { CreditCardOutlined, PayCircleOutlined, WalletOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Result, Button, Spin, Typography, message } from 'antd';
+import axios from 'axios';
+import { motion } from 'framer-motion';
+import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
-const PaymentPage = ({ tourDetails, totalPrice }) => {
-    const paymentDetails = JSON.parse(localStorage.getItem('tourDetails'));
+const { Title, Text } = Typography;
 
-console.log(paymentDetails); // {tourId, adults, children, infants, totalPrice, fullName, phoneNumber, email, notes}
+const VnpayReturn = () => {
+  const [status, setStatus] = useState(null); // 'success', 'error', 'not-found', null
+  const [messageText, setMessageText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [paymentMethod, setPaymentMethod] = useState('creditCard');
-  const [loading, setLoading] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  useEffect(() => {
+    const fetchVnpayResult = async () => {
+      try {
+        // Lấy query params từ URL
+        const queryParams = new URLSearchParams(location.search);
+        const paramsObject = {};
+        queryParams.forEach((value, key) => {
+          paramsObject[key] = value;
+        });
 
-//   const handlePayment = () => {
-//     setLoading(true);
-//     // Giả sử xử lý thanh toán ở đây
-//     setTimeout(() => {
-//       message.success('Thanh toán thành công!');
-//       setIsModalVisible(true);
-//       setLoading(false);
-//     }, 2000);
-//   };
+        // Gọi API vnpay-return với query params
+        const response = await axios.get('http://localhost:8080/api/payment/vnpay-return', {
+          params: paramsObject,
+          headers: { Authorization: `Bearer ${localStorage.getItem('TOKEN')}` },
+        });
+
+        const { message } = response.data;
+
+        if (message.includes('thành công')) {
+          setStatus('success');
+          setMessageText('Thanh toán thành công! Trạng thái đơn đặt tour đã được cập nhật.');
+        } else if (message.includes('Không tìm thấy booking')) {
+          setStatus('not-found');
+          setMessageText('Không tìm thấy đơn đặt tour. Vui lòng kiểm tra lại.');
+        } else {
+          setStatus('error');
+          setMessageText('Thanh toán thất bại. Vui lòng thử lại sau.');
+        }
+      } catch (error) {
+        console.error('Lỗi khi xử lý kết quả VNPAY:', error.response || error.message);
+        setStatus('error');
+        setMessageText(
+          error.response?.data?.message || 'Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại.'
+        );
+        message.error('Lỗi khi xử lý kết quả thanh toán!');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVnpayResult();
+  }, [location]);
+
+  const handleNavigate = () => {
+    if (status === 'success') {
+      navigate('/orders'); // Về danh sách đơn đặt tour
+    } else {
+      navigate('/'); // Về trang chính nếu thất bại hoặc lỗi
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Spin size="large" tip="Đang xử lý kết quả thanh toán..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-4 h-screen w-screen">
-      <h2 className="text-xl font-semibold mb-4">Trang Thanh Toán</h2>
-
-      {/* Thông tin tour */}
-      <div className="border-b mb-4">
-        <h3 className="font-medium text-lg text-gray-700">Thông tin tour</h3>
-        {/* <p>{tourDetails.name}</p> */}
-        {/* <p>{tourDetails.startDate ? dayjs(tourDetails.startDate).format('DD/MM/YYYY') : 'Chưa có ngày khởi hành'}</p> */}
-        {/* <p><strong>Tổng giá:</strong> {totalPrice.toLocaleString('vi-VN')} đ</p> */}
-      </div>
-
-      {/* Thông tin khách hàng */}
-      {/* <Form layout="vertical">
-        <h3 className="font-medium text-lg text-gray-700 mb-3">Thông tin khách hàng</h3>
-        <Form.Item label="Họ và Tên" required>
-          <Input placeholder="Nhập họ và tên" />
-        </Form.Item>
-
-        <Form.Item label="Số điện thoại" required>
-          <Input placeholder="Nhập số điện thoại" />
-        </Form.Item>
-
-        <Form.Item label="Email" required>
-          <Input type="email" placeholder="Nhập email" />
-        </Form.Item>
-      </Form> */}
-
-      {/* Phương thức thanh toán */}
-      {/* <h3 className="font-medium text-lg text-gray-700 mt-4 mb-3">Chọn phương thức thanh toán</h3> */}
-      {/* <Radio.Group onChange={(e) => setPaymentMethod(e.target.value)} value={paymentMethod}>
-        <Radio value="creditCard">
-          <CreditCardOutlined /> Thẻ tín dụng/ghi nợ
-        </Radio>
-        <Radio value="paypal">
-          <PayCircleOutlined /> PayPal
-        </Radio>
-        <Radio value="bankTransfer">
-          <WalletOutlined /> Chuyển khoản ngân hàng
-        </Radio>
-      </Radio.Group> */}
-
-      {/* Hiển thị thêm thông tin nếu chọn thẻ tín dụng */}
-      {/* {paymentMethod === 'creditCard' && (
-        <div className="mt-4">
-          <Form layout="vertical">
-            <Form.Item label="Số thẻ" required>
-              <Input placeholder="Nhập số thẻ" />
-            </Form.Item>
-            <Form.Item label="Ngày hết hạn" required>
-              <Input placeholder="MM/YY" />
-            </Form.Item>
-            <Form.Item label="Mã CVV" required>
-              <Input placeholder="Nhập mã CVV" />
-            </Form.Item>
-          </Form>
-        </div>
-      )} */}
-
-      {/* Hiển thị thêm thông tin nếu chọn PayPal  */}
-      {/* {paymentMethod === 'paypal' && (
-        <div className="mt-4">
-          <Form.Item label="Email PayPal" required>
-            <Input placeholder="Nhập email PayPal" />
-          </Form.Item>
-        </div>
-      )}
-
-      {/* Nút thanh toán */}
-      {/* <div className="mt-4">
-        <Button type="primary" size="large" block loading={loading} onClick={handlePayment}>
-          Thanh toán
-        </Button>
-      </div> */}
-
-      {/* Modal thanh toán thành công */}
-      {/* <Modal
-        title="Thanh toán thành công!"
-        visible={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={[
-          <Button key="ok" type="primary" onClick={() => setIsModalVisible(false)}>
-            Đóng
-          </Button>,
-        ]}
+    <div className="w-screen min-h-screen bg-gray-50 flex items-center justify-center py-8 px-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-lg w-full bg-white rounded-xl shadow-lg p-8 text-center"
       >
-        <p>Cảm ơn bạn đã đặt tour! Bạn sẽ nhận được thông tin qua email.</p>
-      </Modal> */}
+        {status === 'success' && (
+          <Result
+            icon={<CheckCircleOutlined className="text-6xl text-green-500" />}
+            title={<Title level={3} className="text-green-600">Thanh Toán Thành Công</Title>}
+            subTitle={
+              <Text className="text-gray-600">{messageText}</Text>
+            }
+            extra={
+              <Button
+                type="primary"
+                className="h-10 rounded-md bg-green-300 hover:bg-blue-700"
+                onClick={handleNavigate}
+              >
+                Xem Danh Sách Đơn Đặt Tour
+              </Button>
+            }
+          />
+        )}
+        {status === 'error' && (
+          <Result
+            icon={<CloseCircleOutlined className="text-6xl text-red-500" />}
+            title={<Title level={3} className="text-red-600">Thanh Toán Thất Bại</Title>}
+            subTitle={
+              <Text className="text-gray-600">{messageText}</Text>
+            }
+            extra={
+              <div className="flex gap-4 justify-center">
+                <Button
+                  className="h-10 rounded-md border-blue-600 text-blue-600 hover:bg-blue-50"
+                  onClick={() => navigate('/orders')}
+                >
+                  Thử Lại
+                </Button>
+                <Button
+                  type="primary"
+                  className="h-10 rounded-md bg-blue-600 hover:bg-blue-700"
+                  onClick={handleNavigate}
+                >
+                  Về Trang Chủ
+                </Button>
+              </div>
+            }
+          />
+        )}
+        {status === 'not-found' && (
+          <Result
+            icon={<ExclamationCircleOutlined className="text-6xl text-yellow-500" />}
+            title={<Title level={3} className="text-yellow-600">Lỗi Đơn Đặt Tour</Title>}
+            subTitle={
+              <Text className="text-gray-600">{messageText}</Text>
+            }
+            extra={
+              <Button
+                type="primary"
+                className="h-10 rounded-md bg-blue-600 hover:bg-blue-700"
+                onClick={handleNavigate}
+              >
+                Về Trang Chủ
+              </Button>
+            }
+          />
+        )}
+      </motion.div>
     </div>
   );
 };
 
-export default PaymentPage;
+export default VnpayReturn;

@@ -7,6 +7,8 @@ import card1 from '../../images/pq1.jpg';
 import card2 from '../../images/pq2.jpg';
 import card3 from '../../images/pq4.webp';
 import card4 from '../../images/pq5.jpg';
+import { motion } from 'framer-motion';
+import logo from '../../images/logo.png';
 
 import axios from 'axios';
 import {
@@ -42,6 +44,7 @@ import {
   StarFilled,
   CloseOutlined,
   UserOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 
 import dayjs from 'dayjs';
@@ -49,6 +52,13 @@ import ItemTourBestForYou from '../../components/ItemTourBestForYou';
 
 const promotions = [{ key: '1', label: 'Giảm 10% cho nhóm trên 5 người' }];
 const { Title, Paragraph } = Typography;
+
+const navLinks = [
+  { label: 'Trang Chủ', path: '/' },
+  { label: 'Giới Thiệu', path: '/about' },
+  { label: 'Tour', path: '/tours' },
+  { label: 'Tour Yêu Thích', path: '/tours' },
+];
 
 const itemss = [
   {
@@ -466,16 +476,69 @@ export default function TourDetail() {
     console.log('ạhakjgiu', JSON.stringify(similarTours, null, 2));
   }, [similarTours]);
 
+  const buttonVariants = {
+    rest: { scale: 1 },
+    hover: {
+      scale: 1.1,
+      transition: { duration: 0.2, type: 'spring', stiffness: 300 },
+    },
+  };
+
   return (
-    <div>
+    <div className="min-h-screen bg-[#f8f8f8]">
+      <motion.header
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-[#f0ede3] shadow-md py-4 px-4 sm:px-6 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <motion.div variants={buttonVariants} whileHover="hover">
+            <Button
+  onClick={() => navigate(-1)} // Quay lại trang trước
+  className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
+>
+  <ArrowLeftOutlined />
+</Button>
+
+            </motion.div>
+            <img src={logo} alt="Travel TADA" className="h-8 w-auto" />
+            <span
+              className="text-xl font-bold text-gray-900"
+              style={{ fontFamily: 'Dancing Script, cursive' }}>
+              TADA
+            </span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
+              onClick={() => navigate('/')}
+              aria-label="Trang chủ">
+              Trang chủ
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
+              onClick={() => navigate('/profile')}
+              aria-label="Hồ sơ">
+              Hồ sơ
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              className="text-gray-600 hover:text-red-600 text-sm font-medium flex items-center transition-colors"
+              onClick={() => {
+                localStorage.clear();
+                message.success('Đăng xuất thành công!');
+                navigate('/login');
+              }}
+              aria-label="Đăng xuất">
+              <LogoutOutlined className="mr-1" /> Đăng xuất
+            </motion.button>
+          </div>
+        </div>
+      </motion.header>
       <div className="h-full w-screen px-10 py-5 bg-[#f8f8f8]">
-        <Button
-          type="link"
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/')}
-          className=" font-semibold text-black">
-          Back
-        </Button>
         <div className="flex items-center ">
           {/* Nút Back */}
 
@@ -483,7 +546,12 @@ export default function TourDetail() {
             Tour {tour?.location}: {tour?.name}
           </p>
         </div>
-        <div className="flex h-full w-full mt-3 ">
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="flex h-full w-full mt-3 ">
           <div className="w-2/3 px-5 min-h-screen ">
             <div className="rounded-[8px] border-1 border-gray-300 shadow">
               <Carousel autoplay arrows>
@@ -498,7 +566,11 @@ export default function TourDetail() {
                 ))}
               </Carousel>
             </div>
-            <div className="sticky top-0 bg-white shadow z-50">
+            <motion.div
+              initial={{ opacity: 0, scale: 1 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              className="sticky top-17 bg-white shadow z-50">
               <nav className="h-16 mt-5 font-semibold flex justify-between text-[15px] ">
                 <button
                   className=""
@@ -525,9 +597,14 @@ export default function TourDetail() {
                   Tour Tương Tự
                 </button>
               </nav>
-            </div>
+            </motion.div>
 
-            <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-5 shadow">
               <div className="flex justify-between pb-3 text-[14px] ">
                 <p className="font-medium ">
                   <EnvironmentOutlined className="pr-1" />
@@ -556,8 +633,13 @@ export default function TourDetail() {
                   </ul>
                 ))}
               </div>
-            </div>
-            <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-5 shadow">
               <div className="text-[16px] font-bold pb-2">
                 Điểm Nhấn Hành Trình
               </div>
@@ -587,10 +669,19 @@ export default function TourDetail() {
                   ))}
                 </div>
               </div>
-            </div>
-            <div className="w-full bg-white my-4 rounded-[5px] p-5 shadow">
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="w-full bg-white my-4 rounded-[5px] p-5 shadow">
               <div className="text-[16px] font-bold pb-5">Lịch Trình Tour</div>
-              <div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5 }}>
                 <Collapse
                   bordered={false}
                   defaultActiveKey={['0']}
@@ -603,15 +694,25 @@ export default function TourDetail() {
                   }}
                   items={items}
                 />
-              </div>
-            </div>
-            <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
+              </motion.div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-5 shadow">
               <div className="text-[16px] font-bold ">Thông tin cần lưu ý</div>
               <div>
                 <Tabs defaultActiveKey="1" items={itemss} />
               </div>
-            </div>
-            <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-5 shadow">
               <div className="text-[16px] font-bold pb-2">Đánh Giá Tour</div>
               <div className="space-y-4">
                 {tour?.reviews?.map((review, index) => (
@@ -651,8 +752,13 @@ export default function TourDetail() {
                   </div>
                 ))}
               </div>
-            </div>
-            <div className="bg-white mt-4 rounded-[5px] p-5 shadow">
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-5 shadow">
               <div className="text-[16px] font-bold pb-2">Tour Tương Tự</div>
               <div className="grid grid-cols-2 gap-5 justify-between">
                 {similarTours.map((similarTour) => (
@@ -662,11 +768,15 @@ export default function TourDetail() {
                   />
                 ))}
               </div>
-            </div>
+            </motion.div>
           </div>
 
-          <div
-            className={`w-1/3 max-h-[calc(100vh-40px)] flex justify-center sticky top-7 z-50 mb-2 ${
+          <motion.div
+          initial={{scale: 0.7 }}
+          whileInView={{  scale: 0.95 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+            className={`w-1/3 max-h-[calc(100vh-40px)] flex justify-center sticky top-20 z-50 mb-2 ${
               tour?.availableSlot === 0 ? 'pointer-events-none opacity-50' : ''
             }`}>
             <div className="bg-amber-50 w-93 h-147 rounded-xl p-6 flex flex-col justify-between mb-5 border-1 border-gray-200 shadow relative">
@@ -697,7 +807,11 @@ export default function TourDetail() {
                 Chọn Lịch Trình và Xem Giá:
               </p>
 
-              <div className="flex mr-10 h-11 items-center border-1 border-gray-300 w-48 rounded-[8px]">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5 }}
+                className="flex mr-10 h-11 items-center border-1 border-gray-300 w-48 rounded-[8px]">
                 <div className="flex items-center justify-center px-3 mt-2">
                   <CalendarOutlined className="text-gray-500 text-[14px] mb-2" />
                 </div>
@@ -748,7 +862,7 @@ export default function TourDetail() {
                     }}
                   />
                 </div>
-              </div>
+              </motion.div>
 
               <div className="bg-white h-14 rounded-xl flex justify-between p-5 items-center text-center border-1 border-gray-300">
                 <div className="text-center">
@@ -969,7 +1083,7 @@ export default function TourDetail() {
                 Lưu ý: Vui lòng đặt tour trước ngày khởi hành ít nhất 7 ngày.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           <Modal
             open={showForm}
@@ -977,32 +1091,54 @@ export default function TourDetail() {
             footer={null}
             width={600}
             closeIcon={<CloseOutlined />}
-            title="Chi Tiết Đặt Tour"
+            title={
+              <span className="text-lg font-bold text-cyan-600">
+                Chi Tiết Đặt Tour
+              </span>
+            }
             destroyOnClose={true}
             style={{ top: 10 }}>
-            <TourBookingForm
-              tourId={tourId}
-              adults={adults}
-              children={children}
-              infants={infants}
-              discountAmount={discountAmount}
-              startDate={
-                startDate?.isDayjsObject
-                  ? startDate.format('YYYY-MM-DD')
-                  : startDate
-              }
-              totalPrice={totalPrice} // Truyền tổng giá vào đây
-              priceForOneAdult={priceForOneAdult} // Truyền giá cho 1 người lớn vào đây
-              priceForOneChild={priceForOneChild} // Truyền giá cho 1 trẻ em vào đây
-              priceForOneInfant={priceForOneInfant} // Truyền giá cho 1 trẻ nhỏ vào đây
-            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}>
+              <TourBookingForm
+                tourId={tourId}
+                adults={adults}
+                children={children}
+                infants={infants}
+                discountAmount={discountAmount}
+                startDate={
+                  startDate ? dayjs(startDate).format('YYYY-MM-DD') : null
+                }
+                totalPrice={totalPrice}
+                priceForOneAdult={priceForOneAdult}
+                priceForOneChild={priceForOneChild}
+                priceForOneInfant={priceForOneInfant}
+                tour={tour}
+              />
+            </motion.div>
           </Modal>
-        </div>
+        </motion.div>
       </div>
       <div>
-        <footer className="bg-gray-900 text-white text-center p-4">
-          <p>&copy; 2025 Travelista Tours. All Rights Reserved.</p>
-        </footer>
+        <motion.footer
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="bg-[#f0ede3] text-black text-center p-6">
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            className="flex justify-center items-center gap-2 mb-2">
+            <img src={logo} alt="Travel TADA" className="h-6 w-auto" />
+            <span
+              className="text-lg"
+              style={{ fontFamily: 'Dancing Script, cursive' }}>
+              Travel TADA
+            </span>
+          </motion.div>
+          <p>© 2025 Travelista Tours. All Rights Reserved.</p>
+        </motion.footer>
       </div>
     </div>
   );

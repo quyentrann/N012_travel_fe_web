@@ -8,8 +8,15 @@ import ItemTourBookingDetail from "../components/ItemTourBookingDetail";
 import UserInfo from "../pages/userInfo/userInfo";
 import Orders from "../pages/orders/orders";
 import BestForYouBagTour from "../pages/BestForYouBagTour/BestForYouBagTour";
-import BookingDetail from "../pages/bookingDetail/BookingDetail";
-import PaymentPage from "../pages/paymentPage/paymentPage";
+import BookingDetail from "../pages/bookingDetail/bookingDetail";
+import CardChatBotPress from "../pages/CardChatBotPress/cardChatBotPress";
+import LocationTour from "../pages/LocationTour/locationTour";
+import PriceTour from "../pages/PricePage/priceTour";
+import About from "../pages/About/about";
+import SearchPage from "../pages/SearchPage/SearchPage";
+import Recommended from "../pages/Recommended/recommended";
+import PaymentResult from "../pages/paymentPage/paymentPage";
+import FavouriteTours from "../pages/FavouriteTours/FavouriteTours";
 export default function AppRouter() {
   return (
     <Routes>
@@ -23,7 +30,14 @@ export default function AppRouter() {
       <Route path="/tour-booking" element={<ItemTourBookingDetail />} />
       <Route path="/bestforyou" element={<BestForYouBagTour />} />
       <Route path="/booking-detail" element={<BookingDetail />} />
-      {/* <Route path="/payment" element={<PaymentPage />} /> */}
+      <Route path="/cardChatBotpress" element={<CardChatBotPress />} />
+      <Route path="/locationtour" element={<LocationTour />} />
+      <Route path="/pricetour" element={<PriceTour />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/search" element={<SearchPage />} />
+      <Route path="/recommended" element={<Recommended />} />
+      <Route path="/payment-result" element={<PaymentResult />} />
+      <Route path="/favourite-tours" element={<FavouriteTours />} />
     </Routes>
   );
 }

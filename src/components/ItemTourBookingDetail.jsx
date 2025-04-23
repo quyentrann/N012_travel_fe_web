@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getTourById } from '../apis/tour';
 import dayjs from 'dayjs';
 import axios from 'axios';
-import { message,Button,Modal,Spin  } from 'antd';
+import { message, Button, Modal, Spin } from 'antd';
 
 export default function TourBookingForm({
   tourId,
@@ -27,14 +27,25 @@ export default function TourBookingForm({
   const [bookingId, setBookingId] = useState(null); // Thêm useState để lưu bookingId
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const holidays = [
+    '01-01',
+    '03-08',
+    '04-30',
+    '05-01',
+    '09-02',
+    '12-25',
+    '11-20',
+    '07-27',
+    '08-19',
+    '10-10',
+    '09-15',
+    '12-23',
+  ];
+  
   useEffect(() => {
     if (tourId) {
-      console.log('Fetching tour:', tourId);
       getTourById(tourId)
-        .then((data) => {
-          console.log('API response:', data);
-          setTour(data);
-        })
+        .then((data) => setTour(data))
         .catch((err) => console.error('Lỗi API:', err));
     }
   }, [tourId]);
@@ -46,93 +57,107 @@ export default function TourBookingForm({
         .catch((err) => console.error('Lỗi API:', err));
     }
   }, [tourId]);
-  
+
   const handleBooking = async () => {
     const token = localStorage.getItem('TOKEN');
-
+  
     if (!fullName || !phone || !email) {
-        message.warning('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Email!');
-        return;
+      message.warning('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Email!');
+      return;
     }
-
+  
+    if (!startDate) {
+      message.warning('Vui lòng chọn ngày khởi hành!');
+      return;
+    }
+  
+    // Kiểm tra số lượng người
+    if (adults < 0 || children < 0 || infants < 0) {
+      message.error('Số lượng người lớn, trẻ em, hoặc trẻ nhỏ không được âm!');
+      return;
+    }
+  
+    const totalPeople = adults + children + infants;
+    if (totalPeople <= 0) {
+      message.error('Vui lòng chọn ít nhất một người tham gia!');
+      return;
+    }
+  
     setLoading(true);
-
+  
     try {
-        const response = await axios.post(
-            'http://localhost:8080/api/bookings/book',
-            {
-                tourId,
-                numberPeople: adults + children + infants,
-                totalPrice,
-                fullName,
-                phoneNumber: phone,
-            },
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                withCredentials: true,
-            }
-        );
-
-        const receivedBookingId = response.data.bookingId;
-        console.log('Booking ID nhận được:', receivedBookingId); // Kiểm tra bookingId
-        if (!receivedBookingId) {
-            throw new Error("Không nhận được bookingId từ API!");
-        }
-        setBookingId(receivedBookingId); // Lưu bookingId để dùng khi thanh toán
-        
-        setIsBookingSuccess(true);
-        setIsModalVisible(true);
-    } catch (error) {
-        message.error(error.response?.data || 'Đặt tour thất bại, vui lòng thử lại!');
-        console.error('Booking Error:', error.response?.data || error.message);
-    } finally {
-        setLoading(false);
-    }
-};
-
-  
-  
-const handleRedirectToPayment = async (bookingId, totalPrice) => {
-  if (!bookingId || !totalPrice) {
-    console.error("Thiếu bookingId hoặc totalPrice!");
-    return;
-  }
-
-  try {
-      const response = await fetch("http://localhost:8080/api/payment/vnpay-create", {
-          method: "POST",
+      const response = await axios.post(
+        'http://localhost:8080/api/bookings/book',
+        {
+          tourId,
+          numberPeople: totalPeople,
+          totalPrice,
+          fullName,
+          phoneNumber: phone,
+          numberAdults: adults,
+          numberChildren: children,
+          numberInfants: infants,
+          departureDate: startDate, // Thêm departureDate
+          notes,
+        },
+        {
           headers: {
-              "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ bookingId, totalPrice }),
-      });
+          withCredentials: true,
+        }
+      );
+  
+      const receivedBookingId = response.data.bookingId;
+      console.log('Booking ID nhận được:', receivedBookingId);
+      if (!receivedBookingId) {
+        throw new Error('Không nhận được bookingId từ API!');
+      }
+      setBookingId(receivedBookingId);
+      setIsBookingSuccess(true);
+      setIsModalVisible(true);
+    } catch (error) {
+      message.error(
+        error.response?.data || 'Đặt tour thất bại, vui lòng thử lại!'
+      );
+      console.error('Booking Error:', error.response?.data || error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleRedirectToPayment = async (bookingId, totalPrice) => {
+    if (!bookingId || !totalPrice) {
+      console.error('Thiếu bookingId hoặc totalPrice!');
+      message.error('Không thể tạo thanh toán do thiếu thông tin!');
+      return;
+    }
+  
+    setIsProcessing(true);
+    try {
+      const response = await fetch('http://localhost:8080/api/payment/vnpay-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bookingId, totalPrice }),
+      });
+  
       const data = await response.json();
       if (data.paymentUrl) {
-          window.location.href = data.paymentUrl; // Chuyển hướng đến trang thanh toán VNPAY
+        window.location.href = data.paymentUrl;
       } else {
-          console.error("Không nhận được paymentUrl từ API!");
+        console.error('Không nhận được paymentUrl từ API!');
+        message.error('Không thể tạo liên kết thanh toán!');
       }
-  } catch (error) {
-      console.error("Lỗi khi tạo thanh toán:", error);
-  }
-};
-
-
-// Gọi hàm khi nhấn nút "Thanh toán"
-// createPayment(123, 500000);
-
-
-useEffect(() => {
-  if (!bookingId) return; // Chỉ gọi API nếu có bookingId
-  handleRedirectToPayment();
-}, [bookingId]); 
-
-
-  
+    } catch (error) {
+      console.error('Lỗi khi tạo thanh toán:', error);
+      message.error('Lỗi khi tạo thanh toán, vui lòng thử lại!');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleKeepBooking = () => {
     setIsModalVisible(false); // Đóng modal khi người dùng quay lại
@@ -142,11 +167,13 @@ useEffect(() => {
     const storedToken = localStorage.getItem('TOKEN');
     if (storedToken) {
       try {
-        const payload = JSON.parse(atob(storedToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        const payload = JSON.parse(
+          atob(storedToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
+        );
         console.log('Decoded Token:', payload);
-  
+
         setEmail(payload.sub || ''); // Email vẫn có trong token
-  
+
         // Gọi API lấy thông tin user đầy đủ
         fetch('http://localhost:8080/api/users/me', {
           headers: { Authorization: `Bearer ${storedToken}` },
@@ -164,22 +191,18 @@ useEffect(() => {
       }
     }
   }, []);
-  
-  
-  
-  
+
   return (
     <div className="px-4 py-2 ">
       <p className="text-gray-600 text-xs mb-3">
-        Vui lòng kiểm tra và cung cấp thông tin đầy đủ trước khi gửi yêu cầu.  Chúng tôi sẽ liên hệ và hỗ trợ bạn nhanh
-        chóng.
+        Vui lòng kiểm tra và cung cấp thông tin đầy đủ trước khi gửi yêu cầu.
+        Chúng tôi sẽ liên hệ và hỗ trợ bạn nhanh chóng.
       </p>
       {loading && (
-  <div className="flex justify-center items-center fixed top-0 left-0 right-0 bottom-0 bg-opacity-50 z-50">
-    <Spin size="large" />
-  </div>
-)}
-
+        <div className="flex justify-center items-center fixed top-0 left-0 right-0 bottom-0 bg-opacity-50 z-50">
+          <Spin size="large" />
+        </div>
+      )}
 
       {/* Bảng thông tin tour */}
       <div className="border-b mb-3">
@@ -225,51 +248,61 @@ useEffect(() => {
           <thead>
             <tr className="bg-gray-100">
               <th className="border p-2 ">Loại giá</th>
-              <th className="border p-2 ">Người lớn <br/>(&gt;10 tuổi)</th>
-              <th className="border p-2">Trẻ em <br/>(2 - 10 tuổi)</th>
-              <th className="border p-2">Trẻ nhỏ <br/>(&lt; 2 tuổi)</th>
+              <th className="border p-2 ">
+                Người lớn <br />
+                (&gt;10 tuổi)
+              </th>
+              <th className="border p-2">
+                Trẻ em <br />
+                (2 - 10 tuổi)
+              </th>
+              <th className="border p-2">
+                Trẻ nhỏ <br />
+                (&lt; 2 tuổi)
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td className="border p-2 font-medium ">Giá</td>
               <td className="border p-2 text-center">
-              {priceForOneAdult.toLocaleString(
-                        'vi-VN'
-                      )}đ
+                {priceForOneAdult.toLocaleString('vi-VN')}đ
               </td>
               <td className="border p-2 text-center">
-              {priceForOneChild.toLocaleString('vi-VN')}đ
+                {priceForOneChild.toLocaleString('vi-VN')}đ
               </td>
               <td className="border p-2 text-center">
-              {priceForOneInfant.toLocaleString('vi-VN')}đ
+                {priceForOneInfant.toLocaleString('vi-VN')}đ
               </td>
             </tr>
             <tr>
               <td className="border p-2 font-medium">Số lượng</td>
               <td className="border">
-                <p className="w-full rounded text-center appearance-none ">{adults}</p>
+                <p className="w-full rounded text-center appearance-none ">
+                  {adults}
+                </p>
               </td>
               <td className="border">
-              
-                <p className="w-full rounded text-center appearance-none ">{children}</p>
+                <p className="w-full rounded text-center appearance-none ">
+                  {children}
+                </p>
               </td>
               <td className="border p-2">
-                <p className="w-full rounded text-center appearance-none ">{infants}</p>
+                <p className="w-full rounded text-center appearance-none ">
+                  {infants}
+                </p>
               </td>
             </tr>
             <tr>
               <td className="border p-2 font-medium">Giảm giá</td>
               <td colSpan="4" className="border p-1">
-                {discountAmount.toLocaleString(
-                        'vi-VN'
-                      )} đ
+                {discountAmount.toLocaleString('vi-VN')} đ
               </td>
             </tr>
             <tr>
               <td className="border p-2 font-bold">Tổng giá</td>
               <td colSpan="4" className="border p-2 font-bold">
-              {totalPrice.toLocaleString('vi-VN')} đ
+                {totalPrice.toLocaleString('vi-VN')} đ
               </td>
             </tr>
           </tbody>
@@ -278,7 +311,6 @@ useEffect(() => {
 
       {/* Thông tin cá nhân */}
       <div className="mt-3">
-        
         <label className="block font-medium text-xs mb-1">
           Họ và Tên <span className="text-red-500">*</span>
         </label>
@@ -308,7 +340,6 @@ useEffect(() => {
           type="email"
           className="w-full border p-1.5 rounded-md border-gray-400 text-xs"
           placeholder="Nhập email"
-             
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -321,10 +352,9 @@ useEffect(() => {
           rows="3"
           placeholder="Ví dụ: đi 2 người lớn, đoàn 10 người..."
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          ></textarea>
+          onChange={(e) => setNotes(e.target.value)}></textarea>
 
-<button
+        <button
           style={{
             width: '100%',
             height: 40,
@@ -335,28 +365,32 @@ useEffect(() => {
           }}
           className="text-white mt-3"
           onClick={handleBooking}
-          disabled={loading}
-        >
+          disabled={loading}>
           Gửi yêu cầu
         </button>
 
-      {/* Modal thông báo thành công */}
-      <Modal
-  title="Đặt tour thành công!"
-  visible={isModalVisible}
-  onCancel={handleKeepBooking}
-  footer={[
-    <Button key="back" onClick={handleKeepBooking}>
-      Để sau
-    </Button>,
-    <Button key="submit" type="primary" onClick={() => handleRedirectToPayment(bookingId, totalPrice)}>
-    Đi đến thanh toán
-  </Button>
-  
-  ]}
->
-  <p>Chúng tôi đã nhận được yêu cầu của bạn. Vui lòng kiểm tra email để biết thêm chi tiết.</p>
-</Modal>
+        {/* Modal thông báo thành công */}
+        <Modal
+          title="Đặt tour thành công!"
+          visible={isModalVisible}
+          onCancel={handleKeepBooking}
+          footer={[
+            <Button key="back" onClick={handleKeepBooking}>
+              Để sau
+            </Button>,
+            <Button
+              key="submit"
+              type="primary"
+              onClick={() => handleRedirectToPayment(bookingId, totalPrice)}
+              disabled={!bookingId || isProcessing}>
+              Đi đến thanh toán
+            </Button>,
+          ]}>
+          <p>
+            Chúng tôi đã nhận được yêu cầu của bạn. Vui lòng kiểm tra email để
+            biết thêm chi tiết.
+          </p>
+        </Modal>
       </div>
     </div>
   );
