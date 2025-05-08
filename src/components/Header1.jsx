@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { SearchOutlined, UserOutlined, BellOutlined, MenuOutlined, CloseOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
-import { Avatar, Spin, message } from 'antd';
+import { SearchOutlined, UserOutlined, BellOutlined, MenuOutlined, CloseOutlined, DownOutlined, UpOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { Avatar, Spin, message, Button } from 'antd';
 import { motion } from 'framer-motion';
 import { logout } from '../redux/userSlice';
 import logo from '../images/logo.png';
@@ -24,6 +24,7 @@ const Header = () => {
   const [open, setOpen] = useState(false); // For desktop user dropdown
   const [menuOpen, setMenuOpen] = useState(false); // For mobile menu
   const [accountOpen, setAccountOpen] = useState(false); // For mobile account sub-menu
+  const [searchQuery, setSearchQuery] = useState(''); // For search input
   const dropdownRef = useRef(null);
   const menuRef = useRef(null);
 
@@ -51,6 +52,16 @@ const Header = () => {
     setAccountOpen(false);
   };
 
+  // Handle search input on same page
+  const handleSearch = (e) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      // Replace this with your actual search logic
+      console.log('Searching for:', searchQuery);
+      // Optionally clear the input after search
+      setSearchQuery('');
+    }
+  };
+
   // Filter navLinks for mobile menu when not authenticated
   const mobileNavLinks = isAuthenticated
     ? navLinks
@@ -65,12 +76,14 @@ const Header = () => {
       <div className="mx-[30px] flex justify-between items-center">
         {/* Logo, Brand, and Desktop Navigation */}
         <div className="flex items-center">
-          <img src={logo} alt="logo" className="h-8 w-auto" />
-          <span
-            className="text-[16px] font-bold text-black"
-            style={{ fontFamily: 'Dancing Script, cursive' }}>
-            Travel TADA
-          </span>
+          <div className="hidden md:flex items-center">
+            <img src={logo} alt="logo" className="h-8 w-auto" />
+            <span
+              className="text-[16px] font-bold text-black"
+              style={{ fontFamily: 'Dancing Script, cursive' }}>
+              Travel TADA
+            </span>
+          </div>
           <div className="pl-10 hidden md:flex items-center space-x-6">
             {navLinks.map((link) => {
               if (
@@ -92,22 +105,45 @@ const Header = () => {
         </div>
 
         {/* Right Section: Search, Notifications, User Profile (Desktop), Search & Hamburger (Mobile) */}
-        <div className="flex items-center space-x-1">
-          {/* Mobile Search Icon */}
-          <motion.div
-            className="md:hidden text-gray-700 hover:text-cyan-600 p-1 rounded-full hover:bg-cyan-50"
-            whileHover={{ scale: 1.1 }}
-            onClick={() => navigate('/search')}>
-            <SearchOutlined className="text-[20px]" />
-          </motion.div>
+        <div className=" flex items-center space-x-1">
+          {/* Mobile Back Button and Search Input */}
+          <div className="flex items-center md:hidden w-full justify-between ">
+            <Button
+              onClick={() => navigate('/')}
+              className=" bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-2 sm:px-2"
+            >
+              <ArrowLeftOutlined />
+            </Button>
+            <div className="relative flex items-center">
+              <motion.div
+                className="flex items-center w-60 rounded-[8px] h-[32px] text-sm py-1 pl-3 ml-3 pr-8 bg-white border border-gray-300"
+                whileHover={{ scale: 1.02 }}>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearch}
+                  placeholder="Tìm kiếm..."
+                  className="w-full bg-transparent text-gray-500 text-[11px] focus:outline-none"
+                />
+                <SearchOutlined className="absolute right-4 text-gray-500 text-[14px]" />
+              </motion.div>
+            </div>
+          </div>
 
           {/* Desktop Search Bar */}
           <div className="relative flex items-center">
             <motion.div
-              className="hidden md:flex items-center w-40 md:w-60 rounded-[18px] h-[35px] text-sm py-1 pl-4 pr-10 bg-white border border-gray-300 text-gray-500"
-              whileHover={{ scale: 1.02 }}
-              onClick={() => navigate('/search')}>
-              <span className="text-[12px]">Tìm kiếm tour...</span>
+              className="hidden md:flex items-center w-40 md:w-60 rounded-[18px] h-[35px] text-sm py-1 pl-4 pr-10 bg-white border border-gray-300"
+              whileHover={{ scale: 1.02 }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleSearch}
+                placeholder="Tìm kiếm tour..."
+                className="w-full bg-transparent text-gray-500 text-[12px] focus:outline-none"
+              />
               <SearchOutlined className="absolute right-3 text-gray-500" />
             </motion.div>
           </div>

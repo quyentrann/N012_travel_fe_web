@@ -81,6 +81,11 @@ const RatingModal = ({ open, onCancel, onConfirm, loading }) => {
     setComment('');
   };
 
+  const buttonVariants = {
+    rest: { scale: 1 },
+    hover: { scale: 1.1, transition: { duration: 0.2, type: 'spring', stiffness: 300 } },
+  };
+
   return (
     <Modal
       title={<Title level={4} className="text-blue-700">Đánh Giá Chuyến Đi</Title>}
@@ -450,25 +455,29 @@ const BookingDetail = () => {
   const tour = bookingDetail.tour || {};
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 w-screen">
+    <div className="min-h-screen bg-gray-50 py-3 px-4 sm:px-6 lg:px-8 w-screen">
+         <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate(-1)}
+            className=" lg:top-4 lg:left-14 rounded-full bg-white/90 text-blue-600 h-10 w-10 flex items-center justify-center shadow-lg hover:bg-white m-2"
+          />
       <div className="max-w-6xl mx-auto">
+        
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="relative h-72 sm:h-96 rounded-xl overflow-hidden shadow-xl"
         >
+          
           <img
             src={tour.imageURL || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e'}
             alt={tour.name}
             className="w-full h-full object-cover"
           />
+        
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => navigate(-1)}
-            className="absolute top-4 left-4 rounded-full bg-white/90 text-blue-600 h-10 w-10 flex items-center justify-center shadow-lg hover:bg-white"
-          />
+         
           <div className="absolute bottom-6 left-6 right-6">
             <Title level={2} className="text-white font-bold">
               <span className="text-white font-bold text-4xl">{tour.name || 'Chuyến Đi'}</span>

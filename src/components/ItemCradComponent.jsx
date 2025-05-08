@@ -68,7 +68,7 @@ export default function ItemCradComponent({ tour, isFavorite: initialFavorite = 
   return (
     <div
       className="bg-[#fffcfa] h-67 w-52 rounded-[8px] cursor-pointer hover:scale-101 p-4 flex flex-col relative"
-      onClick={() => navigate('/tour-detail', { state: { id: tour.tourId } })}
+      onClick={() => navigate(`/tour-detail?id=${tour.tourId}`)}
     >
       <motion.div
         animate={{ scale: isFavorite ? 1.2 : 1 }}

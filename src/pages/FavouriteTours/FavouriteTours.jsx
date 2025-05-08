@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Spin, Empty, message, Avatar } from 'antd';
-import ItemCradComponent from '../../components/ItemCradComponent';
+import ItemCradComponent from '../../components/ItemTourComponent';
 import { motion } from 'framer-motion';
 import { SearchOutlined, UserOutlined, BellOutlined } from '@ant-design/icons';
 import { logout } from '../../redux/userSlice';
@@ -83,7 +83,7 @@ const FavouriteTours = () => {
       {/* Banner */}
       <section
         style={{
-          height: '40vh',
+          height: '30vh sm:40vh',
           backgroundImage: `url(${banner})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -102,23 +102,23 @@ const FavouriteTours = () => {
           }}
         ></div>
         <div style={{ position: 'relative', textAlign: 'center', color: '#fff' }}>
-          <h1 style={{ fontSize: '36px', fontWeight: 'bold', marginBottom: '8px' }}>
+          <h1 style={{ fontSize: '24px sm:36px', fontWeight: 'bold', marginBottom: '8px' }}>
             Tour Yêu Thích
           </h1>
-          <p style={{ fontSize: '18px' }}>Những hành trình bạn yêu thích nhất</p>
+          <p style={{ fontSize: '14px sm:18px' }}>Những hành trình bạn yêu thích nhất</p>
         </div>
       </section>
 
       {/* Nội dung danh sách tour */}
-      <div className="py-8 px-4">
-        <h2 className="text-2xl font-bold text-blue-600 mb-6 text-center">Tour Yêu Thích</h2>
+      <div className="py-8 px-2 sm:px-4">
+        <h2 className="text-xl sm:text-2xl font-bold text-blue-600 mb-6 text-center">Tour Yêu Thích</h2>
         {toursLoading ? (
           <div
             style={{
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              minHeight: '200px',
+              minHeight: '150px sm:200px',
             }}
           >
             <Spin size="large" tip="Đang tải danh sách tour..." />
@@ -126,7 +126,7 @@ const FavouriteTours = () => {
         ) : toursError ? (
           <Empty description={toursError} />
         ) : normalizedFavoriteTours.length === 0 ? (
-          <Empty description="Chưa có tour yêu thích nào!" className="mt-16">
+          <Empty description="Chưa có tour yêu thích nào!" className="mt-8 sm:mt-16">
             <button
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               onClick={() => navigate('/')}
@@ -135,7 +135,7 @@ const FavouriteTours = () => {
             </button>
           </Empty>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 max-w-7xl mx-auto justify-items-center">
             {normalizedFavoriteTours.map((tour) => (
               <motion.div
                 key={tour.tourId}

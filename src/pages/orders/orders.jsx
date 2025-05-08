@@ -15,10 +15,7 @@ import {
 import React, { useEffect, useState } from 'react';
 import {
   EyeOutlined,
-  HomeOutlined,
-  UserOutlined,
   MoreOutlined,
-  LogoutOutlined,
   CloseCircleOutlined,
   CreditCardOutlined,
   SwapOutlined,
@@ -27,8 +24,10 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import logo from '../../images/logo.png';
+import Footer from '../../components/Footer';
+import Header from '../../components/Header1';
 
-const { Header, Content, Footer } = Layout;
+const { Content } = Layout;
 const { Title, Text } = Typography;
 
 const statusColors = {
@@ -53,7 +52,6 @@ const Orders = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const navigate = useNavigate();
 
-  // Kiểm tra token và lấy lịch sử đặt tour
   useEffect(() => {
     const fetchHistory = async () => {
       try {
@@ -72,7 +70,7 @@ const Orders = () => {
           tourImage: item.tour?.imageURL || 'https://via.placeholder.com/80',
           tourName: item.tour?.name || 'Tour không xác định',
           bookingDate: item.bookingDate,
-          departureDate: item.departureDate, // Thêm departureDate
+          departureDate: item.departureDate,
           status: item.status || 'PENDING',
           price: item.totalPrice ? item.totalPrice.toLocaleString('vi-VN') + 'đ' : 'N/A',
           numberPeople: item.numberPeople || 'N/A',
@@ -99,20 +97,17 @@ const Orders = () => {
     return () => window.removeEventListener('focus', handleFocus);
   }, [navigate]);
 
-  // Hiển thị modal nhập lý do hủy
   const showCancelModal = (bookingId) => {
     setBookingIdToCancel(bookingId);
     setIsCancelModalVisible(true);
   };
 
-  // Đóng modal nhập lý do
   const handleCancelModal = () => {
     setIsCancelModalVisible(false);
     setReason('');
     setCancellationInfo(null);
   };
 
-  // Lấy thông tin phí hủy và số tiền hoàn lại
   const handleSubmitCancel = async () => {
     if (!reason) {
       message.error('Vui lòng nhập lý do hủy.');
@@ -123,7 +118,6 @@ const Orders = () => {
     try {
       const token = localStorage.getItem('TOKEN');
       const cancelDate = new Date().toISOString();
-      console.log('Sending cancel request with date:', cancelDate);
       const response = await axios.post(
         `http://localhost:8080/api/bookings/calculate-cancellation-fee/${bookingIdToCancel}`,
         {
@@ -161,13 +155,11 @@ const Orders = () => {
     }
   };
 
-  // Xác nhận hủy tour
   const handleConfirmCancel = async () => {
     setCancelLoading(true);
     try {
       const token = localStorage.getItem('TOKEN');
       const cancelDate = new Date().toISOString();
-      console.log('Confirming cancel with date:', cancelDate);
       const response = await axios.put(
         `http://localhost:8080/api/bookings/cancel/${bookingIdToCancel}`,
         {
@@ -208,7 +200,6 @@ const Orders = () => {
     }
   };
 
-  // Đóng modal xác nhận
   const handleCancelConfirmModal = () => {
     setIsConfirmModalVisible(false);
     setCancellationInfo(null);
@@ -217,23 +208,19 @@ const Orders = () => {
     message.info('Đã hủy bỏ hành động hủy tour.');
   };
 
-  // Chuyển đến chi tiết booking
   const goToBookingDetail = (bookingId) => {
     if (!bookingId) {
       message.error('Không có thông tin booking!');
       return;
     }
-    console.log('Navigating to BookingDetail with bookingId:', bookingId);
     navigate('/booking-detail', { state: { id: bookingId } });
   };
 
-  // Hiển thị modal thanh toán
   const showPaymentModal = (bookingId, totalPrice, tourName) => {
     setSelectedBooking({ bookingId, totalPrice, tourName });
     setIsPaymentModalVisible(true);
   };
 
-  // Xử lý thanh toán
   const handlePayment = async (bookingId, totalPrice) => {
     if (!bookingId || !totalPrice) {
       message.error('Không có thông tin booking hoặc giá tiền!');
@@ -296,21 +283,33 @@ const Orders = () => {
       dataIndex: 'bookingDate',
       key: 'bookingDate',
       render: (date) =>
-        date ? new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A',
+        date
+          ? new Date(date).toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : 'N/A',
     },
     {
       title: 'Ngày Đi',
       dataIndex: 'departureDate',
       key: 'departureDate',
       render: (date) =>
-        date ? new Date(date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A',
+        date
+          ? new Date(date).toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : 'N/A',
     },
     {
       title: 'Trạng Thái',
       dataIndex: 'status',
       key: 'status',
       render: (status) => (
-        <Tag color={statusColors[status]} className="px-3 py-1 rounded-full text-ce">
+        <Tag color={statusColors[status]} className="px-3 py-1 rounded-full">
           {status}
         </Tag>
       ),
@@ -382,75 +381,136 @@ const Orders = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col w-screen">
       {/* Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-[#f0ede3] shadow-md py-3 px-4 sm:px-6 sticky top-0 z-10"
-      >
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <img src={logo} alt="Travel TADA" className="h-10 w-auto" />
-            <span
-              className="text-2xl font-bold text-gray-900"
-              style={{ fontFamily: 'Dancing Script, cursive' }}
-            >
-              TADA
-            </span>
-          </div>
-          <div className="flex items-center space-x-6">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="text-gray-600 hover:text-blue-600 text-base font-medium transition-colors"
-              onClick={() => navigate('/')}
-              aria-label="Trang chủ"
-            >
-              Trang chủ
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="text-gray-600 hover:text-blue-600 text-base font-medium transition-colors"
-              onClick={() => navigate('/profile')}
-              aria-label="Hồ sơ"
-            >
-              Hồ sơ
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="text-gray-600 hover:text-red-600 text-base font-medium flex items-center transition-colors"
-              onClick={() => {
-                localStorage.clear();
-                message.success('Đăng xuất thành công!');
-                navigate('/login');
-              }}
-              aria-label="Đăng xuất"
-            >
-              <LogoutOutlined className="mr-2" /> Đăng xuất
-            </motion.button>
-          </div>
-        </div>
-      </motion.header>
+      <Header />
 
       {/* Content */}
-      <Content className="flex-grow py-10 px-4 sm:px-6">
+      <Content className="flex-grow py-10 px-4 sm:px-6 mt-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="max-w-6xl mx-auto bg-white shadow-lg rounded-xl p-8"
+          className="mx-auto"
         >
-          <Title level={2} className="text-gray-800 mb-6">
-            Danh Sách Tour Đã Đặt
-          </Title>
-          <Table
-            columns={columns}
-            dataSource={history}
-            loading={loading || paymentLoading}
-            pagination={{ pageSize: 5, showSizeChanger: false }}
-            rowClassName="hover:bg-gray-50 transition-colors"
-            className="rounded-lg"
-            scroll={{ x: 'max-content' }}
-          />
+          {/* Desktop View */}
+          <div className="hidden md:block max-w-6xl mx-auto bg-white shadow-lg rounded-xl p-8">
+            <Title level={2} className="text-gray-800 mb-6">
+              Danh Sách Tour Đã Đặt
+            </Title>
+            <Table
+              columns={columns}
+              dataSource={history}
+              loading={loading || paymentLoading}
+              pagination={{ pageSize: 5, showSizeChanger: false }}
+              rowClassName="hover:bg-gray-50 transition-colors"
+              className="rounded-lg"
+              scroll={{ x: 'max-content' }}
+            />
+          </div>
+
+          {/* Mobile View */}
+          <div className="md:hidden bg-white shadow-md rounded-lg p-4 sm:max-w-md mx-auto">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Danh Sách Tour Đã Đặt</h2>
+            {loading || paymentLoading ? (
+              <div className="flex justify-center py-8">
+                <Spin size="large" />
+              </div>
+            ) : history.length === 0 ? (
+              <p className="text-center text-gray-500">Không có tour nào đã đặt.</p>
+            ) : (
+              <div className="space-y-4">
+                {history.map((record) => (
+                  <div
+                    key={record.key}
+                    className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-lg transition-shadow"
+                  >
+                    <div className="flex items-start space-x-4">
+                      <Avatar
+                        shape="square"
+                        size={60}
+                        src={record.tourImage}
+                        className="border border-gray-200 flex-shrink-0"
+                      />
+                      <div className="flex-1">
+                        <h3 className="text-base font-semibold text-gray-800">{record.tourName}</h3>
+                        <div className="text-sm text-gray-600 space-y-1 mt-1">
+                          <p>
+                            <span className="font-medium">Ngày Đặt:</span>{' '}
+                            {record.bookingDate
+                              ? new Date(record.bookingDate).toLocaleDateString('vi-VN', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                })
+                              : 'N/A'}
+                          </p>
+                          <p>
+                            <span className="font-medium">Ngày Đi:</span>{' '}
+                            {record.departureDate
+                              ? new Date(record.departureDate).toLocaleDateString('vi-VN', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                })
+                              : 'N/A'}
+                          </p>
+                          <p>
+                            <span className="font-medium">Số Lượng:</span> {record.numberPeople}
+                          </p>
+                          <p>
+                            <span className="font-medium">Giá:</span>{' '}
+                            <span className="text-black font-semibold">{record.price}</span>
+                          </p>
+                          <p>
+                            <span className="font-medium">Trạng Thái:</span>{' '}
+                            <Tag
+                              color={statusColors[record.status]}
+                              className="px-2 py-0.5 rounded-full text-xs"
+                            >
+                              {record.status}
+                            </Tag>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <Button
+                        icon={<EyeOutlined />}
+                        onClick={() => goToBookingDetail(record.key)}
+                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-blue-500 hover:border-blue-500 rounded-md"
+                      >
+                        Chi tiết
+                      </Button>
+                      <Button
+                        icon={<CreditCardOutlined />}
+                        onClick={() =>
+                          showPaymentModal(record.key, record.totalPrice, record.tourName)
+                        }
+                        disabled={record.status !== 'CONFIRMED'}
+                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-green-500 hover:border-green-500 rounded-md disabled:opacity-50"
+                      >
+                        Thanh toán
+                      </Button>
+                      <Button
+                        icon={<CloseCircleOutlined />}
+                        onClick={() => showCancelModal(record.key)}
+                        disabled={record.status !== 'CONFIRMED' && record.status !== 'PAID'}
+                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-red-500 hover:border-red-500 rounded-md disabled:opacity-50"
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        icon={<SwapOutlined />}
+                        disabled={record.status !== 'CONFIRMED' && record.status !== 'PAID'}
+                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-purple-500 hover:border-purple-500 rounded-md disabled:opacity-50"
+                      >
+                        Đổi
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </motion.div>
       </Content>
 
@@ -462,19 +522,22 @@ const Orders = () => {
         onCancel={handleCancelModal}
         okText="Tiếp tục"
         cancelText="Hủy"
-        okButtonProps={{ disabled: cancelLoading, className: 'bg-blue-600 hover:bg-blue-700 rounded-md h-10' }}
-        cancelButtonProps={{ className: 'rounded-md h-10' }}
+        okButtonProps={{
+          disabled: cancelLoading,
+          className: 'bg-blue-600 hover:bg-blue-700 rounded-md h-10 md:w-24',
+        }}
+        cancelButtonProps={{ className: 'rounded-md h-10 md:w-24' }}
         centered
-        closable={true}
-        maskClosable={true}
-        className="rounded-xl"
+        closable
+        maskClosable
+        width={320}
       >
         <Input.TextArea
           rows={4}
           placeholder="Vui lòng nhập lý do hủy tour (ví dụ: thay đổi kế hoạch)"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          className="rounded-lg border-gray-300 focus:border-blue-500"
+          className="rounded-lg border-gray-300 focus:border-blue-500 text-sm"
         />
       </Modal>
 
@@ -487,37 +550,38 @@ const Orders = () => {
           onCancel={handleCancelConfirmModal}
           okText="Xác nhận hủy"
           cancelText="Hủy bỏ"
-          okButtonProps={{ className: 'bg-red-600 hover:bg-red-700 rounded-md h-10', loading: cancelLoading }}
-          cancelButtonProps={{ className: 'rounded-md h-10' }}
+          okButtonProps={{
+            className: 'bg-red-600 hover:bg-red-700 rounded-md h-10 md:w-24',
+            loading: cancelLoading,
+          }}
+          cancelButtonProps={{ className: 'rounded-md h-10 md:w-24' }}
           centered
-          closable={true}
-          maskClosable={true}
-          className="rounded-xl"
+          closable
+          maskClosable
+          width={320}
         >
-          <Text className="text-sm text-gray-600">
-            Bạn sắp hủy tour này. Dưới đây là thông tin chi tiết:
-          </Text>
-          <Text className="text-sm text-gray-600 block mt-3">
-            {cancellationInfo.cancellationFee > 0 ? (
-              <>
-                Phí hủy:{' '}
-                <span className="font-medium text-red-600">
-                  {cancellationInfo.cancellationFee.toLocaleString('vi-VN')} VND
-                </span>
-              </>
-            ) : (
-              'Không có phí hủy.'
-            )}
-          </Text>
-          <Text className="text-sm text-gray-600 block mt-2">
-            Số tiền hoàn lại:{' '}
-            <span className="font-medium text-green-600">
-              {cancellationInfo.refundAmount.toLocaleString('vi-VN')} VND
-            </span>
-          </Text>
-          <Text className="text-sm text-gray-600 block mt-4">
-            Bạn có chắc chắn muốn hủy tour này không?
-          </Text>
+          <div className="text-sm text-gray-600 space-y-2">
+            <p>Bạn sắp hủy tour này. Dưới đây là thông tin chi tiết:</p>
+            <p>
+              {cancellationInfo.cancellationFee > 0 ? (
+                <>
+                  Phí hủy:{' '}
+                  <span className="font-medium text-red-600">
+                    {cancellationInfo.cancellationFee.toLocaleString('vi-VN')} VND
+                  </span>
+                </>
+              ) : (
+                'Không có phí hủy.'
+              )}
+            </p>
+            <p>
+              Số tiền hoàn lại:{' '}
+              <span className="font-medium text-green-600">
+                {cancellationInfo.refundAmount.toLocaleString('vi-VN')} VND
+              </span>
+            </p>
+            <p>Bạn có chắc chắn muốn hủy tour này không?</p>
+          </div>
         </Modal>
       )}
 
@@ -533,70 +597,38 @@ const Orders = () => {
           }}
           okText="Thanh toán"
           cancelText="Hủy"
-          okButtonProps={{ className: 'bg-green-600 hover:bg-green-700 rounded-md h-10', loading: paymentLoading }}
-          cancelButtonProps={{ className: 'rounded-md h-10' }}
+          okButtonProps={{
+            className: 'bg-green-600 hover:bg-green-700 rounded-md h-10 md:w-24',
+            loading: paymentLoading,
+          }}
+          cancelButtonProps={{ className: 'rounded-md h-10 md:w-24' }}
           centered
-          closable={true}
-          maskClosable={true}
-          className="rounded-xl"
+          closable
+          maskClosable
+          width={320}
         >
-          <div className="space-y-4">
-            <Text className="text-sm text-gray-600">Bạn sắp thanh toán cho tour: </Text>
-            <Text className="text-sm font-semibold text-gray-800">{selectedBooking.tourName}</Text>
-            <div className="text-sm text-gray-600">
+          <div className="space-y-3 text-sm">
+            <p className="text-gray-600">Bạn sắp thanh toán cho tour:</p>
+            <p className="font-semibold text-gray-800">{selectedBooking.tourName}</p>
+            <p className="text-gray-600">
               Tổng giá:{' '}
               <span className="font-semibold text-red-500">
-                {selectedBooking.totalPrice ? selectedBooking.totalPrice.toLocaleString('vi-VN') : 'N/A'} VND
+                {selectedBooking.totalPrice
+                  ? selectedBooking.totalPrice.toLocaleString('vi-VN')
+                  : 'N/A'}{' '}
+                VND
               </span>
-            </div>
-            <Text className="text-sm text-gray-500 italic">
+            </p>
+            <p className="text-gray-500 italic">
               Bạn sẽ được chuyển hướng đến cổng thanh toán VNPAY để hoàn tất.
-            </Text>
+            </p>
           </div>
         </Modal>
       )}
 
       {/* Footer */}
-      <motion.footer
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.7 }}
-        className="bg-[#f0ede3] py-8 px-4 sm:px-6 shadow-inner"
-      >
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-8 text-sm text-gray-600">
-          <div>
-            <h4 className="text-gray-900 font-semibold mb-3">Về Travel TADA</h4>
-            <p>Khám phá thế giới với những hành trình đáng nhớ.</p>
-          </div>
-          <div>
-            <h4 className="text-gray-900 font-semibold mb-3">Liên kết</h4>
-            <p>
-              <motion.a
-                whileHover={{ scale: 1.05 }}
-                href="/about"
-                className="hover:text-blue-600 transition-colors"
-              >
-                Giới thiệu
-              </motion.a>{' '}
-              |{' '}
-              <motion.a
-                whileHover={{ scale: 1.05 }}
-                href="/contact"
-                className="hover:text-blue-600 transition-colors"
-              >
-                Liên hệ
-              </motion.a>
-            </p>
-          </div>
-          <div>
-            <h4 className="text-gray-900 font-semibold mb-3">Hỗ trợ</h4>
-            <p>Email: support@traveltada.vn</p>
-            <p>Hotline: 1900 8888</p>
-          </div>
-        </div>
-        <div className="mt-6 text-center text-gray-500 text-sm">
-          © 2025 Travel TADA. Mọi quyền được bảo lưu.
-        </div>
+      <motion.footer>
+        <Footer />
       </motion.footer>
     </div>
   );

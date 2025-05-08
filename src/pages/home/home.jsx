@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { SearchOutlined, LeftCircleOutlined, RightCircleOutlined } from '@ant-design/icons';
+import {
+  SearchOutlined,
+  LeftCircleOutlined,
+  RightCircleOutlined,
+} from '@ant-design/icons';
 import { Carousel, Spin, message } from 'antd';
 import { motion } from 'framer-motion';
 import nen1 from '../../images/nen5.png';
@@ -18,8 +22,7 @@ import { logout } from '../../redux/userSlice';
 const CustomPrevArrow = ({ onClick }) => (
   <div
     className="absolute z-10 left-0 top-1/2 transform -translate-y-1/2 cursor-pointer"
-    onClick={onClick}
-  >
+    onClick={onClick}>
     <LeftCircleOutlined style={{ fontSize: '17px', color: 'gray' }} />
   </div>
 );
@@ -27,8 +30,7 @@ const CustomPrevArrow = ({ onClick }) => (
 const CustomNextArrow = ({ onClick }) => (
   <div
     className="absolute z-10 right-0 top-1/2 transform -translate-y-1/2 cursor-pointer"
-    onClick={onClick}
-  >
+    onClick={onClick}>
     <RightCircleOutlined style={{ fontSize: '17px', color: 'gray' }} />
   </div>
 );
@@ -69,6 +71,8 @@ const Home = () => {
               }
             })
           );
+        } else {
+          dispatch(resetFavoriteTours()); // Reset favoriteTours khi chưa đăng nhập
         }
         await Promise.all(promises);
       } finally {
@@ -109,23 +113,20 @@ const Home = () => {
         style={{
           backgroundImage: `url(${nen1})`,
           backgroundPosition: 'center bottom',
-        }}
-      >
+        }}>
         <div className="absolute inset-0 bg-black/40"></div>
         <div className="relative z-10 text-center text-white px-5">
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-6xl font-bold mb-4"
-          >
+            className="text-4xl md:text-6xl font-bold mb-4">
             Khám phá hành trình mới
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-lg md:text-xl mb-8"
-          >
+            className="text-lg md:text-xl mb-8">
             Điểm đến tuyệt vời đang chờ bạn cùng TADA
           </motion.p>
           <div onClick={() => navigate('/search')} className="cursor-pointer">
@@ -133,8 +134,7 @@ const Home = () => {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.4 }}
-              className="bg-white/90 rounded-xl p-4 max-w-3xl mx-auto shadow-lg"
-            >
+              className="bg-white/90 rounded-xl p-4 max-w-3xl mx-auto shadow-lg">
               <div className="flex items-center space-x-4">
                 <div className="flex-1">
                   <input
@@ -146,8 +146,7 @@ const Home = () => {
                 </div>
                 <button
                   onClick={(e) => e.stopPropagation()}
-                  className="p-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition"
-                >
+                  className="p-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition">
                   <SearchOutlined />
                 </button>
               </div>
@@ -169,8 +168,7 @@ const Home = () => {
               <div className="text-end w-[75px]">
                 <span
                   onClick={() => navigate('/bestforyou')}
-                  className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]"
-                >
+                  className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
                   Xem tất cả
                 </span>
               </div>
@@ -197,21 +195,18 @@ const Home = () => {
                   slidesToShow={Math.min(4, history.length)}
                   slidesToScroll={1}
                   infinite={history.length > 4}
-                  className="w-full"
-                >
+                  className="w-full">
                   {history
                     .filter((item) => item.tour !== null)
                     .map((item) => (
                       <div
                         key={item.tour?.tourId || item.id}
-                        className="px-3 h-full"
-                      >
+                        className="px-3 h-full">
                         <motion.div
                           initial={{ opacity: 0, y: 20 }}
                           whileInView={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.5 }}
-                          className="flex justify-center h-full"
-                        >
+                          className="flex justify-center h-full">
                           <ItemCradComponent
                             tour={item.tour}
                             isFavorite={favoriteTours.some((fav) =>
@@ -243,8 +238,7 @@ const Home = () => {
             <div className="text-end w-[75px]">
               <span
                 onClick={() => navigate('/bestforyou')}
-                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[13px]"
-                >
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[13px]">
                 Xem tất cả
               </span>
             </div>
@@ -269,9 +263,8 @@ const Home = () => {
                 slidesToShow={Math.min(3, sortedTours.length)}
                 slidesToScroll={1}
                 infinite={sortedTours.length > 3}
-                className="w-full carousel-container"
-              >
-                {sortedTours
+                className="w-full carousel-container">
+                {/* {sortedTours
                   .filter((tour) => tour && tour.tourId)
                   .map((tour) => (
                     <div key={tour.tourId} className="px-3">
@@ -297,7 +290,29 @@ const Home = () => {
                         />
                       </motion.div>
                     </div>
-                  ))}
+                  ))} */}
+                {tours.map((tour) => (
+                  <div key={tour.tourId} className="px-3 h-full">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="flex justify-center h-full">
+                      <ItemTourBestForYou
+                        tour={tour}
+                        isFavorite={
+                          isAuthenticated &&
+                          favoriteTours.some((fav) =>
+                            fav.tour
+                              ? fav.tour.tourId === tour.tourId
+                              : fav.tourId === tour.tourId
+                          )
+                        }
+                        onFavoriteChange={handleFavoriteChange}
+                      />
+                    </motion.div>
+                  </div>
+                ))}
               </Carousel>
             )}
           </div>
@@ -316,8 +331,7 @@ const Home = () => {
             <div className="text-end w-[75px]">
               <span
                 onClick={() => navigate('/bestforyou')}
-                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]"
-              >
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
                 Xem tất cả
               </span>
             </div>
@@ -346,16 +360,14 @@ const Home = () => {
                 slidesToShow={Math.min(3, tours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
-                className="w-full"
-              >
+                className="w-full">
                 {tours.map((tour) => (
                   <div key={tour.tourId} className="px-3 h-full">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
-                      className="flex justify-center h-full"
-                    >
+                      className="flex justify-center h-full">
                       <ItemTourBestForYou
                         tour={tour}
                         isFavorite={favoriteTours.some((fav) =>
@@ -386,8 +398,7 @@ const Home = () => {
             <div className="text-end w-[75px]">
               <span
                 onClick={() => navigate('/bestforyou')}
-                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]"
-              >
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
                 Xem tất cả
               </span>
             </div>
@@ -416,16 +427,14 @@ const Home = () => {
                 slidesToShow={Math.min(3, tours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
-                className="w-full"
-              >
+                className="w-full">
                 {tours.map((tour) => (
                   <div key={tour.tourId} className="px-3 h-full">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
-                      className="flex justify-center h-full"
-                    >
+                      className="flex justify-center h-full">
                       <ItemTourBestForYou
                         tour={tour}
                         isFavorite={favoriteTours.some((fav) =>
@@ -456,8 +465,7 @@ const Home = () => {
             <div className="text-end w-[75px]">
               <span
                 onClick={() => navigate('/bestforyou')}
-                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]"
-              >
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
                 Xem tất cả
               </span>
             </div>
@@ -486,16 +494,14 @@ const Home = () => {
                 slidesToShow={Math.min(3, tours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
-                className="w-full"
-              >
+                className="w-full">
                 {tours.map((tour) => (
                   <div key={tour.tourId} className="px-3 h-full">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
-                      className="flex justify-center h-full"
-                    >
+                      className="flex justify-center h-full">
                       <ItemTourBestForYou
                         tour={tour}
                         isFavorite={favoriteTours.some((fav) =>
@@ -526,8 +532,7 @@ const Home = () => {
             <div className="text-end w-[75px]">
               <span
                 onClick={() => navigate('/bestforyou')}
-                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]"
-              >
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
                 Xem tất cả
               </span>
             </div>
@@ -556,16 +561,14 @@ const Home = () => {
                 slidesToShow={Math.min(3, tours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
-                className="w-full"
-              >
+                className="w-full">
                 {tours.map((tour) => (
                   <div key={tour.tourId} className="px-3 h-full">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
-                      className="flex justify-center h-full"
-                    >
+                      className="flex justify-center h-full">
                       <ItemTourBestForYou
                         tour={tour}
                         isFavorite={favoriteTours.some((fav) =>
@@ -596,8 +599,7 @@ const Home = () => {
             <div className="text-end w-[75px]">
               <span
                 onClick={() => navigate('/bestforyou')}
-                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]"
-              >
+                className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
                 Xem tất cả
               </span>
             </div>
@@ -626,16 +628,14 @@ const Home = () => {
                 slidesToShow={Math.min(3, tours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
-                className="w-full"
-              >
+                className="w-full">
                 {tours.map((tour) => (
                   <div key={tour.tourId} className="px-3 h-full">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
-                      className="flex justify-center h-full"
-                    >
+                      className="flex justify-center h-full">
                       <ItemTourBestForYou
                         tour={tour}
                         isFavorite={favoriteTours.some((fav) =>

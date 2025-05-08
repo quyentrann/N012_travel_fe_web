@@ -41,6 +41,9 @@ const tourSlice = createSlice({
     setFilteredTours: (state, action) => {
       state.filteredTours = action.payload;
     },
+    resetFavoriteTours: (state) => {
+      state.favoriteTours = [];
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -79,5 +82,5 @@ const tourSlice = createSlice({
   },
 });
 
-export const { setFilteredTours } = tourSlice.actions;
+export const { setFilteredTours, resetFavoriteTours } = tourSlice.actions;
 export default tourSlice.reducer;

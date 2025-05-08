@@ -1,11 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  SearchOutlined,
-  UserOutlined,
-  BellOutlined,
-} from '@ant-design/icons';
+import { SearchOutlined, UserOutlined, BellOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import { Input, Button, Dropdown, Menu, Avatar, Carousel, Spin } from 'antd';
 import { getTours } from '../../apis/tour';
@@ -36,10 +32,14 @@ const navLinks = [
   { label: 'Tour Yêu Thích', path: '/favourite-tours' },
 ];
 
+// Button animation variants
+const buttonVariants = {
+  hover: { scale: 1.1, transition: { duration: 0.3 } },
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  // const { tours, filteredTours } = useSelector((state) => state.tours);
   const {
     tours,
     filteredTours,
@@ -60,8 +60,6 @@ const Home = () => {
     error: historyError,
   } = useSelector((state) => state.searchHistory);
   const [recommendations, setRecommendations] = useState([]);
-  // console.log('tour', tours);
-
 
   useEffect(() => {
     const fetchData = async () => {
@@ -103,27 +101,26 @@ const Home = () => {
   });
 
   return (
-    <div className="min-h-screen font-sans w-screen">
+    <div className="min-h-screen font-sans w-screen bg-gray-50">
       {/* Navbar */}
-      <Header/>
-
+      <Header />
 
       {history.length > 0 && (
         <section className="py-10 bg-gray-100">
-          <div className="max-w-7xl mx-auto px-5 mt-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 sm:mt-15 mt-10">
             <div className="flex justify-between items-center mb-8">
-              <div className="w-full">
-                <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
-                  Dành cho bạn
-                </h2>
-              </div>
-              <div className="text-end w-[75px]">
-                <span
-                  onClick={() => navigate('/bestforyou')}
-                  className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
-                  Xem tất cả
-                </span>
-              </div>
+              <motion.div variants={buttonVariants} whileHover="hover">
+                <Button
+                  onClick={() => navigate('/')}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-3 sm:px-4"
+                >
+                  <ArrowLeftOutlined />
+                </Button>
+              </motion.div>
+              <h2 className="text-[26px] font-bold text-[#0088c2] flex-1 text-center">
+                Dành cho bạn
+              </h2>
+              <div className="w-10" /> {/* Spacer to balance the back button */}
             </div>
 
             <div className="relative">
@@ -136,31 +133,29 @@ const Home = () => {
                   Error: {historyError}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-  {history
-    .filter((item) => item.tour !== null)
-    .map((item) => (
-      <motion.div
-        key={item.tour?.tourId || item.id}
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="h-full">
-        <ItemTourBestForYou tour={item.tour} />
-      </motion.div>
-    ))}
-</div>
-
+                <div className="w-full grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 justify-items-center">
+                  {history
+                    .filter((item) => item.tour !== null)
+                    .map((item) => (
+                      <motion.div
+                        key={item.tour?.tourId || item.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="h-full w-full"
+                      >
+                        <ItemTourBestForYou tour={item.tour} />
+                      </motion.div>
+                    ))}
+                </div>
               )}
             </div>
           </div>
         </section>
       )}
 
-
-
       {/* Footer */}
-     <Footer/>
+      <Footer />
     </div>
   );
 };

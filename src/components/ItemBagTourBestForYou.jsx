@@ -47,9 +47,7 @@ function ItemBagTourBestForYou({ tour }) {
       key={tour.id}
       hoverable
       className="w-[1000px] flex flex-row rounded-lg shadow-md p-4 border border-gray-200"
-      onClick={() =>
-        navigate('/tour-detail', { state: { id: tour.tourId } })
-      }
+      onClick={() => navigate(`/tour-detail?id=${tour.tourId}`)}
     >
 
         {/* Nút yêu thích */}

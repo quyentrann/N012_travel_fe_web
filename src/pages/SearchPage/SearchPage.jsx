@@ -8,13 +8,17 @@ import {
   CloseOutlined,
   UserOutlined,
   BellOutlined,
+  MenuOutlined,
+  DownOutlined,
+  UpOutlined,
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { setSearchTerm } from '../../redux/searchSlice';
 import { setFilteredTours } from '../../redux/tourSlice';
 import { fetchUnreadCount } from '../../redux/notificationSlice';
 import { logout } from '../../redux/userSlice';
-import ItemTourBestForYou from '../../components/ItemTourBestForYou';
+import ItemTourComponent from '../../components/ItemTourComponent';
 import logo from '../../images/logo.png';
 import axios from 'axios';
 
@@ -27,8 +31,18 @@ const defaultAvatar = 'https://via.placeholder.com/40?text=User';
 const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
-  { label: 'Tour Gợi Ý', path: '/recommended' },
-  { label: 'Tour Yêu Thích', path: '/tours' },
+  { label: 'Tours', path: '/search' },
+  { label: 'Dành cho bạn', path: '/recommended' },
+  { label: 'Tour Yêu Thích', path: '/favourite-tours' },
+];
+
+// Các loại hình tour
+const tourCategories = [
+  'Biển đảo',
+  'Núi rừng',
+  'Thành phố',
+  'Sông nước miệt vườn',
+  'Sinh thái và khám phá',
 ];
 
 // Hàm chuẩn hóa location để so sánh
@@ -52,8 +66,8 @@ const computeSimilarity = (query, text, weight) => {
   if (!query || !text) return 0.0;
   const cleanedQuery = cleanText(query).toLowerCase();
   const cleanedText = cleanText(text).toLowerCase();
-  const queryWords = cleanedQuery.split(' ').filter(word => word);
-  const textWords = cleanedText.split(' ').filter(word => word);
+  const queryWords = cleanedQuery.split(' ').filter((word) => word);
+  const textWords = cleanedText.split(' ').filter((word) => word);
   let matches = 0;
   for (const queryWord of queryWords) {
     for (const textWord of textWords) {
@@ -70,6 +84,10 @@ const computeSimilarity = (query, text, weight) => {
   return (matches / Math.max(textWords.length, 1)) * weight * lengthPenalty;
 };
 
+// Animation variants for the button
+const buttonVariants = {
+  hover: { scale: 1.1, transition: { duration: 0.2 } },
+};
 
 const SearchPage = () => {
   const dispatch = useDispatch();
@@ -80,17 +98,19 @@ const SearchPage = () => {
   const { isAuthenticated, user } = useSelector((state) => state.user);
   const unreadCount = useSelector((state) => state.notifications.unreadCount);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [open, setOpen] = useState(false); // State for user dropdown
+  const [open, setOpen] = useState(false); // Desktop user dropdown
+  const [menuOpen, setMenuOpen] = useState(false); // Mobile menu
+  const [accountOpen, setAccountOpen] = useState(false); // Mobile account sub-menu
   const dropdownRef = useRef(null);
+  const menuRef = useRef(null);
   const [visibleCount, setVisibleCount] = useState(6);
   const [filter, setFilter] = useState({
     location: '',
     dates: null,
     priceRange: '',
+    category: '',
   });
-  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm); // để hiển thị trong input
-
-  console.log('tour', tours);
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
 
   // Fetch unread notifications
   useEffect(() => {
@@ -99,28 +119,41 @@ const SearchPage = () => {
     }
   }, [isAuthenticated, dispatch]);
 
+  // Handle click outside for dropdown and mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+        setAccountOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSearch = () => {
     let filtered = tours;
     let scoredTours = [];
 
     if (localSearchTerm.trim()) {
-      scoredTours = filtered.map(tour => {
+      scoredTours = filtered.map((tour) => {
         let score = 0.0;
         const query = localSearchTerm.trim();
         score += computeSimilarity(query, tour.name || '', 2.0);
         score += computeSimilarity(query, tour.description || '', 1.0);
         score += computeSimilarity(query, tour.location || '', 1.5);
-        if (tour.tourcategory && tour.tourcategory.categoryName) {
-          score += computeSimilarity(query, tour.tourcategory.categoryName, 1.2);
+        if (tour.tourCategory && tour.tourCategory.categoryName) {
+          score += computeSimilarity(query, tour.tourCategory.categoryName, 1.2);
         }
-        console.log(`Tour: ${tour.name}, Score: ${score}`);
         return { tour, score };
       });
       filtered = scoredTours
-        .filter(item => item.score > 0.1)
+        .filter((item) => item.score > 0.1)
         .sort((a, b) => b.score - a.score)
-        .map(item => item.tour);
+        .map((item) => item.tour);
     }
 
     if (filter.location) {
@@ -163,6 +196,14 @@ const SearchPage = () => {
       });
     }
 
+    if (filter.category) {
+      filtered = filtered.filter(
+        (tour) =>
+          tour.tourCategory?.categoryName &&
+          tour.tourCategory.categoryName.toLowerCase() === filter.category.toLowerCase()
+      );
+    }
+
     dispatch(setFilteredTours(filtered));
     return scoredTours;
   };
@@ -170,21 +211,6 @@ const SearchPage = () => {
   useEffect(() => {
     handleSearch();
   }, [searchTerm, filter, tours, dispatch]);
-
-  // Handle dropdown outside click
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleSearchChange = (e) => {
-    setLocalSearchTerm(e.target.value); // Không dispatch liền
-  };
 
   const triggerSearch = async () => {
     dispatch(setSearchTerm(localSearchTerm));
@@ -200,22 +226,25 @@ const SearchPage = () => {
             },
           }
         );
-        console.log('✅ Đã lưu lịch sử + danh sách tour tìm được:', response.data);
-        dispatch(setFilteredTours(response.data)); // Dùng kết quả từ API
+        dispatch(setFilteredTours(response.data));
       } catch (error) {
         console.error('❌ Lỗi khi lưu lịch sử tìm kiếm:', error);
-        handleSearch(); // Fallback: lọc trên client nếu API lỗi
+        handleSearch();
       }
     } else {
-      handleSearch(); // Lọc trên client nếu không authenticated
+      handleSearch();
     }
   };
-  
+
+  const handleSearchChange = (e) => {
+    setLocalSearchTerm(e.target.value);
+  };
 
   const handleClearFilters = () => {
-    setFilter({ location: '', dates: null, priceRange: '' });
+    setFilter({ location: '', dates: null, priceRange: '', category: '' });
     dispatch(setSearchTerm(''));
   };
+
   const handleFilterChange = (key, value) => {
     setFilter((prev) => ({ ...prev, [key]: value }));
   };
@@ -224,41 +253,77 @@ const SearchPage = () => {
     localStorage.clear();
     dispatch(logout());
     navigate('/login');
+    setOpen(false);
+    setMenuOpen(false);
+    setAccountOpen(false);
   };
 
+  // Filter navLinks for mobile menu when not authenticated
+  const mobileNavLinks = isAuthenticated
+    ? navLinks
+    : navLinks.filter(
+        (link) =>
+          link.label === 'Trang Chủ' ||
+          link.label === 'Giới Thiệu' ||
+          link.label === 'Tour Gợi Ý'
+      );
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-white font-sans w-screen">
+    <div className="min-h-screen bg-gradient-to-b from-gray-200 to-white font-sans w-screen">
       {/* Navbar */}
       <motion.nav
-       z
         className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3] py-2">
-        <div className="mx-[30px] flex justify-between items-center">
-          {/* Left Section: Logo and Title */}
+        <div className="mx-[10px] md:mx-[30px] flex justify-between items-center">
+          {/* Logo, Brand, and Desktop Navigation */}
           <div className="flex items-center">
-            <img src={logo} alt="logo" className="h-8 w-auto" />
-            <span
-              className="text-[16px] font-bold text-black"
-              style={{ fontFamily: 'Dancing Script, cursive' }}>
-              Travel TADA
-            </span>
-            <div className="pl-10 hidden md:flex items-center space-x-6">
-              {navLinks.map((link) => (
-                <span
-                  key={link.label}
-                  onClick={() => navigate(link.path)}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer">
-                  {link.label}
-                </span>
-              ))}
+            {/* Mobile Back Button */}
+            <motion.div
+              variants={buttonVariants}
+              whileHover="hover"
+              className="md:hidden">
+              <Button
+                onClick={() => navigate('/')}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-3"
+              >
+                <ArrowLeftOutlined />
+              </Button>
+            </motion.div>
+            {/* Desktop Logo and Navigation */}
+            <div className="hidden md:flex items-center">
+              <img src={logo} alt="logo" className="h-8 w-auto" />
+              <span
+                className="text-[16px] font-bold text-black ml-1 w-30"
+                style={{ fontFamily: 'Dancing Script, cursive' }}>
+                Travel TADA
+              </span>
+              <div className="pl-10 flex items-center space-x-6">
+                {navLinks.map((link) => {
+                  if (
+                    (link.label === 'Tour Gợi Ý' ||
+                      link.label === 'Tour Yêu Thích') &&
+                    !isAuthenticated
+                  ) {
+                    return null;
+                  }
+                  return (
+                    <span
+                      key={link.label}
+                      onClick={() => navigate(link.path)}
+                      className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer">
+                      {link.label}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Right Section: User Actions */}
-          <div className="flex items-center space-x-2">
-            {/* Search Bar */}
+          {/* Right Section: Search, Notifications, User Profile */}
+          <div className="flex items-center space-x-1 md:space-x-2">
+            {/* Mobile and Desktop Search Bar */}
             {isAuthenticated && (
               <motion.div
-                className="relative flex items-center"
+                className="relative flex items-center "
                 whileHover={{ scale: 1.05 }}>
                 <Input
                   placeholder="Tìm kiếm tour..."
@@ -269,37 +334,29 @@ const SearchPage = () => {
                       triggerSearch();
                     }
                   }}
-                  className="w-40 md:w-60 rounded-full text-sm py-1 pl-4 pr-10 border-none shadow-sm"
-                  suffix={<SearchOutlined className="text-gray-500" />}
-                />
-
-                <Button
-                  type="primary"
-                  icon={<SearchOutlined />}
-                  className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-4 py-1 text-sm flex items-center ml-1"
-                  style={{ width: '37px', height: '30px' }}
-                  onClick={triggerSearch}
+                  className="w-28 md:w-60 rounded-full text-xs md:text-sm py-1 pl-3 pr-8 border-none shadow-sm"
+                  suffix={<SearchOutlined className="text-gray-500 text-xs md:text-base" />}
                 />
               </motion.div>
             )}
 
-            {/* Notification Icon */}
+            {/* Notifications (Desktop only) */}
             {isAuthenticated && (
               <motion.div
                 whileHover={{ scale: 1.1, rotate: 10 }}
-                className="relative cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
+                className="hidden md:block relative cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
                 onClick={() => navigate('/notifications')}>
                 <BellOutlined />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[12px] font-semibold px-1.5 py-0.5 rounded-full shadow-sm">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-semibold px-1 py-0.5 rounded-full shadow-sm">
                     {unreadCount}
                   </span>
                 )}
               </motion.div>
             )}
 
-            {/* User Dropdown */}
-            <div className="relative" ref={dropdownRef}>
+            {/* Desktop User Profile Dropdown */}
+            <div className="hidden md:block relative" ref={dropdownRef}>
               <button
                 onClick={() => setOpen(!open)}
                 className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200">
@@ -332,7 +389,6 @@ const SearchPage = () => {
                   </>
                 )}
               </button>
-              {/* Dropdown Menu */}
               {open && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -359,10 +415,7 @@ const SearchPage = () => {
                       </button>
                       <button
                         className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                        onClick={() => {
-                          handleLogout();
-                          setOpen(false);
-                        }}>
+                        onClick={handleLogout}>
                         Đăng xuất
                       </button>
                     </>
@@ -392,8 +445,122 @@ const SearchPage = () => {
                 </motion.div>
               )}
             </div>
+
+            {/* Mobile Hamburger Menu Icon */}
+            <div className="md:hidden">
+              <button onClick={() => setMenuOpen(!menuOpen)}>
+                {menuOpen ? (
+                  <CloseOutlined className="text-[18px] text-gray-700" />
+                ) : (
+                  <MenuOutlined className="text-[18px] text-gray-700" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {menuOpen && (
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="md:hidden bg-[#e5e1d3] shadow-lg border-t border-gray-200 p-3 absolute top-[56px] left-0 right-0 z-50">
+            <div className="flex flex-col space-y-2">
+              {/* Navigation Links */}
+              {mobileNavLinks.map((link) => (
+                <span
+                  key={link.label}
+                  onClick={() => {
+                    navigate(link.path);
+                    setMenuOpen(false);
+                    setAccountOpen(false);
+                  }}
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5">
+                  {link.label}
+                </span>
+              ))}
+              {/* Notifications Link */}
+              {isAuthenticated && (
+                <span
+                  onClick={() => {
+                    navigate('/notifications');
+                    setMenuOpen(false);
+                    setAccountOpen(false);
+                  }}
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5">
+                  Thông báo {unreadCount > 0 ? `(${unreadCount})` : ''}
+                </span>
+              )}
+              {/* Account Section */}
+              <div className="border-t border-gray-200 pt-2">
+                <button
+                  onClick={() => setAccountOpen(!accountOpen)}
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5 flex items-center justify-between w-full">
+                  Tài khoản
+                  {accountOpen ? <UpOutlined className="text-sm" /> : <DownOutlined className="text-sm" />}
+                </button>
+                {accountOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="flex flex-col pl-3 space-y-1 mt-1">
+                    {isAuthenticated && user ? (
+                      <>
+                        <button
+                          className="w-full text-gray-700 py-1 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={() => {
+                            navigate('/profile');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}>
+                          Thông tin cá nhân
+                        </button>
+                        <button
+                          className="w-full text-gray-700 py-1 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={() => {
+                            navigate('/orders');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}>
+                          Đơn mua
+                        </button>
+                        <button
+                          className="w-full text-red-600 py-1 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={handleLogout}>
+                          Đăng xuất
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="w-full bg-cyan-600 text-white py-1 px-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition"
+                          onClick={() => {
+                            navigate('/login');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}>
+                          Đăng nhập
+                        </button>
+                        <button
+                          className="w-full text-gray-700 py-1 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={() => {
+                            navigate('/register');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}>
+                          Đăng ký ngay
+                        </button>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
       </motion.nav>
 
       {/* Sticky Filter Bar */}
@@ -402,7 +569,7 @@ const SearchPage = () => {
         animate={{ y: 0 }}
         transition={{ duration: 0.5, delay: 0.7 }}
         className="sticky top-[64px] z-40 bg-white py-4 px-5">
-        <div className="max-w-7xl mx-auto flex items-center gap-4">
+        <div className="max-w-7xl mx-auto flex items-center gap-3">
           <AnimatePresence>
             {isFilterOpen && (
               <motion.div
@@ -411,7 +578,7 @@ const SearchPage = () => {
                 exit={{ width: 0, opacity: 0, scaleX: 0 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
                 className="flex-1 overflow-hidden">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-4 rounded-xl shadow-md border border-gray-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-xl shadow-md border border-gray-100">
                   <div className="flex flex-col">
                     <label className="text-sm font-semibold text-gray-800 mb-2">
                       Địa điểm
@@ -420,16 +587,12 @@ const SearchPage = () => {
                       showSearch
                       placeholder="Chọn địa điểm"
                       value={filter.location}
-                      onChange={(value) =>
-                        handleFilterChange('location', value)
-                      }
+                      onChange={(value) => handleFilterChange('location', value)}
                       className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
                       allowClear
-                      optionFilterProp="children" // để tìm theo label
+                      optionFilterProp="children"
                       filterOption={(input, option) =>
-                        option?.children
-                          ?.toLowerCase()
-                          .includes(input.toLowerCase())
+                        option?.children?.toLowerCase().includes(input.toLowerCase())
                       }>
                       {locations.map((loc) => (
                         <Option key={loc.label} value={loc.label}>
@@ -455,9 +618,7 @@ const SearchPage = () => {
                     <Select
                       placeholder="Chọn khoảng giá"
                       value={filter.priceRange}
-                      onChange={(value) =>
-                        handleFilterChange('priceRange', value)
-                      }
+                      onChange={(value) => handleFilterChange('priceRange', value)}
                       className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
                       allowClear>
                       <Option value="0-1000000">Dưới 1M</Option>
@@ -465,6 +626,23 @@ const SearchPage = () => {
                       <Option value="3000000-5000000">3M - 5M</Option>
                       <Option value="5000000-10000000">5M - 10M</Option>
                       <Option value="10000000-999999999">Trên 10M</Option>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col">
+                    <label className="text-sm font-semibold text-gray-800 mb-2">
+                      Loại hình
+                    </label>
+                    <Select
+                      placeholder="Chọn loại hình"
+                      value={filter.category}
+                      onChange={(value) => handleFilterChange('category', value)}
+                      className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
+                      allowClear>
+                      {tourCategories.map((category) => (
+                        <Option key={category} value={category}>
+                          {category}
+                        </Option>
+                      ))}
                     </Select>
                   </div>
                 </div>
@@ -490,12 +668,12 @@ const SearchPage = () => {
       </motion.div>
 
       {/* Results Section */}
-      <section className="max-w-6xl mx-auto  py-20">
+      <section className="max-w-6xl mx-auto py-20 px-1">
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="text-2xl font-semibold text-gray-800 mb-6">
+          className="lg:text-2xl font-semibold text-gray-800 lg:mb-6 px-5 mb-1">
           Kết quả tìm kiếm ({filteredTours.length})
         </motion.h2>
 
@@ -528,7 +706,7 @@ const SearchPage = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
                   whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}>
-                  <ItemTourBestForYou tour={tour} />
+                  <ItemTourComponent tour={tour} />
                 </motion.div>
               ))}
             </div>

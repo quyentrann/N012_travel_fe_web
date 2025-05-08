@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getTourById } from '../../apis/tour';
-import { useNavigate } from 'react-router-dom';
 import TourBookingForm from '../../components/ItemTourBookingDetail';
 import card1 from '../../images/pq1.jpg';
 import card2 from '../../images/pq2.jpg';
@@ -9,7 +8,6 @@ import card3 from '../../images/pq4.webp';
 import card4 from '../../images/pq5.jpg';
 import { motion } from 'framer-motion';
 import logo from '../../images/logo.png';
-
 import axios from 'axios';
 import {
   Button,
@@ -28,7 +26,6 @@ import {
   Badge,
   Tag,
 } from 'antd';
-
 import {
   CalendarOutlined,
   ArrowLeftOutlined,
@@ -46,9 +43,9 @@ import {
   UserOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
-
 import dayjs from 'dayjs';
 import ItemTourBestForYou from '../../components/ItemTourBestForYou';
+import Header from '../../components/Header2';
 
 const promotions = [{ key: '1', label: 'Giảm 10% cho nhóm trên 5 người' }];
 const { Title, Paragraph } = Typography;
@@ -238,7 +235,7 @@ const itemss = [
           - Khách từ 70 tuổi trở lên: Bắt buộc có người thân dưới 55 tuổi đi
           cùng.
         </Paragraph>
-        <Paragraph>- Không nhận khách từ 80 tuổi trở lên..</Paragraph>
+        <Paragraph>- Không nhận khách từ 80 tuổi trở lên.</Paragraph>
         <Paragraph>
           - Khách mang thai trên 5 tháng: Không được tham gia tour.
         </Paragraph>
@@ -282,37 +279,44 @@ const itemss = [
     ),
   },
 ];
+
+const useQuery = () => {
+  return new URLSearchParams(useLocation().search);
+};
+
 export default function TourDetail() {
   const [startDate, setStartDate] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [tour, setTour] = useState(null);
-  const tourId = location.state?.id;
+  const query = useQuery();
+  const tourId = query.get('id');
   const { token } = theme.useToken();
   const [availableDates, setAvailableDates] = useState([]);
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
   const [infants, setInfants] = useState(0);
-  const [showForm, setShowForm] = useState(false);
+  const [showBookingPanel, setShowBookingPanel] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
   const [similarTours, setSimilarTours] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const holidays = [
-    '01-01', // Tết Nguyên Đán (Ngày đầu tiên của Tết Âm lịch)
-    '03-08', // Ngày Quốc Tế Phụ Nữ
-    '04-30', // Ngày Chiến Thắng 30/4
-    '05-01', // Ngày Quốc Tế Lao Động
-    '09-02', // Ngày Quốc Khánh
-    '12-25', // Giáng Sinh
-    '11-20', // Ngày Nhà Giáo Việt Nam
-    '07-27', // Ngày Thương Binh Liệt Sĩ
-    '08-19', // Ngày Cách Mạng Tháng Tám
-    '10-10', // Ngày Giỗ Tổ Hùng Vương
-    '09-15', // Tết Trung Thu (Rằm tháng 8 Âm lịch)
-    '12-23', // Ngày 23 tháng Chạp (Táo Quân)
+    '01-01',
+    '03-08',
+    '04-30',
+    '05-01',
+    '09-02',
+    '12-25',
+    '11-20',
+    '07-27',
+    '08-19',
+    '10-10',
+    '09-15',
+    '12-23',
   ];
 
-  const holidayRate = 1.2; // Hệ số giá cho ngày lễ (20% tăng thêm)
+  const holidayRate = 1.2;
 
   const priceForOneAdult = tour?.price
     ? tour.price *
@@ -337,12 +341,12 @@ export default function TourDetail() {
     priceForOneInfant * infants;
 
   const totalGuests = adults + children + infants;
-  const discountRate = totalGuests >= 5 ? 0.1 : 0; // Giảm 10% nếu >= 5 người
+  const discountRate = totalGuests >= 5 ? 0.1 : 0;
   const discountAmount = totalPrice * discountRate;
   const finalPrice = totalPrice - discountAmount;
 
-  const handleCloseForm = () => {
-    setShowForm(false);
+  const handleCloseModal = () => {
+    setShowBookingModal(false);
   };
 
   const panelStyle = {
@@ -351,9 +355,6 @@ export default function TourDetail() {
     borderRadius: token.borderRadiusLG,
     border: 'none',
   };
-  // useEffect(() => {
-  //   window.scrollTo(0, 0);
-  // }, []);
 
   const getSimilarTours = async (tourId) => {
     try {
@@ -366,33 +367,36 @@ export default function TourDetail() {
       return response.json();
     } catch (error) {
       console.error(error);
-      return []; // Trả về mảng rỗng nếu có lỗi
+      return [];
     }
   };
 
   useEffect(() => {
-    if (tourId) {
-      setLoading(true); // Bắt đầu tải dữ liệu
-      getTourById(tourId)
-        .then((data) => {
-          setTour(data);
-          if (data.tourDetails) {
-            const startDates = data.tourDetails.map((tour) =>
-              dayjs(tour.startDate).startOf('day')
-            );
-            setAvailableDates(startDates);
-          }
-        })
-        .catch((err) => console.error('Lỗi API:', err));
-
-      // Gọi API để lấy các tour tương tự
-      getSimilarTours(tourId)
-        .then((data) => {
-          setSimilarTours(data); // Cập nhật danh sách tour tương tự
-        })
-        .catch((err) => console.error('Lỗi API tour tương tự:', err))
-        .finally(() => setLoading(false)); // Kết thúc trạng thái loading
+    if (!tourId) {
+      message.error('Không tìm thấy tour. Vui lòng chọn tour từ danh sách!');
+      navigate('/tours');
+      return;
     }
+
+    setLoading(true);
+    getTourById(tourId)
+      .then((data) => {
+        setTour(data);
+        if (data.tourDetails) {
+          const startDates = data.tourDetails.map((tour) =>
+            dayjs(tour.startDate).startOf('day')
+          );
+          setAvailableDates(startDates);
+        }
+      })
+      .catch((err) => console.error('Lỗi API:', err));
+
+    getSimilarTours(tourId)
+      .then((data) => {
+        setSimilarTours(data);
+      })
+      .catch((err) => console.error('Lỗi API tour tương tự:', err))
+      .finally(() => setLoading(false));
   }, [tourId]);
 
   const listImageTour = [
@@ -447,7 +451,7 @@ export default function TourDetail() {
         </p>
       </div>
     ),
-    style: panelStyle, // Nếu bạn có style riêng
+    style: panelStyle,
   }));
 
   const disabledDate = (date) => {
@@ -455,9 +459,6 @@ export default function TourDetail() {
       d.isSame(dayjs(date), 'day')
     );
     const isBeforeLimit = dayjs(date).diff(dayjs(), 'day') < 7;
-    const isHoliday = holidays.includes(dayjs(date).format('MM-DD'));
-
-    // Chỉ disable ngày không có trong availableDates hoặc ngày quá gần
     return !isAvailable || isBeforeLimit;
   };
 
@@ -473,7 +474,7 @@ export default function TourDetail() {
     setter((prev) => (prev > min ? prev - 1 : prev));
 
   useEffect(() => {
-    console.log('ạhakjgiu', JSON.stringify(similarTours, null, 2));
+    console.log('Similar Tours:', JSON.stringify(similarTours, null, 2));
   }, [similarTours]);
 
   const buttonVariants = {
@@ -484,65 +485,151 @@ export default function TourDetail() {
     },
   };
 
+  const scrollToSection = (sectionId) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f8f8]">
+      <style>
+        {`
+          @media (max-width: 767px) {
+            .mobile-nav {
+              display: flex;
+              overflow-x: auto;
+              white-space: nowrap;
+              -webkit-overflow-scrolling: touch;
+              padding: 0.5rem 0;
+              scrollbar-width: none; /* Firefox */
+              -ms-overflow-style: none; /* IE and Edge */
+            }
+            .mobile-nav::-webkit-scrollbar {
+              display: none; /* Chrome, Safari, Opera */
+            }
+            .mobile-nav button {
+              display: inline-block;
+              margin-right: 1rem;
+              padding: 0.5rem 1rem;
+              font-size: 13px;
+              font-weight: 500;
+              color: #333;
+              background: #f0f0f0;
+              border-radius: 20px;
+              transition: background 0.2s;
+            }
+            .mobile-nav button:hover {
+              background: #e0e0e0;
+            }
+            .mobile-sticky-booking {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              z-index: 1000;
+              background: white;
+              box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+              padding: 1rem;
+              transform: translateY(100%);
+              transition: transform 0.3s ease-in-out;
+            }
+            .mobile-sticky-booking.visible {
+              transform: translateY(0);
+            }
+            .mobile-sticky-booking-toggle {
+              position: fixed;
+              bottom: 1rem;
+              right: 1rem;
+              z-index: 1001;
+              background: #009EE2;
+              color: white;
+              border-radius: 50%;
+              width: 48px;
+              height: 48px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            .mobile-section {
+              margin-bottom: 1rem;
+              padding: 0.5rem;
+            }
+            .mobile-section-content {
+              max-height: 500px;
+              overflow-y: auto;
+              -webkit-overflow-scrolling: touch;
+            }
+          }
+        `}
+      </style>
       <motion.header
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-[#f0ede3] shadow-md py-4 px-4 sm:px-6 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <motion.div variants={buttonVariants} whileHover="hover">
-            <Button
-  onClick={() => navigate(-1)} // Quay lại trang trước
-  className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
+  initial={{ opacity: 0, y: -50 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.5 }}
+  className="bg-[#f0ede3] shadow-md py-4 px-4 sm:px-6 sticky top-0 z-10"
 >
-  <ArrowLeftOutlined />
-</Button>
+  <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap">
+    {/* Nút quay về: luôn hiển thị */}
+    <div className="flex items-center space-x-2">
+      <motion.div variants={buttonVariants} whileHover="hover">
+        <Button
+          onClick={() => navigate(-1)}
+          className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
+        >
+          <ArrowLeftOutlined />
+        </Button>
+      </motion.div>
 
-            </motion.div>
-            <img src={logo} alt="Travel TADA" className="h-8 w-auto" />
-            <span
-              className="text-xl font-bold text-gray-900"
-              style={{ fontFamily: 'Dancing Script, cursive' }}>
-              TADA
-            </span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
-              onClick={() => navigate('/')}
-              aria-label="Trang chủ">
-              Trang chủ
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
-              onClick={() => navigate('/profile')}
-              aria-label="Hồ sơ">
-              Hồ sơ
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              className="text-gray-600 hover:text-red-600 text-sm font-medium flex items-center transition-colors"
-              onClick={() => {
-                localStorage.clear();
-                message.success('Đăng xuất thành công!');
-                navigate('/login');
-              }}
-              aria-label="Đăng xuất">
-              <LogoutOutlined className="mr-1" /> Đăng xuất
-            </motion.button>
-          </div>
-        </div>
-      </motion.header>
-      <div className="h-full w-screen px-10 py-5 bg-[#f8f8f8]">
-        <div className="flex items-center ">
-          {/* Nút Back */}
+      {/* Logo và thương hiệu: chỉ hiển thị trên sm trở lên */}
+      <img src={logo} alt="Travel TADA" className="h-8 w-auto hidden sm:block" />
+      <span
+        className="text-xl font-bold text-gray-900 hidden sm:block"
+        style={{ fontFamily: 'Dancing Script, cursive' }}
+      >
+        TADA
+      </span>
+    </div>
 
-          <p className="text-[23px] font-bold px-5">
+    {/* Các nút menu: chỉ hiển thị trên sm trở lên */}
+    <div className="hidden sm:flex items-center space-x-4 mt-2 sm:mt-0">
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
+        onClick={() => navigate('/')}
+        aria-label="Trang chủ"
+      >
+        Trang chủ
+      </motion.button>
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
+        onClick={() => navigate('/profile')}
+        aria-label="Hồ sơ"
+      >
+        Hồ sơ
+      </motion.button>
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        className="text-gray-600 hover:text-red-600 text-sm font-medium flex items-center transition-colors"
+        onClick={() => {
+          localStorage.clear();
+          message.success('Đăng xuất thành công!');
+          navigate('/login');
+        }}
+        aria-label="Đăng xuất"
+      >
+        <LogoutOutlined className="mr-1" /> Đăng xuất
+      </motion.button>
+    </div>
+  </div>
+</motion.header>
+
+      <div className="h-full w-screen px-4 sm:px-10 py-5 bg-[#f8f8f8]">
+        <div className="flex items-center flex-col sm:flex-row">
+          <p className="text-[18px] sm:text-[23px] font-bold px-0 sm:px-5 mt-2 sm:mt-0">
             Tour {tour?.location}: {tour?.name}
           </p>
         </div>
@@ -551,16 +638,17 @@ export default function TourDetail() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="flex h-full w-full mt-3 ">
-          <div className="w-2/3 px-5 min-h-screen ">
+          className="flex flex-col md:flex-row h-full w-full mt-3"
+        >
+          <div className="w-full md:w-2/3 px-0 md:px-5 min-h-screen">
             <div className="rounded-[8px] border-1 border-gray-300 shadow">
-              <Carousel autoplay arrows>
+              <Carousel autoplay arrows className="touch-pan-y">
                 {listImageTour.map((tour) => (
                   <div key={tour.id}>
                     <img
                       src={tour.image}
                       alt={`Tour ${tour.id}`}
-                      className="h-113 w-full rounded-[5px]"
+                      className="h-[200px] sm:h-[450px] w-full rounded-[5px] object-cover"
                     />
                   </div>
                 ))}
@@ -570,102 +658,62 @@ export default function TourDetail() {
               initial={{ opacity: 0, scale: 1 }}
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="sticky top-17 bg-white shadow z-50">
-              <nav className="h-16 mt-5 font-semibold flex justify-between text-[15px] ">
-                <button
-                  className=""
-                  onClick={() => scrollToSection('tong-quan')}>
+              className="sticky top-16 bg-white shadow z-50"
+            >
+              <nav className="h-16 mt-5 font-semibold flex justify-between text-[14px] sm:text-[15px] mobile-nav md:flex-row">
+                <button onClick={() => scrollToSection('tong-quan')}>
                   Tổng Quan
                 </button>
-
-                <button
-                  className=""
-                  onClick={() => scrollToSection('lich-trinh')}>
+                <button onClick={() => scrollToSection('lich-trinh')}>
                   Lịch Trình Tour
                 </button>
-                <button className="" onClick={() => scrollToSection('luu-y')}>
+                <button onClick={() => scrollToSection('luu-y')}>
                   Điều Kiện Tour
                 </button>
-                <button
-                  className=""
-                  onClick={() => scrollToSection('danh-gia')}>
+                <button onClick={() => scrollToSection('danh-gia')}>
                   Đánh Giá
                 </button>
-                <button
-                  className=""
-                  onClick={() => scrollToSection('tour-tuong-tu')}>
+                <button onClick={() => scrollToSection('tour-tuong-tu')}>
                   Tour Tương Tự
                 </button>
               </nav>
             </motion.div>
 
             <motion.div
+              id="tong-quan"
               initial={{ opacity: 0, scale: 0.8 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="flex justify-between pb-3 text-[14px] ">
-                <p className="font-medium ">
-                  <EnvironmentOutlined className="pr-1" />
-                  Địa điểm:{' '}
-                  <span className="font-bold text-[15px]">
-                    {tour?.location}
-                  </span>
-                </p>
-                <p className="font-medium ">
-                  Mã Tour: <span className="font-bold text-[15px]">TO2467</span>
-                </p>
-              </div>
-              <div className="border-1 border-gray-100"></div>
-              <div className="text-[16px] font-bold pt-5">
-                Tour Trọn Gói Bao Gồm
-              </div>
-              <div className="flex w-full mt-5 text-[14px]">
-                {benefits.map((column, index) => (
-                  <ul key={index} className="space-y-7 w-2/3">
-                    {column.map((item, i) => (
-                      <li key={i} className="flex items-center space-x-2">
-                        <CheckOutlined style={{ color: '#1E90FF' }} />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ))}
-              </div>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="text-[16px] font-bold pb-2">
-                Điểm Nhấn Hành Trình
-              </div>
-              <p className="text-[14px]">
-                - {tour?.highlights} Trãi nghiệm loại hình du lịch:{' '}
-                <span className="font-medium text-[14px] italic">
-                  {tour?.tourcategory?.categoryName}
-                </span>
-                . {tour?.description}
-              </p>
-              <div className="text-[14px] pt-3">
-                <p className="text-[15px] font-medium pb-2 pl-2">
-                  Trải nghiệm thú vị trong tour
-                </p>
-                <div className="pl-6">
-                  {tour?.experiences?.split(';').map((exp, index) => (
-                    <p key={index} className="pb-4">
-                      <CheckOutlined
-                        style={{
-                          color: '#228B22',
-                          paddingRight: '5px',
-                          fontSize: '14px',
-                        }}
-                      />
-                      {exp.trim()}
-                    </p>
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
+            >
+              <div className="mobile-section-content">
+                <div className="flex flex-col sm:flex-row justify-between pb-3 text-[13px] sm:text-[14px]">
+                  <p className="font-medium">
+                    <EnvironmentOutlined className="pr-1" />
+                    Địa điểm:{' '}
+                    <span className="font-bold text-[14px] sm:text-[15px]">
+                      {tour?.location}
+                    </span>
+                  </p>
+                  <p className="font-medium mt-2 sm:mt-0">
+                    Mã Tour: <span className="font-bold text-[14px] sm:text-[15px]">TO2467</span>
+                  </p>
+                </div>
+                <div className="border-1 border-gray-100"></div>
+                <div className="text-[15px] sm:text-[16px] font-bold pt-5">
+                  Tour Trọn Gói Bao Gồm
+                </div>
+                <div className="flex flex-col sm:flex-row w-full mt-5 text-[13px] sm:text-[14px]">
+                  {benefits.map((column, index) => (
+                    <ul key={index} className="space-y-5 sm:space-y-7 w-full sm:w-2/3">
+                      {column.map((item, i) => (
+                        <li key={i} className="flex items-center space-x-2">
+                          <CheckOutlined style={{ color: '#1E90FF' }} />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
                   ))}
                 </div>
               </div>
@@ -675,131 +723,193 @@ export default function TourDetail() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="w-full bg-white my-4 rounded-[5px] p-5 shadow">
-              <div className="text-[16px] font-bold pb-5">Lịch Trình Tour</div>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}>
-                <Collapse
-                  bordered={false}
-                  defaultActiveKey={['0']}
-                  expandIcon={({ isActive }) => (
-                    <CaretRightOutlined rotate={isActive ? 90 : 0} />
-                  )}
-                  style={{
-                    background: token.colorBgContainer,
-                    fontSize: '14px',
-                  }}
-                  items={items}
-                />
-              </motion.div>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="text-[16px] font-bold ">Thông tin cần lưu ý</div>
-              <div>
-                <Tabs defaultActiveKey="1" items={itemss} />
-              </div>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="text-[16px] font-bold pb-2">Đánh Giá Tour</div>
-              <div className="space-y-4">
-                {tour?.reviews?.map((review, index) => (
-                  <div key={index} className="border-b pb-4">
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center pb-2">
-                        <Avatar
-                          size={40}
-                          src={review?.avatarUrl || undefined}
-                          icon={<UserOutlined />}
-                          className="mr-2"
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
+            >
+              <div className="mobile-section-content">
+                <div className="text-[15px] sm:text-[16px] font-bold pb-2">
+                  Điểm Nhấn Hành Trình
+                </div>
+                <p className="text-[13px] sm:text-[14px]">
+                  - {tour?.highlights} Trãi nghiệm loại hình du lịch:{' '}
+                  <span className="font-medium text-[13px] sm:text-[14px] italic">
+                    {tour?.tourcategory?.categoryName}
+                  </span>
+                  . {tour?.description}
+                </p>
+                <div className="text-[13px] sm:text-[14px] pt-3">
+                  <p className="text-[14px] sm:text-[15px] font-medium pb-2 pl-2">
+                    Trải nghiệm thú vị trong tour
+                  </p>
+                  <div className="pl-4 sm:pl-6">
+                    {tour?.experiences?.split(';').map((exp, index) => (
+                      <p key={index} className="pb-3 sm:pb-4">
+                        <CheckOutlined
+                          style={{
+                            color: '#228B22',
+                            paddingRight: '5px',
+                            fontSize: '13px',
+                          }}
                         />
-                        <span className="font-medium text-[14px] pl-3">
-                          {review?.customerFullName || 'Khách hàng'}
-                        </span>
-                      </div>
-                      <div className="flex items-center text-yellow-400 ">
-                        {/* Render stars based on rating */}
-                        {[...Array(5)].map((_, i) => (
-                          <StarFilled
-                            key={i}
-                            style={{
-                              color: i < review.rating ? '#FFD700' : '#d3d3d3',
-                            }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="pl-13">
-                      <p className="text-[14px] text-gray-600">
-                        {review.comment}
+                        {exp.trim()}
                       </p>
-                      <p className="text-[12px] text-gray-400">
-                        {review.reviewDate}
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </motion.div>
             <motion.div
+              id="lich-trinh"
               initial={{ opacity: 0, scale: 0.8 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-5 shadow">
-              <div className="text-[16px] font-bold pb-2">Tour Tương Tự</div>
-              <div className="grid grid-cols-2 gap-5 justify-between">
-                {similarTours.map((similarTour) => (
-                  <ItemTourBestForYou
-                    key={similarTour.tourId}
-                    tour={similarTour}
+              className="w-full bg-white my-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
+            >
+              <div className="mobile-section-content">
+                <div className="text-[15px] sm:text-[16px] font-bold pb-5">Lịch Trình Tour</div>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <Collapse
+                    bordered={false}
+                    defaultActiveKey={['0']}
+                    expandIcon={({ isActive }) => (
+                      <CaretRightOutlined rotate={isActive ? 90 : 0} />
+                    )}
+                    style={{
+                      background: token.colorBgContainer,
+                      fontSize: '13px',
+                    }}
+                    items={items}
                   />
-                ))}
+                </motion.div>
+              </div>
+            </motion.div>
+            <motion.div
+              id="luu-y"
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
+            >
+              <div className="mobile-section-content">
+                <div className="text-[15px] sm:text-[16px] font-bold">Thông tin cần lưu ý</div>
+                <div>
+                  <Tabs defaultActiveKey="1" items={itemss} />
+                </div>
+              </div>
+            </motion.div>
+            <motion.div
+              id="danh-gia"
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
+            >
+              <div className="mobile-section-content">
+                <div className="text-[15px] sm:text-[16px] font-bold pb-2">Đánh Giá Tour</div>
+                <div className="space-y-4">
+                  {tour?.reviews?.length > 0 ? (
+                    tour.reviews.map((review, index) => (
+                      <div key={index} className="border-b pb-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                          <div className="flex items-center pb-2">
+                            <Avatar
+                              size={36}
+                              src={review?.avatarUrl || undefined}
+                              icon={<UserOutlined />}
+                              className="mr-2"
+                            />
+                            <span className="font-medium text-[13px] pl-2">
+                              {review?.customerFullName || 'Khách hàng'}
+                            </span>
+                          </div>
+                          <div className="flex items-center text-yellow-400 mt-2 sm:mt-0">
+                            {[...Array(5)].map((_, i) => (
+                              <StarFilled
+                                key={i}
+                                style={{
+                                  color: i < review.rating ? '#FFD700' : '#d3d3d3',
+                                  fontSize: '14px',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="pl-10">
+                          <p className="text-[13px] text-gray-600">{review.comment}</p>
+                          <p className="text-[11px] text-gray-400">{review.reviewDate}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[13px] text-gray-600">Chưa có đánh giá cho tour này.</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+            <motion.div
+              id="tour-tuong-tu"
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5 }}
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
+            >
+              <div className="mobile-section-content">
+                <div className="text-[15px] sm:text-[16px] font-bold pb-2">Tour Tương Tự</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 justify-between">
+                  {similarTours.length > 0 ? (
+                    similarTours.map((similarTour) => (
+                      <ItemTourBestForYou
+                        key={similarTour.tourId}
+                        tour={similarTour}
+                      />
+                    ))
+                  ) : (
+                    <p className="text-[13px] text-gray-600">Chưa có tour tương tự.</p>
+                  )}
+                </div>
               </div>
             </motion.div>
           </div>
 
           <motion.div
-          initial={{scale: 0.7 }}
-          whileInView={{  scale: 0.95 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-            className={`w-1/3 max-h-[calc(100vh-40px)] flex justify-center sticky top-20 z-50 mb-2 ${
+            initial={{ scale: 0.7 }}
+            whileInView={{ scale: 0.95 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className={`hidden md:block w-1/3 max-h-[calc(100vh-40px)] flex justify-center sticky top-20 z-50 mb-2 ${
               tour?.availableSlot === 0 ? 'pointer-events-none opacity-50' : ''
-            }`}>
+            }`}
+          >
             <div className="bg-amber-50 w-93 h-147 rounded-xl p-6 flex flex-col justify-between mb-5 border-1 border-gray-200 shadow relative">
               {tour?.availableSlot === 0 && (
                 <Tag
-                  color="error" // Màu đỏ của thông báo "Hết chỗ"
+                  color="error"
                   style={{
                     position: 'absolute',
                     top: '13px',
                     right: '0px',
-                    transform: 'rotate(15deg)', // Xoay nhẹ thông báo
-                    fontSize: '22px', // Kích thước chữ nhỏ nhưng rõ ràng
-                    fontWeight: 'bold', // Chữ đậm để dễ nhìn
-                    padding: '5px 30px', // Tạo không gian xung quanh chữ
-                    textAlign: 'center', // Canh giữa
-                  }}>
+                    transform: 'rotate(15deg)',
+                    fontSize: '22px',
+                    fontWeight: 'bold',
+                    padding: '5px 30px',
+                    textAlign: 'center',
+                  }}
+                >
                   Hết chỗ
                 </Tag>
               )}
               {tour?.availableSlot === 0 && (
                 <div className="absolute inset-0 bg-gray-10 opacity-1" />
               )}
-              <p className="text-[21px] text-blue-800 font-bold ">
+              <p className="text-[21px] text-blue-800 font-bold">
                 Lịch Trình và Giá Tour
               </p>
               <div className="w-full border-1 border-gray-300"></div>
@@ -811,17 +921,18 @@ export default function TourDetail() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
-                className="flex mr-10 h-11 items-center border-1 border-gray-300 w-48 rounded-[8px]">
+                className="flex mr-10 h-11 items-center border-1 border-gray-300 w-48 rounded-[8px]"
+              >
                 <div className="flex items-center justify-center px-3 mt-2">
                   <CalendarOutlined className="text-gray-500 text-[14px] mb-2" />
                 </div>
-                <div className="flex flex-col items-center ">
+                <div className="flex flex-col items-center">
                   <DatePicker
-                    selected={startDate}
-                    onChange={(date) => setStartDate(date)}
-                    placeholderText="Chọn ngày"
-                    dateFormat="dd.MM.yyyy"
-                    className="border-none text-[8px] h-7 w-35"
+                    value={startDate ? dayjs(startDate) : null}
+                    onChange={(date) => setStartDate(date ? date.toDate() : null)}
+                    placeholder="Chọn ngày"
+                    format="DD.MM.YYYY"
+                    className="border-none text-[13px] h-7 w-35"
                     disabledDate={disabledDate}
                     dateRender={(current) => {
                       const isDisabled = disabledDate(current);
@@ -841,7 +952,8 @@ export default function TourDetail() {
                               ? 'text-black'
                               : ''
                           }`}
-                          style={{ position: 'relative' }}>
+                          style={{ position: 'relative' }}
+                        >
                           {current.date()}
                           {isTooClose && (
                             <span
@@ -853,7 +965,8 @@ export default function TourDetail() {
                                 color: 'gray',
                                 fontSize: '16px',
                                 fontWeight: 'bold',
-                              }}>
+                              }}
+                            >
                               ❌
                             </span>
                           )}
@@ -867,15 +980,15 @@ export default function TourDetail() {
               <div className="bg-white h-14 rounded-xl flex justify-between p-5 items-center text-center border-1 border-gray-300">
                 <div className="text-center">
                   <p className="text-center text-[14px] font-medium">
-                    Người lớn <br />{' '}
+                    Người lớn <br />
                   </p>
-                  <div className="text-[10px] text-gray-700">&gt; 10 tuổi </div>
+                  <div className="text-[10px] text-gray-700">≥ 10 tuổi</div>
                 </div>
                 <p className="text-black text-[14px] font-medium">
                   {(tour?.price && tour?.availableSlot > 0
                     ? tour.price *
                       adults *
-                      (holidays.includes(dayjs(startDate).format('YYYY-MM-DD'))
+                      (holidays.includes(dayjs(startDate).format('MM-DD'))
                         ? holidayRate
                         : 1)
                     : 0
@@ -903,7 +1016,7 @@ export default function TourDetail() {
                       increase(
                         setAdults,
                         adults,
-                        (tour?.remainingSeats || 999) - children - infants
+                        (tour?.availableSlot || 999) - children - infants
                       )
                     }
                   />
@@ -913,16 +1026,16 @@ export default function TourDetail() {
               <div className="bg-white border-1 border-gray-300 text-center h-14 rounded-xl flex justify-between p-5 items-center">
                 <div className="text-center">
                   <p className="text-center text-[14px] font-medium">
-                    Trẻ em <br />{' '}
+                    Trẻ em <br />
                   </p>
-                  <div className="text-[10px] text-gray-700">2 - 10 tuổi </div>
+                  <div className="text-[10px] text-gray-700">2 - 10 tuổi</div>
                 </div>
                 <p className="text-black text-[14px] font-medium">
                   {(tour?.price
                     ? tour.price *
                       0.85 *
                       children *
-                      (holidays.includes(dayjs(startDate).format('YYYY-MM-DD'))
+                      (holidays.includes(dayjs(startDate).format('MM-DD'))
                         ? holidayRate
                         : 1)
                     : 0
@@ -946,7 +1059,7 @@ export default function TourDetail() {
                       increase(
                         setChildren,
                         children,
-                        (tour?.remainingSeats || 999) - adults - infants
+                        (tour?.availableSlot || 999) - adults - infants
                       )
                     }
                   />
@@ -955,16 +1068,16 @@ export default function TourDetail() {
               <div className="bg-white border-1 border-gray-300 text-center h-14 rounded-xl flex justify-between p-5 items-center">
                 <div className="text-center">
                   <p className="text-center text-[14px] font-medium">
-                    Trẻ nhỏ <br />{' '}
+                    Trẻ nhỏ <br />
                   </p>
-                  <div className="text-[10px] text-gray-700">&lt; 2 tuổi </div>
+                  <div className="text-[10px] text-gray-700"> 2 tuổi</div>
                 </div>
                 <p className="text-black text-[14px] font-medium">
                   {(tour?.price
                     ? tour.price *
                       0.3 *
                       infants *
-                      (holidays.includes(dayjs(startDate).format('YYYY-MM-DD'))
+                      (holidays.includes(dayjs(startDate).format('MM-DD'))
                         ? holidayRate
                         : 1)
                     : 0
@@ -988,18 +1101,13 @@ export default function TourDetail() {
                       increase(
                         setInfants,
                         infants,
-                        (tour?.remainingSeats || 999) - adults - children
+                        (tour?.availableSlot || 999) - adults - children
                       )
                     }
                   />
                 </div>
               </div>
               <div>
-                {/* <Dropdown overlay={menu} trigger={['click']}>
-                  <Button icon={<TagOutlined />} className="flex items-center">
-                    <p className="text-[12px]">Chọn Ưu Đãi</p>
-                  </Button>
-                </Dropdown> */}
                 <div className="flex items-center text-red-500 text-[12px]">
                   <GiftOutlined className="mr-1" />
                   <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span>
@@ -1016,7 +1124,7 @@ export default function TourDetail() {
                   </p>
                 </div>
               </div>
-              <div className="flex justify-between ">
+              <div className="flex justify-between">
                 <p className="text-[14px] font-medium">Tổng Giá Tour</p>
                 <div className="flex flex-row items-end">
                   <p className="text-[14px] font-medium text-gray-600">
@@ -1037,7 +1145,6 @@ export default function TourDetail() {
                       : finalPrice
                     ).toLocaleString('vi-VN')}
                   </p>
-
                   <p className="text-[10px] pl-2 font-medium text-red-700">
                     VND
                   </p>
@@ -1064,15 +1171,16 @@ export default function TourDetail() {
                     }
 
                     if (localStorage.getItem('TOKEN')) {
-                      setShowForm(true);
+                      setShowBookingModal(true);
                     } else {
                       message.warning('Bạn cần đăng nhập để đặt tour!');
                     }
-                  }}>
+                  }}
+                >
                   Đặt Tour
                 </Button>
               </div>
-              {holidays.includes(dayjs(startDate).format('YYYY-MM-DD')) && (
+              {holidays.includes(dayjs(startDate).format('MM-DD')) && (
                 <p className="text-red-600 text-[10px] font-medium">
                   ⚠️ Giá tour sẽ có sự thay đổi vào các ngày lễ. Vui lòng kiểm
                   tra lại tổng giá khi chọn ngày.
@@ -1085,11 +1193,324 @@ export default function TourDetail() {
             </div>
           </motion.div>
 
+          {/* Mobile Booking Form */}
+          <div className="md:hidden">
+            <motion.div
+              className={`mobile-sticky-booking ${showBookingPanel ? 'visible' : ''}`}
+              initial={{ transform: 'translateY(100%)' }}
+              animate={{ transform: showBookingPanel ? 'translateY(0)' : 'translateY(100%)' }}
+            >
+              <div className={`bg-amber-50 rounded-xl p-4 flex flex-col justify-between border-1 border-gray-200 shadow relative ${
+                tour?.availableSlot === 0 ? 'pointer-events-none opacity-50' : ''
+              }`}>
+                {tour?.availableSlot === 0 && (
+                  <Tag
+                    color="error"
+                    style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      padding: '3px 15px',
+                    }}
+                  >
+                    Hết chỗ
+                  </Tag>
+                )}
+                <p className="text-[18px] text-blue-800 font-bold">
+                  Lịch Trình và Giá Tour
+                </p>
+                <div className="w-full border-1 border-gray-300 my-2"></div>
+                <p className="text-[13px] text-gray-500 font-medium">
+                  Chọn ngày khởi hành:
+                </p>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="flex h-10 items-center border-1 border-gray-300 rounded-[8px] w-full mt-2"
+                >
+                  <div className="flex items-center justify-center px-2">
+                    <CalendarOutlined className="text-gray-500 text-[13px]" />
+                  </div>
+                  histology
+                  <DatePicker
+                    value={startDate ? dayjs(startDate) : null}
+                    onChange={(date) => setStartDate(date ? date.toDate() : null)}
+                    placeholder="Chọn ngày"
+                    format="DD.MM.YYYY"
+                    className="border-none text-[13px] h-8 w-full"
+                    disabledDate={disabledDate}
+                    dateRender={(current) => {
+                      const isDisabled = disabledDate(current);
+                      const isTooClose =
+                        availableDates.some((d) => d.isSame(current, 'day')) &&
+                        current.diff(dayjs(), 'day') < 7;
+                      const isSelectable =
+                        availableDates.some((d) => d.isSame(current, 'day')) &&
+                        current.diff(dayjs(), 'day') >= 7;
+
+                      return (
+                        <div
+                          className={`ant-picker-cell-inner ${
+                            isDisabled
+                              ? 'text-gray-400'
+                              : isSelectable
+                              ? 'text-black'
+                              : ''
+                          }`}
+                          style={{ position: 'relative' }}
+                        >
+                          {current.date()}
+                          {isTooClose && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                color: 'gray',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              ❌
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }}
+                  />
+                </motion.div>
+
+                <div className="bg-white h-12 rounded-lg flex justify-between p-3 items-center text-center border-1 border-gray-300 mt-3">
+                  <div className="text-center">
+                    <p className="text-[13px] font-medium">Người lớn</p>
+                    <div className="text-[9px] text-gray-700">≥ 10 tuổi</div>
+                  </div>
+                  <p className="text-black text-[13px] font-medium">
+                    {(tour?.price && tour?.availableSlot > 0
+                      ? tour.price *
+                        adults *
+                        (holidays.includes(dayjs(startDate).format('MM-DD'))
+                          ? holidayRate
+                          : 1)
+                      : 0
+                    ).toLocaleString('vi-VN')}
+                  </p>
+                  <div className="flex justify-between w-14 text-[12px] font-medium">
+                    <MinusOutlined
+                      className={`cursor-pointer ${
+                        adults === 1 || tour?.availableSlot === 0
+                          ? 'opacity-50 pointer-events-none'
+                          : ''
+                      }`}
+                      onClick={() => decrease(setAdults, 1)}
+                    />
+                    <p>{tour?.availableSlot === 0 ? 0 : adults}</p>
+                    <PlusOutlined
+                      className={`cursor-pointer ${
+                        totalGuests >= (tour?.availableSlot || 999) ||
+                        tour?.availableSlot === 0
+                          ? 'opacity-50 pointer-events-none'
+                          : ''
+                      }`}
+                      onClick={() =>
+                        increase(
+                          setAdults,
+                          adults,
+                          (tour?.availableSlot || 999) - children - infants
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white border-1 border-gray-300 text-center h-12 rounded-lg flex justify-between p-3 items-center mt-2">
+                  <div className="text-center">
+                    <p className="text-[13px] font-medium">Trẻ em</p>
+                    <div className="text-[9px] text-gray-700">2 - 10 tuổi</div>
+                  </div>
+                  <p className="text-black text-[13px] font-medium">
+                    {(tour?.price
+                      ? tour.price *
+                        0.85 *
+                        children *
+                        (holidays.includes(dayjs(startDate).format('MM-DD'))
+                          ? holidayRate
+                          : 1)
+                      : 0
+                    ).toLocaleString('vi-VN')}
+                  </p>
+                  <div className="flex justify-between w-14 text-[12px] font-medium">
+                    <MinusOutlined
+                      className={`cursor-pointer ${
+                        children === 0 ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                      onClick={() => decrease(setChildren, 0)}
+                    />
+                    <p>{children}</p>
+                    <PlusOutlined
+                      className={`cursor-pointer ${
+                        totalGuests >= (tour?.availableSlot || 999)
+                          ? 'opacity-50 pointer-events-none'
+                          : ''
+                      }`}
+                      onClick={() =>
+                        increase(
+                          setChildren,
+                          children,
+                          (tour?.availableSlot || 999) - adults - infants
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white border-1 border-gray-300 text-center h-12 rounded-lg flex justify-between p-3 items-center mt-2">
+                  <div className="text-center">
+                    <p className="text-[13px] font-medium">Trẻ nhỏ</p>
+                    <div className="text-[9px] text-gray-700"> 2 tuổi</div>
+                  </div>
+                  <p className="text-black text-[13px] font-medium">
+                    {(tour?.price
+                      ? tour.price *
+                        0.3 *
+                        infants *
+                        (holidays.includes(dayjs(startDate).format('MM-DD'))
+                          ? holidayRate
+                          : 1)
+                      : 0
+                    ).toLocaleString('vi-VN')}
+                  </p>
+                  <div className="flex justify-between w-14 text-[12px] font-medium">
+                    <MinusOutlined
+                      className={`cursor-pointer ${
+                        infants === 0 ? 'opacity-50 pointer-events-none' : ''
+                      }`}
+                      onClick={() => decrease(setInfants, 0)}
+                    />
+                    <p>{infants}</p>
+                    <PlusOutlined
+                      className={`cursor-pointer ${
+                        totalGuests >= (tour?.availableSlot || 999)
+                          ? 'opacity-50 pointer-events-none'
+                          : ''
+                      }`}
+                      onClick={() =>
+                        increase(
+                          setInfants,
+                          infants,
+                          (tour?.availableSlot || 999) - adults - children
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center text-red-500 text-[11px] mt-2">
+                  <GiftOutlined className="mr-1" />
+                  <span>Ưu đãi: Giảm 10% cho nhóm 5 người</span>
+                </div>
+
+                <div className="flex justify-between mt-2">
+                  <p className="text-[13px] font-medium">Giảm giá ưu đãi</p>
+                  <div className="flex flex-row items-end">
+                    <p className="text-[13px] font-medium text-gray-600">
+                      {discountAmount.toLocaleString('vi-VN')}
+                    </p>
+                    <p className="text-[11px] pl-1 font-medium text-gray-600">
+                      VND
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between mt-1">
+                  <p className="text-[13px] font-medium">Tổng Giá Tour</p>
+                  <div className="flex flex-row items-end">
+                    <p className="text-[13px] font-medium text-gray-600">
+                      {totalPrice.toLocaleString('vi-VN')}
+                    </p>
+                    <p className="text-[11px] pl-1 font-medium text-gray-600">
+                      VND
+                    </p>
+                  </div>
+                </div>
+
+                <div className="w-full border-b-gray-50 border-1 my-2"></div>
+
+                <div className="flex justify-between">
+                  <p className="text-[14px] font-medium">Tổng Thanh Toán</p>
+                  <div className="flex flex-row items-end">
+                    <p className="text-[15px] font-bold text-red-700">
+                      {(tour?.availableSlot === 0
+                        ? 0
+                        : finalPrice
+                      ).toLocaleString('vi-VN')}
+                    </p>
+                    <p className="text-[10px] pl-1 font-medium text-red-700">
+                      VND
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <Button
+                    type="primary"
+                    style={{
+                      width: '100%',
+                      height: 36,
+                      fontSize: 14,
+                      fontWeight: 500,
+                      borderRadius: 8,
+                      backgroundColor: '#009EE2',
+                    }}
+                    onClick={() => {
+                      if (!startDate) {
+                        message.warning(
+                          'Vui lòng chọn ngày đi trước khi đặt tour!'
+                        );
+                        return;
+                      }
+
+                      if (localStorage.getItem('TOKEN')) {
+                        setShowBookingModal(true);
+                        setShowBookingPanel(false);
+                      } else {
+                        message.warning('Bạn cần đăng nhập để đặt tour!');
+                      }
+                    }}
+                  >
+                    Đặt Tour
+                  </Button>
+                </div>
+
+                {holidays.includes(dayjs(startDate).format('MM-DD')) && (
+                  <p className="text-red-600 text-[9px] font-medium mt-2">
+                    ⚠️ Giá tour sẽ có sự thay đổi vào các ngày lễ. Vui lòng kiểm
+                    tra lại tổng giá khi chọn ngày.
+                  </p>
+                )}
+
+                <p className="text-[10px] text-red-500 font-medium mt-1">
+                  Lưu ý: Vui lòng đặt tour trước ngày khởi hành ít nhất 7 ngày.
+                </p>
+              </div>
+            </motion.div>
+            <div
+              className="mobile-sticky-booking-toggle"
+              onClick={() => setShowBookingPanel(!showBookingPanel)}
+            >
+              {showBookingPanel ? <CloseOutlined /> : <CalendarOutlined />}
+            </div>
+          </div>
+
           <Modal
-            open={showForm}
-            onCancel={handleCloseForm}
+            open={showBookingModal}
+            onCancel={handleCloseModal}
             footer={null}
-            width={600}
+            width="90%"
             closeIcon={<CloseOutlined />}
             title={
               <span className="text-lg font-bold text-cyan-600">
@@ -1097,11 +1518,14 @@ export default function TourDetail() {
               </span>
             }
             destroyOnClose={true}
-            style={{ top: 10 }}>
+            style={{ top: 10 }}
+            className="md:w-[600px]"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}>
+              transition={{ duration: 0.3 }}
+            >
               <TourBookingForm
                 tourId={tourId}
                 adults={adults}
@@ -1121,25 +1545,26 @@ export default function TourDetail() {
           </Modal>
         </motion.div>
       </div>
-      <div>
-        <motion.footer
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="bg-[#f0ede3] text-black text-center p-6">
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="flex justify-center items-center gap-2 mb-2">
-            <img src={logo} alt="Travel TADA" className="h-6 w-auto" />
-            <span
-              className="text-lg"
-              style={{ fontFamily: 'Dancing Script, cursive' }}>
-              Travel TADA
-            </span>
-          </motion.div>
-          <p>© 2025 Travelista Tours. All Rights Reserved.</p>
-        </motion.footer>
-      </div>
+      <motion.footer
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="bg-[#f0ede3] text-black text-center p-6"
+      >
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          className="flex justify-center items-center gap-2 mb-2"
+        >
+          <img src={logo} alt="Travel TADA" className="h-6 w-auto" />
+          <span
+            className="text-lg"
+            style={{ fontFamily: 'Dancing Script, cursive' }}
+          >
+            Travel TADA
+          </span>
+        </motion.div>
+        <p>© 2025 Travelista Tours. All Rights Reserved.</p>
+      </motion.footer>
     </div>
   );
 }
