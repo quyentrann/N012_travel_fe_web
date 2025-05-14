@@ -38,6 +38,19 @@ const CustomNextArrow = ({ onClick }) => (
 const Home = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768); // breakpoint: dưới 768px là mobile
+    };
+
+    handleResize(); // gọi lần đầu
+    window.addEventListener('resize', handleResize);
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const {
     tours,
     favoriteTours,
@@ -82,7 +95,7 @@ const Home = () => {
     fetchData();
   }, [dispatch, isAuthenticated, navigate]);
 
-  const sortedTours = [...tours].sort((a, b) => {
+ const sortedTours = [...tours].sort((a, b) => {
     const totalOrdersA = a.bookings ? a.bookings.length : 0;
     const totalOrdersB = b.bookings ? b.bookings.length : 0;
     if (totalOrdersB !== totalOrdersA) {
@@ -109,24 +122,24 @@ const Home = () => {
 
       {/* Hero Section */}
       <section
-        className="relative h-[85vh] flex items-center justify-center bg-cover bg-center"
+        className="relative h-[55vh] md:h-[80vh] flex items-center justify-center bg-cover bg-center"
         style={{
           backgroundImage: `url(${nen1})`,
           backgroundPosition: 'center bottom',
         }}>
         <div className="absolute inset-0 bg-black/40"></div>
         <div className="relative z-10 text-center text-white px-5">
-          <motion.h1
+          <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-6xl font-bold mb-4">
+            className="text-[27px] md:text-6xl font-bold mb-4 pt-2 px-2">
             Khám phá hành trình mới
-          </motion.h1>
+          </motion.p>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-lg md:text-xl mb-8">
+            className="text-[14px] md:text-xl mb-8">
             Điểm đến tuyệt vời đang chờ bạn cùng TADA
           </motion.p>
           <div onClick={() => navigate('/search')} className="cursor-pointer">
@@ -141,7 +154,7 @@ const Home = () => {
                     type="text"
                     placeholder="Chọn điểm đến nào?"
                     readOnly
-                    className="w-full p-3 rounded-lg border-none focus:ring-2 focus:ring-cyan-600 text-gray-900 cursor-pointer"
+                    className="w-full p-1 md:p-2 rounded-lg border-none focus:ring-2 focus:ring-cyan-600 text-gray-900 cursor-pointer"
                   />
                 </div>
                 <button
@@ -156,26 +169,27 @@ const Home = () => {
       </section>
 
       {/* Best Packages For You */}
-      {history.length > 0 && (
-        <section className="py-10 bg-gray-200">
+     {isAuthenticated && history.length > 0 && (
+        <section className="py-5 md:py-10 bg-gray-200">
           <div className="max-w-7xl mx-auto px-5">
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex justify-between items-center mb-5">
               <div className="w-full">
-                <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+                <h2 className="text-[16px] mx-4 md:text-[26px] font-bold text-center text-[#0088c2]">
                   Gói tour chờ bạn trải nghiệm – đừng bỏ lỡ nhé!
                 </h2>
               </div>
               <div className="text-end w-[75px]">
                 <span
-                  onClick={() => navigate('/bestforyou')}
+                  onClick={() => navigate('/recommended')}
                   className="text-[#258dba] font-medium hover:underline cursor-pointer text-[14px]">
                   Xem tất cả
                 </span>
               </div>
             </div>
+
             <div className="relative">
               {historyLoading ? (
-                <div className="flex justify-center items-center h-64">
+                <div className="flex justify-center items-center h-60">
                   <Spin
                     size="large"
                     tip="Đang tải gợi ý..."
@@ -192,33 +206,30 @@ const Home = () => {
                   arrows={true}
                   prevArrow={<CustomPrevArrow />}
                   nextArrow={<CustomNextArrow />}
-                  slidesToShow={Math.min(4, history.length)}
+                  slidesToShow={Math.min(isMobile ? 2 : 4, history.length)}
                   slidesToScroll={1}
-                  infinite={history.length > 4}
+                  infinite={history.length > (isMobile ? 2 : 4)}
                   className="w-full">
-                  {history
-                    .filter((item) => item.tour !== null)
-                    .map((item) => (
-                      <div
-                        key={item.tour?.tourId || item.id}
-                        className="px-3 h-full">
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          whileInView={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.5 }}
-                          className="flex justify-center h-full">
-                          <ItemCradComponent
-                            tour={item.tour}
-                            isFavorite={favoriteTours.some((fav) =>
-                              fav.tour
-                                ? fav.tour.tourId === item.tour.tourId
-                                : fav.tourId === item.tour.tourId
-                            )}
-                            onFavoriteChange={handleFavoriteChange}
-                          />
-                        </motion.div>
-                      </div>
-                    ))}
+                  {history.map((tour) => (
+                    <div key={tour.tourId} className="px-3 h-full">
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="flex justify-center h-full">
+                        <ItemCradComponent
+                          tour={tour}
+                          isFavorite={favoriteTours.some((fav) =>
+                            fav.tour
+                              ? fav.tour.tourId === tour.tourId
+                              : fav.tourId === tour.tourId
+                          )}
+                          onFavoriteChange={handleFavoriteChange}
+                          onClick={() => handleTourClick(tour.name)}
+                        />
+                      </motion.div>
+                    </div>
+                  ))}
                 </Carousel>
               )}
             </div>
@@ -227,11 +238,11 @@ const Home = () => {
       )}
 
       {/* Popular Tours */}
-      <section className="py-10 bg-gray-100">
+      <section className="py-5 md:py-10 bg-gray-100">
         <div className="max-w-7xl mx-auto px-5">
           <div className="flex justify-between items-center mb-8">
             <div className="w-full">
-              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+              <h2 className="text-[16px] mx-4 md:text-[26px] font-bold text-center text-[#0088c2]">
                 Tour hot nhất – ai cũng chọn!
               </h2>
             </div>
@@ -243,6 +254,7 @@ const Home = () => {
               </span>
             </div>
           </div>
+
           <div className="relative min-h-[200px]">
             {isInitialLoading || toursLoading ? (
               <div className="flex justify-center items-center h-32">
@@ -260,37 +272,10 @@ const Home = () => {
                 arrows={true}
                 prevArrow={<CustomPrevArrow />}
                 nextArrow={<CustomNextArrow />}
-                slidesToShow={Math.min(3, sortedTours.length)}
+                slidesToShow={Math.min(isMobile ? 2 : 3, sortedTours.length)}
                 slidesToScroll={1}
-                infinite={sortedTours.length > 3}
+                infinite={sortedTours.length > (isMobile ? 2 : 3)}
                 className="w-full carousel-container">
-                {/* {sortedTours
-                  .filter((tour) => tour && tour.tourId)
-                  .map((tour) => (
-                    <div key={tour.tourId} className="px-3">
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="flex justify-center"
-                      >
-                        <ItemTourBestForYou
-                          key={`${tour.tourId}-${favoriteTours.some(
-                            (fav) =>
-                              (fav.tour ? fav.tour.tourId : fav.tourId) ===
-                              tour.tourId
-                          )}`}
-                          tour={tour}
-                          isFavorite={favoriteTours.some(
-                            (fav) =>
-                              (fav.tour ? fav.tour.tourId : fav.tourId) ===
-                              tour.tourId
-                          )}
-                          onFavoriteChange={handleFavoriteChange}
-                        />
-                      </motion.div>
-                    </div>
-                  ))} */}
                 {tours.map((tour) => (
                   <div key={tour.tourId} className="px-3 h-full">
                     <motion.div
@@ -320,11 +305,11 @@ const Home = () => {
       </section>
 
       {/* Island & Beach Escapes */}
-      <section className="py-12 bg-gray-200">
+      <section className="py-5 md:py-10 bg-gray-200">
         <div className="max-w-7xl mx-auto px-5">
-          <div className="flex justify-between items-center mb-10">
+          <div className="flex justify-between items-center mb-8">
             <div className="w-full">
-              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+              <h2 className="text-[16px] mx-4 md:text-[26px] font-bold text-center text-[#0088c2]">
                 Biển xanh hay núi rừng – bạn chọn gì?
               </h2>
             </div>
@@ -357,7 +342,7 @@ const Home = () => {
                 arrows={true}
                 prevArrow={<CustomPrevArrow />}
                 nextArrow={<CustomNextArrow />}
-                slidesToShow={Math.min(3, tours.length)}
+                slidesToShow={Math.min(isMobile ? 2 : 3, sortedTours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
                 className="w-full">
@@ -387,11 +372,11 @@ const Home = () => {
       </section>
 
       {/* Mountain & Nature Retreats */}
-      <section className="py-12 bg-gray-100">
+      <section className="py-5 md:py-10 bg-gray-100">
         <div className="max-w-7xl mx-auto px-5">
           <div className="flex justify-between items-center mb-10">
             <div className="w-full">
-              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+              <h2 className="text-[16px] mx-4 md:text-[26px] font-bold text-center text-[#0088c2]">
                 Tour sắp khởi hành – đặt ngay kẻo lỡ!
               </h2>
             </div>
@@ -424,7 +409,7 @@ const Home = () => {
                 arrows={true}
                 prevArrow={<CustomPrevArrow />}
                 nextArrow={<CustomNextArrow />}
-                slidesToShow={Math.min(3, tours.length)}
+                slidesToShow={Math.min(isMobile ? 2 : 3, sortedTours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
                 className="w-full">
@@ -454,11 +439,11 @@ const Home = () => {
       </section>
 
       {/* City Adventures */}
-      <section className="py-12 bg-gray-200">
+      <section className="py-5 md:py-10 bg-gray-200">
         <div className="max-w-7xl mx-auto px-5">
           <div className="flex justify-between items-center mb-10">
             <div className="w-full">
-              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+              <h2 className="text-[16px] mx-4 md:text-[26px] font-bold text-center text-[#0088c2]">
                 Tour hot – giá sốc chỉ trong tháng này!
               </h2>
             </div>
@@ -491,7 +476,7 @@ const Home = () => {
                 arrows={true}
                 prevArrow={<CustomPrevArrow />}
                 nextArrow={<CustomNextArrow />}
-                slidesToShow={Math.min(3, tours.length)}
+                slidesToShow={Math.min(isMobile ? 2 : 3, sortedTours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
                 className="w-full">
@@ -521,11 +506,11 @@ const Home = () => {
       </section>
 
       {/* River & Countryside Tours */}
-      <section className="py-12 bg-gray-100">
+      <section className="py-5 md:py-10 bg-gray-100">
         <div className="max-w-7xl mx-auto px-5">
           <div className="flex justify-between items-center mb-10">
             <div className="w-full">
-              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+              <h2 className="text-[16px] mx-4 md:text-[26px] font-bold text-center text-[#0088c2]">
                 Tour chất lượng – ai đi cũng mê!
               </h2>
             </div>
@@ -558,7 +543,7 @@ const Home = () => {
                 arrows={true}
                 prevArrow={<CustomPrevArrow />}
                 nextArrow={<CustomNextArrow />}
-                slidesToShow={Math.min(3, tours.length)}
+                slidesToShow={Math.min(isMobile ? 2 : 3, sortedTours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
                 className="w-full">
@@ -588,11 +573,11 @@ const Home = () => {
       </section>
 
       {/* Eco & Discovery Tours */}
-      <section className="py-12 bg-gray-200">
+      <section className="py-5 md:py-10 bg-gray-200">
         <div className="max-w-7xl mx-auto px-5">
           <div className="flex justify-between items-center mb-10">
             <div className="w-full">
-              <h2 className="text-[26px] font-bold text-center text-[#0088c2]">
+              <h2 className="text-[16px] mx-4 md:text-[26px] font-bold text-center text-[#0088c2]">
                 Tour sắp khởi hành – đặt liền kẻo lỡ!
               </h2>
             </div>
@@ -625,7 +610,7 @@ const Home = () => {
                 arrows={true}
                 prevArrow={<CustomPrevArrow />}
                 nextArrow={<CustomNextArrow />}
-                slidesToShow={Math.min(3, tours.length)}
+                slidesToShow={Math.min(isMobile ? 2 : 3, sortedTours.length)}
                 slidesToScroll={1}
                 infinite={tours.length > 3}
                 className="w-full">

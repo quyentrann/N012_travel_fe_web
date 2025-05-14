@@ -8,7 +8,12 @@ import card3 from '../../images/pq4.webp';
 import card4 from '../../images/pq5.jpg';
 import { motion } from 'framer-motion';
 import logo from '../../images/logo.png';
+import { logout } from '../../redux/userSlice';
 import axios from 'axios';
+import { useDispatch, useSelector } from 'react-redux';
+import defaultAvatar from '../../images/defaultAvatar.png';
+import { useRef } from 'react';
+
 import {
   Button,
   Carousel,
@@ -42,6 +47,9 @@ import {
   CloseOutlined,
   UserOutlined,
   LogoutOutlined,
+  MenuOutlined,
+  UpOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import ItemTourBestForYou from '../../components/ItemTourBestForYou';
@@ -300,6 +308,48 @@ export default function TourDetail() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [similarTours, setSimilarTours] = useState([]);
   const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const { isAuthenticated, user } = useSelector((state) => state.user);
+  const [open, setOpen] = useState(false); // For desktop account dropdown
+  const [menuOpen, setMenuOpen] = useState(false); // For mobile menu
+  const [accountOpen, setAccountOpen] = useState(false); // For mobile account sub-menu
+  const dropdownRef = useRef(null);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+        setAccountOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.clear();
+    dispatch(logout());
+    message.success('Đăng xuất thành công!');
+    navigate('/login');
+    setOpen(false);
+    setMenuOpen(false);
+    setAccountOpen(false);
+  };
+
+  // Filter navLinks for mobile menu when not authenticated
+  const mobileNavLinks = isAuthenticated
+    ? navLinks
+    : navLinks.filter(
+        (link) =>
+          link.label === 'Trang Chủ' ||
+          link.label === 'Giới Thiệu' ||
+          link.label === 'Tour'
+      );
 
   const holidays = [
     '01-01',
@@ -503,11 +553,11 @@ export default function TourDetail() {
               white-space: nowrap;
               -webkit-overflow-scrolling: touch;
               padding: 0.5rem 0;
-              scrollbar-width: none; /* Firefox */
-              -ms-overflow-style: none; /* IE and Edge */
+              scrollbar-width: none;
+              -ms-overflow-style: none;
             }
             .mobile-nav::-webkit-scrollbar {
-              display: none; /* Chrome, Safari, Opera */
+              display: none;
             }
             .mobile-nav button {
               display: inline-block;
@@ -528,7 +578,7 @@ export default function TourDetail() {
               bottom: 0;
               left: 0;
               right: 0;
-              z-index: 1000;
+              z-index: 30; /* Giảm z-index để không đè lên header */
               background: white;
               box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
               padding: 1rem;
@@ -542,7 +592,7 @@ export default function TourDetail() {
               position: fixed;
               bottom: 1rem;
               right: 1rem;
-              z-index: 1001;
+              z-index: 31; /* Đảm bảo nút toggle trên form */
               background: #009EE2;
               color: white;
               border-radius: 50%;
@@ -566,69 +616,286 @@ export default function TourDetail() {
         `}
       </style>
       <motion.header
-  initial={{ opacity: 0, y: -50 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.5 }}
-  className="bg-[#f0ede3] shadow-md py-4 px-4 sm:px-6 sticky top-0 z-10"
->
-  <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap">
-    {/* Nút quay về: luôn hiển thị */}
-    <div className="flex items-center space-x-2">
-      <motion.div variants={buttonVariants} whileHover="hover">
-        <Button
-          onClick={() => navigate(-1)}
-          className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
-        >
-          <ArrowLeftOutlined />
-        </Button>
-      </motion.div>
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="bg-[#f0ede3] shadow-md py-4 px-4 sm:px-6 sticky top-0 z-100" // Tăng z-index lên 100
+      >
+        <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap">
+          {/* Left Section: Back Button, Logo, and Brand */}
+          <div className="flex items-center space-x-2">
+            <motion.div variants={buttonVariants} whileHover="hover">
+              <Button
+                onClick={() => navigate(-1)}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
+              >
+                <ArrowLeftOutlined />
+              </Button>
+            </motion.div>
+            <img
+              src={logo}
+              alt="Travel TADA"
+              className="h-8 w-auto hidden sm:block"
+            />
+            <span
+              className="text-xl font-bold text-gray-900 hidden sm:block"
+              style={{ fontFamily: 'Dancing Script, cursive' }}
+            >
+              TADA
+            </span>
+          </div>
 
-      {/* Logo và thương hiệu: chỉ hiển thị trên sm trở lên */}
-      <img src={logo} alt="Travel TADA" className="h-8 w-auto hidden sm:block" />
-      <span
-        className="text-xl font-bold text-gray-900 hidden sm:block"
-        style={{ fontFamily: 'Dancing Script, cursive' }}
-      >
-        TADA
-      </span>
-    </div>
+          {/* Right Section: Navigation and Account */}
+          <div className="flex items-center space-x-4 mt-2 sm:mt-0">
+            {/* Desktop Navigation */}
+            <div className="hidden sm:flex items-center space-x-4">
+              {navLinks.map((link) => {
+                if (link.label === 'Tour Yêu Thích' && !isAuthenticated) {
+                  return null;
+                }
+                return (
+                  <motion.button
+                    key={link.label}
+                    whileHover={{ scale: 1.05 }}
+                    className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
+                    onClick={() => navigate(link.path)}
+                    aria-label={link.label}
+                  >
+                    {link.label}
+                  </motion.button>
+                );
+              })}
+            </div>
 
-    {/* Các nút menu: chỉ hiển thị trên sm trở lên */}
-    <div className="hidden sm:flex items-center space-x-4 mt-2 sm:mt-0">
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
-        onClick={() => navigate('/')}
-        aria-label="Trang chủ"
-      >
-        Trang chủ
-      </motion.button>
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
-        onClick={() => navigate('/profile')}
-        aria-label="Hồ sơ"
-      >
-        Hồ sơ
-      </motion.button>
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        className="text-gray-600 hover:text-red-600 text-sm font-medium flex items-center transition-colors"
-        onClick={() => {
-          localStorage.clear();
-          message.success('Đăng xuất thành công!');
-          navigate('/login');
-        }}
-        aria-label="Đăng xuất"
-      >
-        <LogoutOutlined className="mr-1" /> Đăng xuất
-      </motion.button>
-    </div>
-  </div>
-</motion.header>
+            {/* Desktop Account Dropdown */}
+            <div className="hidden sm:block relative" ref={dropdownRef}>
+              <button
+                onClick={() => setOpen(!open)}
+                className="flex items-center space-x-1 text-gray-900 hover:text-blue-600 transition-all duration-200"
+              >
+                {isAuthenticated && user ? (
+                  <>
+                    <motion.span
+                      whileHover={{ scale: 1.05 }}
+                      className="text-sm font-medium truncate max-w-[140px] mr-2"
+                    >
+                      {user.customer?.fullName || 'User'}
+                    </motion.span>
+                    <motion.div whileHover={{ scale: 1.1 }}>
+                      <Avatar
+                        src={
+                          user.customer?.avatarUrl
+                            ? `${user.customer.avatarUrl}?t=${Date.now()}`
+                            : defaultAvatar
+                        }
+                        size={27}
+                        icon={<UserOutlined />}
+                        className="border border-gray-200 shadow-sm"
+                      />
+                    </motion.div>
+                  </>
+                ) : (
+                  <>
+                    <motion.div whileHover={{ scale: 1.1 }}>
+                      <UserOutlined className="text-[16px]" />
+                    </motion.div>
+                    <motion.span
+                      whileHover={{ scale: 1.05 }}
+                      className="text-sm font-medium"
+                    >
+                      Tài khoản
+                    </motion.span>
+                  </>
+                )}
+              </button>
+              {open && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-[110]" // Tăng z-index lên 110
+                >
+                  {isAuthenticated && user ? (
+                    <>
+                      <button
+                        className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                        onClick={() => {
+                          navigate('/profile');
+                          setOpen(false);
+                        }}
+                      >
+                        Thông tin cá nhân
+                      </button>
+                      <button
+                        className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                        onClick={() => {
+                          navigate('/orders');
+                          setOpen(false);
+                        }}
+                      >
+                        Đơn mua
+                      </button>
+                      <button
+                        className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                        onClick={() => {
+                          handleLogout();
+                          setOpen(false);
+                        }}
+                      >
+                        Đăng xuất
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        className="w-full bg-cyan-600 text-white py-1.5 px-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition"
+                        onClick={() => {
+                          navigate('/login');
+                          setOpen(false);
+                        }}
+                      >
+                        Đăng nhập
+                      </button>
+                      <p className="text-center text-gray-600 text-xs mt-2 px-2">
+                        Bạn chưa có tài khoản?{' '}
+                        <span
+                          className="text-cyan-600 font-medium cursor-pointer hover:underline"
+                          onClick={() => {
+                            navigate('/register');
+                            setOpen(false);
+                          }}
+                        >
+                          Đăng ký ngay
+                        </span>
+                      </p>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </div>
+
+            {/* Mobile Hamburger Menu Icon */}
+            <div className="sm:hidden">
+              <button onClick={() => setMenuOpen(!menuOpen)}>
+                {menuOpen ? (
+                  <CloseOutlined className="text-[20px] text-gray-700" />
+                ) : (
+                  <MenuOutlined className="text-[20px] text-gray-700" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Navigation Menu */}
+        {menuOpen && (
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="sm:hidden bg-[#f0ede3] shadow-lg border-t border-gray-200 p-4 absolute top-[60px] left-0 right-0 z-[110]" // Tăng z-index lên 110
+          >
+            <div className="flex flex-col space-y-3">
+              {mobileNavLinks.map((link) => (
+                <span
+                  key={link.label}
+                  onClick={() => {
+                    navigate(link.path);
+                    setMenuOpen(false);
+                    setAccountOpen(false);
+                  }}
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-2"
+                >
+                  {link.label}
+                </span>
+              ))}
+              <div className="border-t border-gray-200 pt-3">
+                <button
+                  onClick={() => setAccountOpen(!accountOpen)}
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-2 flex items-center justify-between w-full"
+                >
+                  Tài khoản
+                  {accountOpen ? (
+                    <UpOutlined className="text-sm" />
+                  ) : (
+                    <DownOutlined className="text-sm" />
+                  )}
+                </button>
+                {accountOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="flex flex-col pl-4 space-y-2 mt-2"
+                  >
+                    {isAuthenticated && user ? (
+                      <>
+                        <button
+                          className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={() => {
+                            navigate('/profile');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}
+                        >
+                          Thông tin cá nhân
+                        </button>
+                        <button
+                          className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={() => {
+                            navigate('/orders');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}
+                        >
+                          Đơn mua
+                        </button>
+                        <button
+                          className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={() => {
+                            handleLogout();
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}
+                        >
+                          Đăng xuất
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="w-full bg-cyan-600 text-white py-1.5 px-2 rounded-md text-sm font-medium hover:bg-cyan-700 transition"
+                          onClick={() => {
+                            navigate('/login');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}
+                        >
+                          Đăng nhập
+                        </button>
+                        <button
+                          className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
+                          onClick={() => {
+                            navigate('/register');
+                            setMenuOpen(false);
+                            setAccountOpen(false);
+                          }}
+                        >
+                          Đăng ký ngay
+                        </button>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </motion.header>
 
       <div className="h-full w-screen px-4 sm:px-10 py-5 bg-[#f8f8f8]">
-        <div className="flex items-center flex-col sm:flex-row">
+        <div className="flex items-start flex-col sm:flex-row px-2">
           <p className="text-[18px] sm:text-[23px] font-bold px-0 sm:px-5 mt-2 sm:mt-0">
             Tour {tour?.location}: {tour?.name}
           </p>
@@ -638,8 +905,7 @@ export default function TourDetail() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="flex flex-col md:flex-row h-full w-full mt-3"
-        >
+          className="flex flex-col md:flex-row h-full w-full mt-3">
           <div className="w-full md:w-2/3 px-0 md:px-5 min-h-screen">
             <div className="rounded-[8px] border-1 border-gray-300 shadow">
               <Carousel autoplay arrows className="touch-pan-y">
@@ -658,8 +924,7 @@ export default function TourDetail() {
               initial={{ opacity: 0, scale: 1 }}
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="sticky top-16 bg-white shadow z-50"
-            >
+              className="sticky top-16 bg-white shadow z-50">
               <nav className="h-16 mt-5 font-semibold flex justify-between text-[14px] sm:text-[15px] mobile-nav md:flex-row">
                 <button onClick={() => scrollToSection('tong-quan')}>
                   Tổng Quan
@@ -685,8 +950,7 @@ export default function TourDetail() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
-            >
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section">
               <div className="mobile-section-content">
                 <div className="flex flex-col sm:flex-row justify-between pb-3 text-[13px] sm:text-[14px]">
                   <p className="font-medium">
@@ -697,7 +961,10 @@ export default function TourDetail() {
                     </span>
                   </p>
                   <p className="font-medium mt-2 sm:mt-0">
-                    Mã Tour: <span className="font-bold text-[14px] sm:text-[15px]">TO2467</span>
+                    Mã Tour:{' '}
+                    <span className="font-bold text-[14px] sm:text-[15px]">
+                      TO2467
+                    </span>
                   </p>
                 </div>
                 <div className="border-1 border-gray-100"></div>
@@ -706,7 +973,9 @@ export default function TourDetail() {
                 </div>
                 <div className="flex flex-col sm:flex-row w-full mt-5 text-[13px] sm:text-[14px]">
                   {benefits.map((column, index) => (
-                    <ul key={index} className="space-y-5 sm:space-y-7 w-full sm:w-2/3">
+                    <ul
+                      key={index}
+                      className="space-y-5 sm:space-y-7 w-full sm:w-2/3">
                       {column.map((item, i) => (
                         <li key={i} className="flex items-center space-x-2">
                           <CheckOutlined style={{ color: '#1E90FF' }} />
@@ -723,8 +992,7 @@ export default function TourDetail() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
-            >
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section">
               <div className="mobile-section-content">
                 <div className="text-[15px] sm:text-[16px] font-bold pb-2">
                   Điểm Nhấn Hành Trình
@@ -763,16 +1031,16 @@ export default function TourDetail() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="w-full bg-white my-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
-            >
+              className="w-full bg-white my-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section">
               <div className="mobile-section-content">
-                <div className="text-[15px] sm:text-[16px] font-bold pb-5">Lịch Trình Tour</div>
+                <div className="text-[15px] sm:text-[16px] font-bold pb-5">
+                  Lịch Trình Tour
+                </div>
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
-                  transition={{ duration: 0.5 }}
-                >
+                  transition={{ duration: 0.5 }}>
                   <Collapse
                     bordered={false}
                     defaultActiveKey={['0']}
@@ -794,10 +1062,11 @@ export default function TourDetail() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
-            >
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section">
               <div className="mobile-section-content">
-                <div className="text-[15px] sm:text-[16px] font-bold">Thông tin cần lưu ý</div>
+                <div className="text-[15px] sm:text-[16px] font-bold">
+                  Thông tin cần lưu ý
+                </div>
                 <div>
                   <Tabs defaultActiveKey="1" items={itemss} />
                 </div>
@@ -809,10 +1078,11 @@ export default function TourDetail() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
-            >
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section">
               <div className="mobile-section-content">
-                <div className="text-[15px] sm:text-[16px] font-bold pb-2">Đánh Giá Tour</div>
+                <div className="text-[15px] sm:text-[16px] font-bold pb-2">
+                  Đánh Giá Tour
+                </div>
                 <div className="space-y-4">
                   {tour?.reviews?.length > 0 ? (
                     tour.reviews.map((review, index) => (
@@ -834,7 +1104,8 @@ export default function TourDetail() {
                               <StarFilled
                                 key={i}
                                 style={{
-                                  color: i < review.rating ? '#FFD700' : '#d3d3d3',
+                                  color:
+                                    i < review.rating ? '#FFD700' : '#d3d3d3',
                                   fontSize: '14px',
                                 }}
                               />
@@ -842,13 +1113,19 @@ export default function TourDetail() {
                           </div>
                         </div>
                         <div className="pl-10">
-                          <p className="text-[13px] text-gray-600">{review.comment}</p>
-                          <p className="text-[11px] text-gray-400">{review.reviewDate}</p>
+                          <p className="text-[13px] text-gray-600">
+                            {review.comment}
+                          </p>
+                          <p className="text-[11px] text-gray-400">
+                            {review.reviewDate}
+                          </p>
                         </div>
                       </div>
                     ))
                   ) : (
-                    <p className="text-[13px] text-gray-600">Chưa có đánh giá cho tour này.</p>
+                    <p className="text-[13px] text-gray-600">
+                      Chưa có đánh giá cho tour này.
+                    </p>
                   )}
                 </div>
               </div>
@@ -859,11 +1136,12 @@ export default function TourDetail() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5 }}
-              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section"
-            >
+              className="bg-white mt-4 rounded-[5px] p-4 sm:p-5 shadow mobile-section">
               <div className="mobile-section-content">
-                <div className="text-[15px] sm:text-[16px] font-bold pb-2">Tour Tương Tự</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 justify-between">
+                <div className="text-[15px] sm:text-[16px] font-bold pb-2">
+                  Tour Tương Tự
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 gap-4 sm:gap-5 justify-between">
                   {similarTours.length > 0 ? (
                     similarTours.map((similarTour) => (
                       <ItemTourBestForYou
@@ -872,7 +1150,9 @@ export default function TourDetail() {
                       />
                     ))
                   ) : (
-                    <p className="text-[13px] text-gray-600">Chưa có tour tương tự.</p>
+                    <p className="text-[13px] text-gray-600">
+                      Chưa có tour tương tự.
+                    </p>
                   )}
                 </div>
               </div>
@@ -886,8 +1166,7 @@ export default function TourDetail() {
             transition={{ duration: 0.5 }}
             className={`hidden md:block w-1/3 max-h-[calc(100vh-40px)] flex justify-center sticky top-20 z-50 mb-2 ${
               tour?.availableSlot === 0 ? 'pointer-events-none opacity-50' : ''
-            }`}
-          >
+            }`}>
             <div className="bg-amber-50 w-93 h-147 rounded-xl p-6 flex flex-col justify-between mb-5 border-1 border-gray-200 shadow relative">
               {tour?.availableSlot === 0 && (
                 <Tag
@@ -901,8 +1180,7 @@ export default function TourDetail() {
                     fontWeight: 'bold',
                     padding: '5px 30px',
                     textAlign: 'center',
-                  }}
-                >
+                  }}>
                   Hết chỗ
                 </Tag>
               )}
@@ -921,15 +1199,16 @@ export default function TourDetail() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5 }}
-                className="flex mr-10 h-11 items-center border-1 border-gray-300 w-48 rounded-[8px]"
-              >
+                className="flex mr-10 h-11 items-center border-1 border-gray-300 w-48 rounded-[8px]">
                 <div className="flex items-center justify-center px-3 mt-2">
                   <CalendarOutlined className="text-gray-500 text-[14px] mb-2" />
                 </div>
                 <div className="flex flex-col items-center">
                   <DatePicker
                     value={startDate ? dayjs(startDate) : null}
-                    onChange={(date) => setStartDate(date ? date.toDate() : null)}
+                    onChange={(date) =>
+                      setStartDate(date ? date.toDate() : null)
+                    }
                     placeholder="Chọn ngày"
                     format="DD.MM.YYYY"
                     className="border-none text-[13px] h-7 w-35"
@@ -952,8 +1231,7 @@ export default function TourDetail() {
                               ? 'text-black'
                               : ''
                           }`}
-                          style={{ position: 'relative' }}
-                        >
+                          style={{ position: 'relative' }}>
                           {current.date()}
                           {isTooClose && (
                             <span
@@ -965,8 +1243,7 @@ export default function TourDetail() {
                                 color: 'gray',
                                 fontSize: '16px',
                                 fontWeight: 'bold',
-                              }}
-                            >
+                              }}>
                               ❌
                             </span>
                           )}
@@ -1175,8 +1452,7 @@ export default function TourDetail() {
                     } else {
                       message.warning('Bạn cần đăng nhập để đặt tour!');
                     }
-                  }}
-                >
+                  }}>
                   Đặt Tour
                 </Button>
               </div>
@@ -1194,15 +1470,23 @@ export default function TourDetail() {
           </motion.div>
 
           {/* Mobile Booking Form */}
-          <div className="md:hidden">
+          <div className="md:hidden ">
             <motion.div
-              className={`mobile-sticky-booking ${showBookingPanel ? 'visible' : ''}`}
+              className={`mobile-sticky-booking ${
+                showBookingPanel ? 'visible' : ''
+              }`}
               initial={{ transform: 'translateY(100%)' }}
-              animate={{ transform: showBookingPanel ? 'translateY(0)' : 'translateY(100%)' }}
-            >
-              <div className={`bg-amber-50 rounded-xl p-4 flex flex-col justify-between border-1 border-gray-200 shadow relative ${
-                tour?.availableSlot === 0 ? 'pointer-events-none opacity-50' : ''
-              }`}>
+              animate={{
+                transform: showBookingPanel
+                  ? 'translateY(0)'
+                  : 'translateY(100%)',
+              }} >
+              <div
+                className={`bg-amber-50 rounded-xl p-4 flex flex-col justify-between border-1 border-gray-200 shadow relative ${
+                  tour?.availableSlot === 0
+                    ? 'pointer-events-none opacity-50'
+                    : ''
+                }`}>
                 {tour?.availableSlot === 0 && (
                   <Tag
                     color="error"
@@ -1213,8 +1497,7 @@ export default function TourDetail() {
                       fontSize: '16px',
                       fontWeight: 'bold',
                       padding: '3px 15px',
-                    }}
-                  >
+                    }}>
                     Hết chỗ
                   </Tag>
                 )}
@@ -1229,15 +1512,16 @@ export default function TourDetail() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.5 }}
-                  className="flex h-10 items-center border-1 border-gray-300 rounded-[8px] w-full mt-2"
-                >
+                  className="flex h-10 items-center border-1 border-gray-300 rounded-[8px] w-full mt-2">
                   <div className="flex items-center justify-center px-2">
                     <CalendarOutlined className="text-gray-500 text-[13px]" />
                   </div>
                   histology
                   <DatePicker
                     value={startDate ? dayjs(startDate) : null}
-                    onChange={(date) => setStartDate(date ? date.toDate() : null)}
+                    onChange={(date) =>
+                      setStartDate(date ? date.toDate() : null)
+                    }
                     placeholder="Chọn ngày"
                     format="DD.MM.YYYY"
                     className="border-none text-[13px] h-8 w-full"
@@ -1260,8 +1544,7 @@ export default function TourDetail() {
                               ? 'text-black'
                               : ''
                           }`}
-                          style={{ position: 'relative' }}
-                        >
+                          style={{ position: 'relative' }}>
                           {current.date()}
                           {isTooClose && (
                             <span
@@ -1273,8 +1556,7 @@ export default function TourDetail() {
                                 color: 'gray',
                                 fontSize: '14px',
                                 fontWeight: 'bold',
-                              }}
-                            >
+                              }}>
                               ❌
                             </span>
                           )}
@@ -1480,8 +1762,7 @@ export default function TourDetail() {
                       } else {
                         message.warning('Bạn cần đăng nhập để đặt tour!');
                       }
-                    }}
-                  >
+                    }}>
                     Đặt Tour
                   </Button>
                 </div>
@@ -1499,9 +1780,8 @@ export default function TourDetail() {
               </div>
             </motion.div>
             <div
-              className="mobile-sticky-booking-toggle"
-              onClick={() => setShowBookingPanel(!showBookingPanel)}
-            >
+              className="mobile-sticky-booking-toggle mb-20 mr-3"
+              onClick={() => setShowBookingPanel(!showBookingPanel)}>
               {showBookingPanel ? <CloseOutlined /> : <CalendarOutlined />}
             </div>
           </div>
@@ -1519,13 +1799,11 @@ export default function TourDetail() {
             }
             destroyOnClose={true}
             style={{ top: 10 }}
-            className="md:w-[600px]"
-          >
+            className="md:w-[600px]">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
-            >
+              transition={{ duration: 0.3 }}>
               <TourBookingForm
                 tourId={tourId}
                 adults={adults}
@@ -1549,17 +1827,14 @@ export default function TourDetail() {
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="bg-[#f0ede3] text-black text-center p-6"
-      >
+        className="bg-[#f0ede3] text-black text-center p-6">
         <motion.div
           whileHover={{ scale: 1.05 }}
-          className="flex justify-center items-center gap-2 mb-2"
-        >
+          className="flex justify-center items-center gap-2 mb-2">
           <img src={logo} alt="Travel TADA" className="h-6 w-auto" />
           <span
             className="text-lg"
-            style={{ fontFamily: 'Dancing Script, cursive' }}
-          >
+            style={{ fontFamily: 'Dancing Script, cursive' }}>
             Travel TADA
           </span>
         </motion.div>

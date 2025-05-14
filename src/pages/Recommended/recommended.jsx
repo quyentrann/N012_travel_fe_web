@@ -8,7 +8,7 @@ import { getTours } from '../../apis/tour';
 import logo from '../../images/logo.png';
 import nen1 from '../../images/nen5.png';
 import nen2 from '../../images/Boat.png';
-import ItemCradComponent from '../../components/ItemCradComponent';
+import ItemCradComponentressure from '../../components/ItemCradComponent';
 import ItemTourBestForYou from '../../components/ItemTourBestForYou';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tab } from '@headlessui/react';
@@ -24,7 +24,6 @@ import Footer from '../../components/Footer';
 
 const defaultAvatar = 'https://via.placeholder.com/40?text=User';
 
-// Navigation links for unauthenticated users
 const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
@@ -32,7 +31,6 @@ const navLinks = [
   { label: 'Tour Yêu Thích', path: '/favourite-tours' },
 ];
 
-// Button animation variants
 const buttonVariants = {
   hover: { scale: 1.1, transition: { duration: 0.3 } },
 };
@@ -49,17 +47,15 @@ const Home = () => {
   const searchTerm = useSelector((state) => state.search.searchTerm);
   const locations = useSelector((state) => state.locations.locations);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [open, setOpen] = useState(false); // State for user dropdown
+  const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
   const unreadCount = useSelector((state) => state.notifications.unreadCount);
-  const userState = useSelector((state) => state.user);
   const { isAuthenticated, user } = useSelector((state) => state.user);
   const {
     history,
     loading: historyLoading,
     error: historyError,
   } = useSelector((state) => state.searchHistory);
-  const [recommendations, setRecommendations] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -75,14 +71,12 @@ const Home = () => {
     fetchData();
   }, [dispatch, isAuthenticated]);
 
-  // Handle logout
   const handleLogout = () => {
     localStorage.clear();
     dispatch(logout());
     navigate('/login');
   };
 
-  // Handle dropdown outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -93,16 +87,28 @@ const Home = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Sorted tours for popular section
   const sortedTours = [...tours].sort((a, b) => {
     const totalOrdersA = a.bookings ? a.bookings.length : 0;
     const totalOrdersB = b.bookings ? b.bookings.length : 0;
     return totalOrdersB - totalOrdersA;
   });
 
+  const handleTourClick = async (query) => {
+    try {
+      const token = localStorage.getItem('TOKEN');
+      await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/search-history/click`,
+        { query },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log('Tracked click for query:', query);
+    } catch (error) {
+      console.error('Error tracking tour click:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen font-sans w-screen bg-gray-50">
-      {/* Navbar */}
       <Header />
 
       {history.length > 0 && (
@@ -120,7 +126,7 @@ const Home = () => {
               <h2 className="text-[26px] font-bold text-[#0088c2] flex-1 text-center">
                 Dành cho bạn
               </h2>
-              <div className="w-10" /> {/* Spacer to balance the back button */}
+              <div className="w-10" />
             </div>
 
             <div className="relative">
@@ -134,19 +140,20 @@ const Home = () => {
                 </div>
               ) : (
                 <div className="w-full grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 justify-items-center">
-                  {history
-                    .filter((item) => item.tour !== null)
-                    .map((item) => (
-                      <motion.div
-                        key={item.tour?.tourId || item.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="h-full w-full"
-                      >
-                        <ItemTourBestForYou tour={item.tour} />
-                      </motion.div>
-                    ))}
+                  {history.map((tour) => (
+                    <motion.div
+                      key={tour.tourId}
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className="h-full w-full"
+                    >
+                      <ItemTourBestForYou
+                        tour={tour}
+                        onClick={() => handleTourClick(tour.name)}
+                      />
+                    </motion.div>
+                  ))}
                 </div>
               )}
             </div>
@@ -154,8 +161,7 @@ const Home = () => {
         </section>
       )}
 
-      {/* Footer */}
-      <Footer />
+      <Footer className="mt-20" />
     </div>
   );
 };

@@ -1,22 +1,112 @@
-import React, { useState } from 'react';
-import { Card, Tag } from 'antd';
-import { StarFilled, HeartOutlined, HeartFilled } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Card, Tag, message } from 'antd';
 import {
+  StarFilled,
+  HeartOutlined,
+  HeartFilled,
   EnvironmentOutlined,
   ClockCircleOutlined,
   CalendarOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { useSelector, useDispatch } from 'react-redux';
+import axios from 'axios';
 import card from '../images/card.jpg';
+import { fetchFavoriteTours } from '../redux/tourSlice';
 
 function ItemBagTourBestForYou({ tour }) {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useSelector((state) => state.user);
+  const token = localStorage.getItem('TOKEN');
   const [isFavorite, setIsFavorite] = useState(false);
 
-  const handleToggleFavorite = (e) => {
-    e.stopPropagation(); // Ngăn chặn click vào nút trái tim bị ảnh hưởng bởi click vào Card
-    setIsFavorite(!isFavorite);
+  // Kiểm tra trạng thái favorite khi component mount
+  useEffect(() => {
+    const checkFavorite = async () => {
+      if (isAuthenticated && token) {
+        try {
+          const response = await axios.get(
+            `http://localhost:8080/api/tour-favourites/${tour.tourId}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          setIsFavorite(!!response.data); // Cập nhật trạng thái favorite
+        } catch (error) {
+          console.error('Lỗi kiểm tra favorite:', error);
+        }
+      }
+    };
+    checkFavorite();
+  }, [tour.tourId, isAuthenticated, token]);
+
+  const handleToggleFavorite = async (e) => {
+    e.stopPropagation();
+    if (!isAuthenticated || !token) {
+      message.error('Vui lòng đăng nhập để thêm/xóa tour yêu thích!');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await axios.delete(
+          `http://localhost:8080/api/tour-favourites/${tour.tourId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setIsFavorite(false);
+        message.success('Đã xóa tour khỏi yêu thích!');
+      } else {
+        await axios.post(
+          'http://localhost:8080/api/tour-favourites',
+          { tourId: tour.tourId },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setIsFavorite(true);
+        message.success('Đã thêm tour vào yêu thích!');
+      }
+      dispatch(fetchFavoriteTours());
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        message.error('Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.');
+        localStorage.removeItem('TOKEN');
+        navigate('/login');
+      } else if (status === 409) {
+        console.warn('Tour đã có trong danh sách yêu thích.');
+        setIsFavorite(true);
+      } else {
+        console.error('Lỗi cập nhật yêu thích:', error);
+        message.error(error.response?.data?.message || 'Có lỗi xảy ra!');
+      }
+    }
+  };
+
+  const handleTourClick = async () => {
+    if (!isAuthenticated || !token) {
+      navigate(`/tour-detail?id=${tour.tourId}`);
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:8080/api/search-history/click/${tour.tourId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log(`Tracked click for tour ${tour.tourId}`);
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        message.error('Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.');
+        localStorage.removeItem('TOKEN');
+        navigate('/login');
+        return;
+      }
+      console.error('Lỗi khi ghi nhận click tour:', error);
+    }
+
+    navigate(`/tour-detail?id=${tour.tourId}`);
   };
 
   const allBookings = tour.reviews?.map((review) => review.booking) || [];
@@ -25,7 +115,6 @@ function ItemBagTourBestForYou({ tour }) {
     0
   );
 
-  // Tính khoảng thời gian tour
   const getDuration = (startDate, endDate) => {
     if (!startDate || !endDate) return 'Không xác định';
     const start = new Date(startDate);
@@ -42,14 +131,13 @@ function ItemBagTourBestForYou({ tour }) {
     : 'Chưa có';
 
   return (
-    <div className="w-[1230px] flex justify-center items-center ">
-    <Card
-      key={tour.id}
-      hoverable
-      className="w-[1000px] flex flex-row rounded-lg shadow-md p-4 border border-gray-200"
-      onClick={() => navigate(`/tour-detail?id=${tour.tourId}`)}
-    >
-
+    <div className="w-[1230px] flex justify-center items-center">
+      <Card
+        key={tour.id}
+        hoverable
+        className="w-[1000px] flex flex-row rounded-lg shadow-md p-4 border border-gray-200"
+        onClick={handleTourClick} // Thay navigate trực tiếp bằng handleTourClick
+      >
         {/* Nút yêu thích */}
         <div
           className="absolute top-2 right-2 cursor-pointer text-[20px]"
@@ -84,9 +172,7 @@ function ItemBagTourBestForYou({ tour }) {
                 <CalendarOutlined className="text-gray-500 text-md" />
                 <span>
                   {tour.tourDetails?.[0]?.startDate
-                    ? new Date(
-                        tour.tourDetails[0]?.startDate
-                      ).toLocaleDateString('vi-VN')
+                    ? new Date(tour.tourDetails[0]?.startDate).toLocaleDateString('vi-VN')
                     : 'Chưa có'}
                 </span>
               </div>
@@ -129,7 +215,6 @@ function ItemBagTourBestForYou({ tour }) {
                 {tour.price ? `${tour.price.toLocaleString()}đ` : 'Giá không có'}
               </p>
             </div>
-
           </div>
         </div>
       </Card>

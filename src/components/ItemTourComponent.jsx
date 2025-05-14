@@ -39,7 +39,7 @@ export default function ItemTourComponent({
   };
 
   const handleToggleFavorite = async (e) => {
-    e.stopPropagation();
+    e.stopPropagation(); // Ngăn sự kiện click lan tỏa đến div cha
     if (!isAuthenticated || !token) {
       message.error('Vui lòng đăng nhập để thêm/xóa tour yêu thích!');
       navigate('/login');
@@ -85,6 +85,38 @@ export default function ItemTourComponent({
     }
   };
 
+  const handleTourClick = async () => {
+    if (!isAuthenticated || !token) {
+      // Vẫn cho phép xem chi tiết tour dù không đăng nhập
+      navigate(`/tour-detail?id=${tour.tourId}`);
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:8080/api/search-history/click/${tour.tourId}`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      console.log(`Tracked click for tour ${tour.tourId}`);
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        message.error('Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.');
+        localStorage.removeItem('TOKEN');
+        navigate('/login');
+        return;
+      }
+      console.error('Lỗi khi ghi nhận click tour:', error);
+      // Không hiển thị lỗi cho người dùng để không làm gián đoạn trải nghiệm
+    }
+
+    // Điều hướng đến trang chi tiết tour
+    navigate(`/tour-detail?id=${tour.tourId}`);
+  };
+
   const averageRating = tour.reviews?.length
     ? (
         tour.reviews.reduce((sum, r) => sum + r.rating, 0) / tour.reviews.length
@@ -101,7 +133,7 @@ export default function ItemTourComponent({
       className="bg-white shadow-md rounded-lg cursor-pointer border border-gray-200 hover:shadow-lg transition duration-300 overflow-hidden max-w-full box-border w-[calc(100%-1rem)] sm:w-75 h-auto pb-2 sm:h-90 my-1 sm:my-3 mx-2 sm:mx-0"
       role="button"
       tabIndex={0}
-      onClick={() => navigate(`/tour-detail?id=${tour.tourId}`)}
+      onClick={handleTourClick} // Gọi handleTourClick thay vì navigate trực tiếp
     >
       <div className="relative group">
         <img

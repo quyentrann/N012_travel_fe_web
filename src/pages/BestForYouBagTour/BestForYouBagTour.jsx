@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { Input, Select, DatePicker, Button, Spin, Avatar } from 'antd';
 import {
@@ -6,16 +7,20 @@ import {
   FilterOutlined,
   CloseOutlined,
   UserOutlined,
+  BellOutlined,
   MenuOutlined,
   DownOutlined,
   UpOutlined,
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
-import ItemBagTourBestForYou from '../../components/ItemBagTourBestForYou';
-import { getTours } from '../../apis/tour';
-import axios from 'axios';
+import { setSearchTerm } from '../../redux/searchSlice';
+import { setFilteredTours } from '../../redux/tourSlice';
+import { fetchUnreadCount } from '../../redux/notificationSlice';
+import { logout } from '../../redux/userSlice';
+import ItemTourComponent from '../../components/ItemTourComponent';
 import logo from '../../images/logo.png';
+import axios from 'axios';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -31,22 +36,13 @@ const navLinks = [
   { label: 'Tour Yêu Thích', path: '/favourite-tours' },
 ];
 
-// Tour categories
+// Các loại hình tour
 const tourCategories = [
   'Biển đảo',
   'Núi rừng',
   'Thành phố',
   'Sông nước miệt vườn',
   'Sinh thái và khám phá',
-];
-
-// Mock locations data
-const locations = [
-  { label: 'Hà Nội' },
-  { label: 'TP Hồ Chí Minh' },
-  { label: 'Đà Nẵng' },
-  { label: 'Phú Quốc' },
-  { label: 'Nha Trang' },
 ];
 
 // Hàm chuẩn hóa location để so sánh
@@ -93,48 +89,35 @@ const buttonVariants = {
   hover: { scale: 1.1, transition: { duration: 0.2 } },
 };
 
-function BestForYouBagTour() {
+const SearchPage = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [tours, setTours] = useState([]);
-  const [filteredTours, setFilteredTours] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const { tours, filteredTours, loading } = useSelector((state) => state.tours);
+  const { locations } = useSelector((state) => state.locations);
+  const searchTerm = useSelector((state) => state.search.searchTerm);
+  const { isAuthenticated, user } = useSelector((state) => state.user);
+  const unreadCount = useSelector((state) => state.notifications.unreadCount);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [open, setOpen] = useState(false); // Desktop user dropdown
   const [menuOpen, setMenuOpen] = useState(false); // Mobile menu
   const [accountOpen, setAccountOpen] = useState(false); // Mobile account sub-menu
-  const [loading, setLoading] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(6);
   const dropdownRef = useRef(null);
   const menuRef = useRef(null);
-  const userId = 1; // Giả sử userId từ session
-  const isAuthenticated = true; // Giả sử người dùng đã đăng nhập
-
+  const [visibleCount, setVisibleCount] = useState(6);
   const [filter, setFilter] = useState({
     location: '',
     dates: null,
     priceRange: '',
     category: '',
   });
+  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
 
-  // Fetch all tours when component mounts
+  // Fetch unread notifications
   useEffect(() => {
-    async function fetchTours() {
-      try {
-        setLoading(true);
-        const data = await getTours();
-        setTours(data);
-        setFilteredTours(data);
-      } catch (error) {
-        console.error('Lỗi khi tải danh sách tour:', error);
-        setTours([]);
-        setFilteredTours([]);
-      } finally {
-        setLoading(false);
-      }
+    if (isAuthenticated) {
+      dispatch(fetchUnreadCount());
     }
-
-    fetchTours();
-  }, []);
+  }, [isAuthenticated, dispatch]);
 
   // Handle click outside for dropdown and mobile menu
   useEffect(() => {
@@ -151,41 +134,28 @@ function BestForYouBagTour() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter and search logic
-  const handleSearchAndFilter = async () => {
+  const handleSearch = () => {
     let filtered = tours;
     let scoredTours = [];
 
-    // Search logic
-    if (searchTerm.trim()) {
-      try {
-        setLoading(true);
-        const response = await axios.get(`/api/recommendations/${userId}?query=${encodeURIComponent(searchTerm.trim())}`);
-        filtered = response.data;
-      } catch (error) {
-        console.error('Lỗi khi tìm kiếm tour:', error);
-        // Fallback to client-side search
-        scoredTours = tours.map((tour) => {
-          let score = 0.0;
-          const query = searchTerm.trim();
-          score += computeSimilarity(query, tour.name || '', 2.0);
-          score += computeSimilarity(query, tour.description || '', 1.0);
-          score += computeSimilarity(query, tour.location || '', 1.5);
-          if (tour.tourCategory && tour.tourCategory.categoryName) {
-            score += computeSimilarity(query, tour.tourCategory.categoryName, 1.2);
-          }
-          return { tour, score };
-        });
-        filtered = scoredTours
-          .filter((item) => item.score > 0.1)
-          .sort((a, b) => b.score - a.score)
-          .map((item) => item.tour);
-      } finally {
-        setLoading(false);
-      }
+    if (localSearchTerm.trim()) {
+      scoredTours = filtered.map((tour) => {
+        let score = 0.0;
+        const query = localSearchTerm.trim();
+        score += computeSimilarity(query, tour.name || '', 2.0);
+        score += computeSimilarity(query, tour.description || '', 1.0);
+        score += computeSimilarity(query, tour.location || '', 1.5);
+        if (tour.tourCategory && tour.tourCategory.categoryName) {
+          score += computeSimilarity(query, tour.tourCategory.categoryName, 1.2);
+        }
+        return { tour, score };
+      });
+      filtered = scoredTours
+        .filter((item) => item.score > 0.1)
+        .sort((a, b) => b.score - a.score)
+        .map((item) => item.tour);
     }
 
-    // Filter logic
     if (filter.location) {
       const cleanedFilterLocation = cleanLocation(filter.location);
       const simplifiedFilterLocation = simplifyLocation(cleanedFilterLocation);
@@ -234,25 +204,45 @@ function BestForYouBagTour() {
       );
     }
 
-    setFilteredTours(filtered);
+    dispatch(setFilteredTours(filtered));
+    return scoredTours;
   };
 
   useEffect(() => {
-    handleSearchAndFilter();
-  }, [searchTerm, filter, tours]);
+    handleSearch();
+  }, [searchTerm, filter, tours, dispatch]);
 
-  const handleSearch = () => {
-    if (!searchTerm.trim()) {
-      alert('Vui lòng nhập từ khóa tìm kiếm!');
-      return;
+  const triggerSearch = async () => {
+    dispatch(setSearchTerm(localSearchTerm));
+    if (isAuthenticated && localSearchTerm.trim()) {
+      try {
+        const response = await axios.post(
+          `http://localhost:8080/api/search-history/search?query=${encodeURIComponent(localSearchTerm.trim())}`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem('TOKEN')}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        dispatch(setFilteredTours(response.data));
+      } catch (error) {
+        console.error('❌ Lỗi khi lưu lịch sử tìm kiếm:', error);
+        handleSearch();
+      }
+    } else {
+      handleSearch();
     }
-    setSearchTerm(searchTerm); // Trigger useEffect
+  };
+
+  const handleSearchChange = (e) => {
+    setLocalSearchTerm(e.target.value);
   };
 
   const handleClearFilters = () => {
     setFilter({ location: '', dates: null, priceRange: '', category: '' });
-    setSearchTerm('');
-    setFilteredTours(tours);
+    dispatch(setSearchTerm(''));
   };
 
   const handleFilterChange = (key, value) => {
@@ -261,6 +251,7 @@ function BestForYouBagTour() {
 
   const handleLogout = () => {
     localStorage.clear();
+    dispatch(logout());
     navigate('/login');
     setOpen(false);
     setMenuOpen(false);
@@ -274,15 +265,14 @@ function BestForYouBagTour() {
         (link) =>
           link.label === 'Trang Chủ' ||
           link.label === 'Giới Thiệu' ||
-          link.label === 'Tours'
+          link.label === 'Tour Gợi Ý'
       );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-200 to-white font-sans w-screen">
       {/* Navbar */}
       <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3] py-2"
-      >
+        className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3] py-2">
         <div className="mx-[10px] md:mx-[30px] flex justify-between items-center">
           {/* Logo, Brand, and Desktop Navigation */}
           <div className="flex items-center">
@@ -290,8 +280,7 @@ function BestForYouBagTour() {
             <motion.div
               variants={buttonVariants}
               whileHover="hover"
-              className="md:hidden"
-            >
+              className="md:hidden">
               <Button
                 onClick={() => navigate('/')}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-3"
@@ -304,14 +293,13 @@ function BestForYouBagTour() {
               <img src={logo} alt="logo" className="h-8 w-auto" />
               <span
                 className="text-[16px] font-bold text-black ml-1 w-30"
-                style={{ fontFamily: 'Dancing Script, cursive' }}
-              >
+                style={{ fontFamily: 'Dancing Script, cursive' }}>
                 Travel TADA
               </span>
               <div className="pl-10 flex items-center space-x-6">
                 {navLinks.map((link) => {
                   if (
-                    (link.label === 'Dành cho bạn' ||
+                    (link.label === 'Tour Gợi Ý' ||
                       link.label === 'Tour Yêu Thích') &&
                     !isAuthenticated
                   ) {
@@ -321,8 +309,7 @@ function BestForYouBagTour() {
                     <span
                       key={link.label}
                       onClick={() => navigate(link.path)}
-                      className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer"
-                    >
+                      className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer">
                       {link.label}
                     </span>
                   );
@@ -331,21 +318,20 @@ function BestForYouBagTour() {
             </div>
           </div>
 
-          {/* Right Section: Search, User Profile */}
+          {/* Right Section: Search, Notifications, User Profile */}
           <div className="flex items-center space-x-1 md:space-x-2">
             {/* Mobile and Desktop Search Bar */}
             {isAuthenticated && (
               <motion.div
-                className="relative flex items-center"
-                whileHover={{ scale: 1.05 }}
-              >
+                className="relative flex items-center "
+                whileHover={{ scale: 1.05 }}>
                 <Input
                   placeholder="Tìm kiếm tour..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={localSearchTerm}
+                  onChange={handleSearchChange}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      handleSearch();
+                      triggerSearch();
                     }
                   }}
                   className="w-28 md:w-60 rounded-full text-xs md:text-sm py-1 pl-3 pr-8 border-none shadow-sm"
@@ -354,23 +340,36 @@ function BestForYouBagTour() {
               </motion.div>
             )}
 
+            {/* Notifications (Desktop only) */}
+            {isAuthenticated && (
+              <motion.div
+                whileHover={{ scale: 1.1, rotate: 10 }}
+                className="hidden md:block relative cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
+                onClick={() => navigate('/notifications')}>
+                <BellOutlined />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-semibold px-1 py-0.5 rounded-full shadow-sm">
+                    {unreadCount}
+                  </span>
+                )}
+              </motion.div>
+            )}
+
             {/* Desktop User Profile Dropdown */}
             <div className="hidden md:block relative" ref={dropdownRef}>
               <button
                 onClick={() => setOpen(!open)}
-                className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200"
-              >
-                {isAuthenticated ? (
+                className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200">
+                {isAuthenticated && user ? (
                   <>
                     <motion.span
                       whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium truncate max-w-[140px]"
-                    >
-                      User
+                      className="text-sm font-medium truncate max-w-[140px]">
+                      {user.customer?.fullName || 'User'}
                     </motion.span>
                     <motion.div whileHover={{ scale: 1.1 }}>
                       <Avatar
-                        src={defaultAvatar}
+                        src={user.customer?.avatarUrl || defaultAvatar}
                         size={28}
                         icon={<UserOutlined />}
                         className="border border-gray-200 shadow-sm"
@@ -384,8 +383,7 @@ function BestForYouBagTour() {
                     </motion.div>
                     <motion.span
                       whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium"
-                    >
+                      className="text-sm font-medium">
                       Tài khoản
                     </motion.span>
                   </>
@@ -396,17 +394,15 @@ function BestForYouBagTour() {
                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50"
-                >
-                  {isAuthenticated ? (
+                  className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50">
+                  {isAuthenticated && user ? (
                     <>
                       <button
                         className="w-full text-gray-700 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
                         onClick={() => {
                           navigate('/profile');
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Thông tin cá nhân
                       </button>
                       <button
@@ -414,14 +410,12 @@ function BestForYouBagTour() {
                         onClick={() => {
                           navigate('/orders');
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Đơn mua
                       </button>
                       <button
                         className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                        onClick={handleLogout}
-                      >
+                        onClick={handleLogout}>
                         Đăng xuất
                       </button>
                     </>
@@ -432,8 +426,7 @@ function BestForYouBagTour() {
                         onClick={() => {
                           navigate('/login');
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Đăng nhập
                       </button>
                       <p className="text-center text-gray-600 text-xs mt-2 px-2">
@@ -443,8 +436,7 @@ function BestForYouBagTour() {
                           onClick={() => {
                             navigate('/register');
                             setOpen(false);
-                          }}
-                        >
+                          }}>
                           Đăng ký ngay
                         </span>
                       </p>
@@ -474,8 +466,7 @@ function BestForYouBagTour() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="md:hidden bg-[#e5e1d3] shadow-lg border-t border-gray-200 p-3 absolute top-[56px] left-0 right-0 z-50"
-          >
+            className="md:hidden bg-[#e5e1d3] shadow-lg border-t border-gray-200 p-3 absolute top-[56px] left-0 right-0 z-50">
             <div className="flex flex-col space-y-2">
               {/* Navigation Links */}
               {mobileNavLinks.map((link) => (
@@ -486,17 +477,27 @@ function BestForYouBagTour() {
                     setMenuOpen(false);
                     setAccountOpen(false);
                   }}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5"
-                >
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5">
                   {link.label}
                 </span>
               ))}
+              {/* Notifications Link */}
+              {isAuthenticated && (
+                <span
+                  onClick={() => {
+                    navigate('/notifications');
+                    setMenuOpen(false);
+                    setAccountOpen(false);
+                  }}
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5">
+                  Thông báo {unreadCount > 0 ? `(${unreadCount})` : ''}
+                </span>
+              )}
               {/* Account Section */}
               <div className="border-t border-gray-200 pt-2">
                 <button
                   onClick={() => setAccountOpen(!accountOpen)}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5 flex items-center justify-between w-full"
-                >
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5 flex items-center justify-between w-full">
                   Tài khoản
                   {accountOpen ? <UpOutlined className="text-sm" /> : <DownOutlined className="text-sm" />}
                 </button>
@@ -505,9 +506,8 @@ function BestForYouBagTour() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="flex flex-col pl-3 space-y-1 mt-1"
-                  >
-                    {isAuthenticated ? (
+                    className="flex flex-col pl-3 space-y-1 mt-1">
+                    {isAuthenticated && user ? (
                       <>
                         <button
                           className="w-full text-gray-700 py-1 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
@@ -515,8 +515,7 @@ function BestForYouBagTour() {
                             navigate('/profile');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Thông tin cá nhân
                         </button>
                         <button
@@ -525,14 +524,12 @@ function BestForYouBagTour() {
                             navigate('/orders');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Đơn mua
                         </button>
                         <button
                           className="w-full text-red-600 py-1 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                          onClick={handleLogout}
-                        >
+                          onClick={handleLogout}>
                           Đăng xuất
                         </button>
                       </>
@@ -544,8 +541,7 @@ function BestForYouBagTour() {
                             navigate('/login');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Đăng nhập
                         </button>
                         <button
@@ -554,8 +550,7 @@ function BestForYouBagTour() {
                             navigate('/register');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Đăng ký ngay
                         </button>
                       </>
@@ -573,8 +568,7 @@ function BestForYouBagTour() {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5, delay: 0.7 }}
-        className="sticky top-[64px] z-40 bg-white py-4 px-5"
-      >
+        className="sticky top-[64px] z-40 bg-white py-4 px-5">
         <div className="max-w-7xl mx-auto flex items-center gap-3">
           <AnimatePresence>
             {isFilterOpen && (
@@ -583,8 +577,7 @@ function BestForYouBagTour() {
                 animate={{ width: 'auto', opacity: 1, scaleX: 1 }}
                 exit={{ width: 0, opacity: 0, scaleX: 0 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="flex-1 overflow-hidden"
-              >
+                className="flex-1 overflow-hidden">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-xl shadow-md border border-gray-100">
                   <div className="flex flex-col">
                     <label className="text-sm font-semibold text-gray-800 mb-2">
@@ -600,8 +593,7 @@ function BestForYouBagTour() {
                       optionFilterProp="children"
                       filterOption={(input, option) =>
                         option?.children?.toLowerCase().includes(input.toLowerCase())
-                      }
-                    >
+                      }>
                       {locations.map((loc) => (
                         <Option key={loc.label} value={loc.label}>
                           {loc.label}
@@ -628,8 +620,7 @@ function BestForYouBagTour() {
                       value={filter.priceRange}
                       onChange={(value) => handleFilterChange('priceRange', value)}
                       className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
-                      allowClear
-                    >
+                      allowClear>
                       <Option value="0-1000000">Dưới 1M</Option>
                       <Option value="1000000-3000000">1M - 3M</Option>
                       <Option value="3000000-5000000">3M - 5M</Option>
@@ -646,8 +637,7 @@ function BestForYouBagTour() {
                       value={filter.category}
                       onChange={(value) => handleFilterChange('category', value)}
                       className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
-                      allowClear
-                    >
+                      allowClear>
                       {tourCategories.map((category) => (
                         <Option key={category} value={category}>
                           {category}
@@ -665,29 +655,26 @@ function BestForYouBagTour() {
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
             whileHover={{ scale: 1.05 }}
-            className="flex-none"
-          >
+            className="flex-none">
             <Button
               type="primary"
               icon={isFilterOpen ? <CloseOutlined /> : <FilterOutlined />}
               className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-4 py-1.5 text-sm font-medium flex items-center gap-2"
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-            >
+              onClick={() => setIsFilterOpen(!isFilterOpen)}>
               {isFilterOpen ? 'Ẩn bộ lọc' : 'Bộ lọc'}
             </Button>
           </motion.div>
         </div>
       </motion.div>
 
-      {/* Nội dung của tour */}
+      {/* Results Section */}
       <section className="max-w-6xl mx-auto py-20 px-1">
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5 }}
-          className="lg:text-2xl font-semibold text-gray-800 lg:mb-6 px-5 mb-1"
-        >
-          Tour gợi ý cho bạn ({filteredTours.length})
+          className="lg:text-2xl font-semibold text-gray-800 lg:mb-6 px-5 mb-1">
+          Kết quả tìm kiếm ({filteredTours.length})
         </motion.h2>
 
         {loading ? (
@@ -698,16 +685,14 @@ function BestForYouBagTour() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-12"
-          >
+            className="text-center py-12">
             <p className="text-gray-600 text-lg mb-4">
               Không tìm thấy tour nào phù hợp.
             </p>
             <Button
               type="primary"
               className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-6 py-2 text-sm font-medium"
-              onClick={handleClearFilters}
-            >
+              onClick={handleClearFilters}>
               Xóa bộ lọc và thử lại
             </Button>
           </motion.div>
@@ -720,9 +705,8 @@ function BestForYouBagTour() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4 }}
-                  whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}
-                >
-                  <ItemBagTourBestForYou tour={tour} />
+                  whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}>
+                  <ItemTourComponent tour={tour} />
                 </motion.div>
               ))}
             </div>
@@ -730,8 +714,7 @@ function BestForYouBagTour() {
               <div className="flex justify-center mt-8">
                 <button
                   onClick={() => setVisibleCount((prev) => prev + 6)}
-                  className="px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition"
-                >
+                  className="px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition">
                   Load More
                 </button>
               </div>
@@ -748,6 +731,6 @@ function BestForYouBagTour() {
       </footer>
     </div>
   );
-}
+};
 
-export default BestForYouBagTour;
+export default SearchPage;

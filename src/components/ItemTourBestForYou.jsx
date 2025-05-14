@@ -11,19 +11,21 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state) => state.user);
+  const token = localStorage.getItem('TOKEN');
 
   const handleToggleFavorite = async (e) => {
     e.stopPropagation();
 
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !token) {
       message.error('Vui lòng đăng nhập để thêm/xóa tour yêu thích!');
+      navigate('/login');
       return;
     }
 
     try {
       if (isFavorite) {
         await axios.delete(`http://localhost:8080/api/tour-favourites/${tour.tourId}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('TOKEN')}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         message.success('Đã xóa tour khỏi yêu thích!');
         onFavoriteChange(tour.tourId, false);
@@ -31,19 +33,52 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
         await axios.post(
           'http://localhost:8080/api/tour-favourites',
           { tourId: tour.tourId },
-          { headers: { Authorization: `Bearer ${localStorage.getItem('TOKEN')}` } }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
         message.success('Đã thêm tour vào yêu thích!');
         onFavoriteChange(tour.tourId, true);
       }
       dispatch(fetchFavoriteTours());
     } catch (error) {
-      console.error('Lỗi khi cập nhật yêu thích:', error);
-      message.error(error.response?.data?.message || 'Có lỗi xảy ra!');
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        message.error('Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.');
+        localStorage.removeItem('TOKEN');
+        navigate('/login');
+      } else if (status === 409) {
+        console.warn('Tour đã trong danh sách yêu thích.');
+        onFavoriteChange(tour.tourId, true);
+      } else {
+        console.error('Lỗi cập nhật yêu thích:', error);
+        message.error(error.response?.data?.message || 'Có lỗi xảy ra!');
+      }
     }
   };
 
-  const handleTourClick = () => {
+  const handleTourClick = async () => {
+    if (!isAuthenticated || !token) {
+      navigate(`/tour-detail?id=${tour.tourId}`);
+      return;
+    }
+
+    try {
+      await axios.post(
+        `http://localhost:8080/api/search-history/click/${tour.tourId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log(`Tracked click for tour ${tour.tourId}`);
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        message.error('Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.');
+        localStorage.removeItem('TOKEN');
+        navigate('/login');
+        return;
+      }
+      console.error('Lỗi khi ghi nhận click tour:', error);
+    }
+
     navigate(`/tour-detail?id=${tour.tourId}`);
   };
 

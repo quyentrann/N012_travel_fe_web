@@ -21,6 +21,7 @@ import { logout } from '../../redux/userSlice';
 import ItemTourComponent from '../../components/ItemTourComponent';
 import logo from '../../images/logo.png';
 import axios from 'axios';
+import {getTours, getSearchHistory, saveSearchQuery} from '../../apis/tour'
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -212,24 +213,16 @@ const SearchPage = () => {
     handleSearch();
   }, [searchTerm, filter, tours, dispatch]);
 
-  const triggerSearch = async () => {
+ const triggerSearch = async () => {
     dispatch(setSearchTerm(localSearchTerm));
     if (isAuthenticated && localSearchTerm.trim()) {
       try {
-        const response = await axios.post(
-          `http://localhost:8080/api/search-history/search?query=${encodeURIComponent(localSearchTerm.trim())}`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem('TOKEN')}`,
-              'Content-Type': 'application/json',
-            },
-          }
-        );
-        dispatch(setFilteredTours(response.data));
+        const filteredTours = await saveSearchQuery(localSearchTerm.trim());
+        setTours(filteredTours);
+        dispatch(setFilteredTours(filteredTours));
       } catch (error) {
         console.error('❌ Lỗi khi lưu lịch sử tìm kiếm:', error);
-        handleSearch();
+        handleSearch(); // Fallback to client-side filtering
       }
     } else {
       handleSearch();
@@ -299,8 +292,8 @@ const SearchPage = () => {
               <div className="pl-10 flex items-center space-x-6">
                 {navLinks.map((link) => {
                   if (
-                    (link.label === 'Tour Gợi Ý' ||
-                      link.label === 'Tour Yêu Thích') &&
+                    (link.label === 'Dành cho bạn' ||
+                      link.label === 'Tour Yêu Thích' ) &&
                     !isAuthenticated
                   ) {
                     return null;

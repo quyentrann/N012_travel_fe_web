@@ -18,7 +18,7 @@ import {
 
 function BotpressChat() {
   useEffect(() => {
-    const excludedPaths = ["/login", "/register", "/forgot-password"];
+    const excludedPaths = ["/login", "/register", "/forgot-password", "/tour-detail"];
 
     if (excludedPaths.includes(window.location.pathname)) return;
 
