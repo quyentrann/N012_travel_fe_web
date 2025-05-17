@@ -193,7 +193,7 @@ export default function TourBookingForm({
   }, []);
 
   return (
-    <div className="px-4 py-2 ">
+    <div className="px-4 py-2  ">
       <p className="text-gray-600 text-xs mb-3">
         Vui lòng kiểm tra và cung cấp thông tin đầy đủ trước khi gửi yêu cầu.
         Chúng tôi sẽ liên hệ và hỗ trợ bạn nhanh chóng.

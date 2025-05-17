@@ -2,19 +2,19 @@ import { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import {
   UserOutlined,
+  UploadOutlined,
+  EditOutlined,
   MailOutlined,
   PhoneOutlined,
   HomeOutlined,
-  UploadOutlined,
-  EditOutlined,
-  LogoutOutlined,
 } from '@ant-design/icons';
 import { Button, Input, Radio, Upload, Form, Avatar, message, Spin, Divider } from 'antd';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import defaultAvatar from '../../images/defaultAvatar.png';
-import logo from '../../images/logo.png';
 import { fetchUserProfile, handleUpdateProfile, handleAvatarUpload } from '../../apis/userApi';
+import Footer from '../../components/Footer';
+import Header from '../../components/Header2';
 
 const Profile = () => {
   const [form] = Form.useForm();
@@ -126,13 +126,6 @@ const Profile = () => {
     setUploading(false);
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    setUserData(null);
-    message.success('Đăng xuất thành công!');
-    navigate('/login');
-  };
-
   const handleAvatarError = () => {
     console.error('Lỗi tải ảnh từ avatarUrl:', avatarUrl);
     setAvatarUrl(null);
@@ -140,43 +133,9 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col w-screen">
-      <motion.header
-        initial={{ opacity: 0, y: -50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-[#e5e1d3] shadow-md py-4 px-4 sm:px-6 sticky top-0 z-20"
-      >
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <img src={logo} alt="Travel TADA" className="h-8 w-auto" />
-            <span className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Dancing Script, cursive' }}>
-              Travel TADA
-            </span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Button type="text" onClick={() => navigate('/')} className="text-gray-600 hover:text-blue-600 text-sm">
-              Trang chủ
-            </Button>
-            <Button
-              type="text"
-              onClick={() => navigate('/orders')}
-              className="text-gray-600 hover:text-blue-600 text-sm"
-            >
-              Đơn mua
-            </Button>
-            <Button
-              type="text"
-              icon={<LogoutOutlined />}
-              onClick={handleLogout}
-              className="text-gray-600 hover:text-red-600 text-sm"
-            >
-              Đăng xuất
-            </Button>
-          </div>
-        </div>
-      </motion.header>
+      <Header userData={userData} setUserData={setUserData} />
 
-      <div className="flex-grow flex items-center justify-center p-4 sm:p-8 bg-[#fefcf8f4]">
+      <div className="flex-grow flex items-center pt-20 sm:pt-25 justify-center p-4 sm:p-8 bg-[#fefcf8f4]">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -204,9 +163,9 @@ const Profile = () => {
                   {!avatarUrl && avatarText}
                 </Avatar>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 pl-3">
+                  <p className="sm:text-5xl text-2xl font-bold text-gray-900 pl-3">
                     {userData?.customer?.fullName || 'Khách hàng'}
-                  </h1>
+                  </p>
                   <p className="text-sm text-gray-500 pl-5 pt-1">{userData?.email || 'N/A'}</p>
                 </div>
               </motion.div>
@@ -408,37 +367,9 @@ const Profile = () => {
       </div>
 
       <motion.footer
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.7 }}
-        className="bg-[#e5e1d3] py-6 px-4 sm:px-6 shadow-inner"
+       
       >
-        <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm text-gray-600">
-          <div>
-            <h4 className="text-gray-900 font-semibold mb-2">Về Travel TADA</h4>
-            <p>Khám phá thế giới với những hành trình đáng nhớ.</p>
-          </div>
-          <div>
-            <h4 className="text-gray-900 font-semibold mb-2">Liên kết</h4>
-            <p>
-              <a href="/about" className="hover:text-blue-600">
-                Giới thiệu
-              </a>{' '}
-              |{' '}
-              <a href="/contact" className="hover:text-blue-600">
-                Liên hệ
-              </a>
-            </p>
-          </div>
-          <div>
-            <h4 className="text-gray-900 font-semibold mb-2">Hỗ trợ</h4>
-            <p>Email: support@traveltada.vn</p>
-            <p>Hotline: 1900 8888</p>
-          </div>
-        </div>
-        <div className="mt-4 text-center text-gray-500 text-sm">
-          © 2025 Travel TADA. Mọi quyền được bảo lưu.
-        </div>
+        <Footer />
       </motion.footer>
     </div>
   );

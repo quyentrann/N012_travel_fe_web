@@ -3,8 +3,9 @@ import axios from "axios";
 import ItemBagTourBestForYou from "../../components/ItemBagTourBestForYou";
 import { SearchOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { Input, Button } from 'antd';
+import { Input, Button,Spin } from 'antd';
 import { getTours } from '../../apis/tour';
+import Header from '../../components/Header';
 
 function CardChatBotPress() {
   const [tours, setTours] = useState([]); // State để lưu danh sách tour
@@ -84,33 +85,15 @@ function CardChatBotPress() {
   return (
     <div className="w-screen justify-center">
       <div className="w-full ">
-           <nav className="bg-gray-200 text-white py-4 px-7 sticky top-0 z-10">
-                <div className="max-w-[1500px] mx-auto flex justify-between items-center">
-                    <div className="flex space-x-6">
-                      <Link to="/" className="hover:text-yellow-300">Trang chủ</Link>
-                      <Link to="/account" className="hover:text-yellow-300">Tài khoản</Link>
-                      <Link to="/about" className="hover:text-yellow-300">Giới thiệu</Link>
-                      <Link to="/contact" className="hover:text-yellow-300">Liên hệ</Link>
-                    </div>
-          
-                    {/* Thanh Tìm kiếm */}
-                    <div className="flex items-center space-x-4">
-                      <Input
-                        placeholder="Nhập từ khóa tìm kiếm..."
-                        prefix={<SearchOutlined className="text-gray-400 text-[16px]" />}
-                        className="h-9 border border-gray-300 focus:ring-blue-500 !text-[14px] rounded-2xl"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)} // Cập nhật searchTerm
-                        onPressEnter={handleSearch} // Gọi handleSearch khi nhấn Enter
-                      />
-                      <Button onClick={handleSearch} type="primary">Tìm kiếm</Button>
-                    </div>
-                  </div>
-                </nav>
+           <Header/>
            </div>
       <div className="flex flex-col items-center gap-6 p-6 max-w-[1500px]">
         {loading ? (
-          <p>Đang tải dữ liệu...</p> // Hiển thị thông báo loading
+             <Spin
+                    size="large"
+                    tip="Đang tải gợi ý..."
+                    style={{ fontSize: '16px' }}
+                  />// Hiển thị thông báo loading
         ) : error ? (
           <p>{error}</p> // Hiển thị thông báo lỗi nếu có
         ) : (

@@ -17,10 +17,12 @@ import SearchPage from "../pages/SearchPage/SearchPage";
 import Recommended from "../pages/Recommended/recommended";
 import PaymentResult from "../pages/paymentPage/paymentPage";
 import FavouriteTours from "../pages/FavouriteTours/FavouriteTours";
+import HomeBar from "../pages/homebar/homebar"
+import VnpayReturn from '../pages/paymentPage/paymentPage'
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Home />} />
+      <Route path="/" element={<HomeBar />} />
       <Route path="/profile" element={<UserInfo />} />
       <Route path="/orders" element={<Orders />} />
       <Route path="/tour-detail" element={<TourDetail />} />
@@ -38,6 +40,7 @@ export default function AppRouter() {
       <Route path="/recommended" element={<Recommended />} />
       <Route path="/payment-result" element={<PaymentResult />} />
       <Route path="/favourite-tours" element={<FavouriteTours />} />
+      <Route path="/vnpay-return" element={<VnpayReturn />} />
     </Routes>
   );
 }

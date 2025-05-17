@@ -1,11 +1,24 @@
-import React from 'react';
-import { Anchor, Card, Button } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Anchor, Button } from 'antd';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons';
 
 const AboutPage = () => {
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  // Handle click outside for mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Animation variants for sections
   const sectionVariants = {
@@ -32,13 +45,21 @@ const AboutPage = () => {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
-        className="space-y-4"
+        className="space-y-2"
       >
-        <h3 className="text-lg font-semibold text-[#1A202C] font-['Playfair_Display']">{title}</h3>
-        <div className="text-[#2D3748] leading-relaxed">{children}</div>
+        <h3 className="text-base sm:text-lg font-semibold text-[#1A202C] font-['Playfair_Display']">{title}</h3>
+        <div className="text-[#2D3748] text-sm sm:text-base leading-relaxed">{children}</div>
       </motion.div>
     );
   }
+
+  const navItems = [
+    { key: 'about', href: '#about', title: 'Giới thiệu' },
+    { key: 'mission', href: '#mission', title: 'Tầm nhìn' },
+    { key: 'history', href: '#history', title: 'Lịch sử' },
+    { key: 'terms', href: '#terms', title: 'Điều khoản' },
+    { key: 'help', href: '#help', title: 'Hỗ trợ' },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col w-screen font-['Inter'] bg-white">
@@ -49,57 +70,84 @@ const AboutPage = () => {
         transition={{ duration: 0.5 }}
         className="bg-[#f0ede3] shadow-2xs sticky top-0 z-50"
       >
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <motion.div variants={buttonVariants} whileHover="hover">
               <Button
                 onClick={() => navigate('/')}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-3 sm:px-4"
               >
                 <ArrowLeftOutlined />
               </Button>
             </motion.div>
             <span
-              className="text-[24px] font-bold text-[#333333] ml-10"
-            style={{ fontFamily: 'Dancing Script, cursive' }}
+              className="text-[20px] sm:text-[24px] font-bold text-[#333333]"
+              style={{ fontFamily: 'Dancing Script, cursive' }}
             >
               Travel TADA
             </span>
           </div>
-          <div className="hidden md:block">
-            <Anchor
-              direction="horizontal"
-              items={[
-                { key: 'about', href: '#about', title: 'Giới thiệu' },
-                { key: 'mission', href: '#mission', title: 'Tầm nhìn' },
-                { key: 'history', href: '#history', title: 'Lịch sử' },
-                { key: 'terms', href: '#terms', title: 'Điều khoản' },
-                { key: 'help', href: '#help', title: 'Hỗ trợ' },
-              ]}
-              className="flex gap-6 text-sm [&>ul>li>a]:text-[#F8EDE3] [&>ul>li>a]:font-medium hover:[&>ul>li>a]:text-[#F687B3] transition-colors duration-200"
-            />
+          <div className="flex items-center">
+            <div className="hidden md:block">
+              <Anchor
+                direction="horizontal"
+                items={navItems}
+                className="flex gap-6 text-sm [&>ul>li>a]:text-[#F8EDE3] [&>ul>li>a]:font-medium hover:[&>ul>li>a]:text-[#F687B3] transition-colors duration-200"
+              />
+            </div>
+            <div className="md:hidden">
+              <button onClick={() => setMenuOpen(!menuOpen)}>
+                {menuOpen ? (
+                  <CloseOutlined className="text-[20px] text-[#333333]" />
+                ) : (
+                  <MenuOutlined className="text-[20px] text-[#333333]" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
+        {/* Mobile Navigation Menu */}
+        {menuOpen && (
+          <motion.div
+            ref={menuRef}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="md:hidden bg-[#f0ede3] shadow-lg border-t border-gray-200 px-4 py-4 absolute top-[60px] left-0 right-0 z-50"
+          >
+            <div className="flex flex-col space-y-2">
+              {navItems.map((item) => (
+                <a
+                  key={item.key}
+                  href={item.href}
+                  onClick={() => setMenuOpen(false)}
+                  className="text-[#F8EDE3] text-sm font-medium hover:text-[#F687B3] transition-colors duration-200 py-2"
+                >
+                  {item.title}
+                </a>
+              ))}
+            </div>
+          </motion.div>
+        )}
       </motion.header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-10">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
         {/* About Section */}
-        <section id="about" className="mb-12 px-30">
+        <section id="about" className="mb-8 sm:mb-12">
           <motion.h2
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-3xl font-bold mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
+            className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
           >
             Giới thiệu về Travel TADA
           </motion.h2>
           <motion.div
             variants={cardVariants}
             initial="rest"
-            // whileHover="hover"
-            className="bg-[#fffcfa] rounded-3xl p-6 shadow-lg "
+            className="bg-[#fffcfa] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg w-full"
           >
             <Section title="Nền tảng hiện đại">
               Travel TADA là nền tảng du lịch trực tuyến hiện đại, cung cấp đa dạng các tour du lịch trong và ngoài nước. Với giao diện thân thiện, dễ sử dụng, chúng tôi giúp khách hàng dễ dàng tìm kiếm, so sánh và đặt tour một cách nhanh chóng và tiện lợi.
@@ -117,21 +165,20 @@ const AboutPage = () => {
         </section>
 
         {/* Mission Section */}
-        <section id="mission" className="mb-12 px-30">
+        <section id="mission" className="mb-8 sm:mb-12">
           <motion.h2
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-3xl font-bold mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
+            className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
           >
             Tầm nhìn
           </motion.h2>
           <motion.div
             variants={cardVariants}
             initial="rest"
-            // whileHover="hover"
-            className="bg-[#fffcfa] rounded-3xl p-6 shadow-lg"
+            className="bg-[#fffcfa] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg w-full"
           >
             <Section title="Nền tảng hàng đầu">
               Tầm nhìn của Travel TADA là trở thành nền tảng du lịch hàng đầu tại Việt Nam, giúp khách hàng dễ dàng tiếp cận và trải nghiệm những tour du lịch đa dạng, chất lượng và đáng tin cậy.
@@ -149,21 +196,20 @@ const AboutPage = () => {
         </section>
 
         {/* History Section */}
-        <section id="history" className="mb-12 px-30">
+        <section id="history" className="mb-8 sm:mb-12">
           <motion.h2
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-3xl font-bold mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
+            className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
           >
             Lịch sử
           </motion.h2>
           <motion.div
             variants={cardVariants}
             initial="rest"
-            // whileHover="hover"
-            className="bg-[#fffcfa] rounded-3xl p-6 shadow-lg"
+            className="bg-[#fffcfa] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg w-full"
           >
             <Section title="Thành lập 2021">
               Travel TADA được thành lập vào năm 2021, bắt đầu từ một nhóm sáng lập đam mê du lịch và công nghệ, mong muốn kết nối con người với thế giới qua những hành trình đáng nhớ.
@@ -181,35 +227,34 @@ const AboutPage = () => {
         </section>
 
         {/* Terms Section */}
-        <section id="terms" className="mb-12 px-30">
+        <section id="terms" className="mb-8 sm:mb-12">
           <motion.h2
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-3xl font-bold mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
+            className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
           >
             Điều khoản
           </motion.h2>
           <motion.div
             variants={cardVariants}
             initial="rest"
-            // whileHover="hover"
-            className="bg-[#fffcfa]  rounded-3xl p-6 shadow-lg"
+            className="bg-[#fffcfa] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg w-full"
           >
             <Section title="Chính sách bảo mật">
               Travel TADA cam kết bảo mật thông tin cá nhân, sử dụng mã hóa để bảo vệ dữ liệu thanh toán và lịch sử đặt tour. Khách hàng có quyền xem, chỉnh sửa hoặc xóa thông tin bất kỳ lúc nào.
             </Section>
             <Section title="Điều khoản sử dụng">
               Nội dung tour, giá cả có thể thay đổi tùy thời điểm. Khách hàng cần kiểm tra thông tin trước khi đặt, tuân thủ chính sách hủy/đổi của đối tác.
-              <ul className="list-disc list-inside mt-2 space-y-1">
+              <ul className="list-disc list-inside mt-2 space-y-1 text-sm sm:text-base">
                 <li>Không sử dụng thông tin giả mạo.</li>
                 <li>Không phá hoại hệ thống.</li>
                 <li>Không sao chép nội dung chưa được phép.</li>
               </ul>
             </Section>
             <Section title="Chính sách hủy & hoàn tiền">
-              <ul className="list-disc list-inside mt-2 space-y-1">
+              <ul className="list-disc list-inside mt-2 space-y-1 text-sm sm:text-base">
                 <li>Hủy trước 15 ngày: hoàn 100% (trừ phí giao dịch).</li>
                 <li>Hủy trước 7 ngày: hoàn 50%.</li>
                 <li>Hủy dưới 7 ngày: không hoàn tiền.</li>
@@ -220,25 +265,24 @@ const AboutPage = () => {
         </section>
 
         {/* Help Section */}
-        <section id="help" className="mb-20 px-30">
+        <section id="help" className="mb-12 sm:mb-20">
           <motion.h2
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="text-3xl font-bold mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
+            className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-[#009EE2] font-['Playfair_Display']"
           >
             Hỗ trợ
           </motion.h2>
           <motion.div
             variants={cardVariants}
             initial="rest"
-            // whileHover="hover"
-            className="bg-[#fffcfa]  rounded-3xl p-6 shadow-lg"
+            className="bg-[#fffcfa] rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-lg w-full"
           >
             <Section title="Liên hệ 24/7">
               Đội ngũ hỗ trợ sẵn sàng phục vụ qua:
-              <ul className="list-disc list-inside mt-2 space-y-2">
+              <ul className="list-disc list-inside mt-2 space-y-2 text-sm sm:text-base">
                 <li>
                   Email:{' '}
                   <a href="mailto:support@traveltada.vn" className="text-[#2C7A7B] hover:text-[#F687B3]">
@@ -283,19 +327,19 @@ const AboutPage = () => {
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="bg-[#f0ede3] text-black py-3"
+        className="bg-[#f0ede3] text-black py-6 sm:py-3"
       >
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 mb-4 sm:mb-6">
             <div>
-              <h4 className="text-lg font-semibold mb-4 font-['Playfair_Display']">Về Travel TADA</h4>
-              <p className="text-sm">
+              <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 font-['Playfair_Display']">Về Travel TADA</h4>
+              <p className="text-xs sm:text-sm">
                 Nền tảng du lịch trực tuyến mang đến những hành trình đáng nhớ, an toàn và tiện lợi.
               </p>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-4 font-['Playfair_Display']">Chính sách</h4>
-              <ul className="text-sm space-y-2">
+              <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 font-['Playfair_Display']">Chính sách</h4>
+              <ul className="text-xs sm:text-sm space-y-2">
                 <li>
                   <a href="/terms" className="hover:text-[#F687B3] transition">
                     Điều khoản sử dụng
@@ -314,12 +358,12 @@ const AboutPage = () => {
               </ul>
             </div>
             <div>
-              <h4 className="text-lg font-semibold mb-4 font-['Playfair_Display']">Liên hệ</h4>
-              <p className="text-sm">Email: support@traveltada.vn</p>
-              <p className="text-sm">Hotline: 1900 8888</p>
+              <h4 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 font-['Playfair_Display']">Liên hệ</h4>
+              <p className="text-xs sm:text-sm">Email: support@traveltada.vn</p>
+              <p className="text-xs sm:text-sm">Hotline: 1900 8888</p>
             </div>
           </div>
-          <p className="text-sm">© 2025 Travel TADA. All rights reserved.</p>
+          <p className="text-xs sm:text-sm">© 2025 Travel TADA. All rights reserved.</p>
         </div>
       </motion.footer>
     </div>
