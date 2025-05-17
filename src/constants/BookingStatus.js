@@ -1,0 +1,9 @@
+// src/constants/BookingStatus.js
+export const BOOKING_STATUS = {
+    CONFIRMED: 'CONFIRMED',
+    CANCELED: 'CANCELED',
+    PAID: 'PAID',
+    COMPLETED: 'COMPLETED',
+    IN_PROGRESS: 'IN_PROGRESS',
+    PENDING_PAYMENT: 'PENDING_PAYMENT',
+};

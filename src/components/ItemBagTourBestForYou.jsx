@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, Tag, message } from 'antd';
 import {
   StarFilled,
@@ -10,35 +10,15 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import axios from 'axios';
 import card from '../images/card.jpg';
-import { fetchFavoriteTours } from '../redux/tourSlice';
 
-function ItemBagTourBestForYou({ tour }) {
+function ItemBagTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state) => state.user);
   const token = localStorage.getItem('TOKEN');
-  const [isFavorite, setIsFavorite] = useState(false);
-
-  // Kiểm tra trạng thái favorite khi component mount
-  useEffect(() => {
-    const checkFavorite = async () => {
-      if (isAuthenticated && token) {
-        try {
-          const response = await axios.get(
-            `http://localhost:8080/api/tour-favourites/${tour.tourId}`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setIsFavorite(!!response.data); // Cập nhật trạng thái favorite
-        } catch (error) {
-          console.error('Lỗi kiểm tra favorite:', error);
-        }
-      }
-    };
-    checkFavorite();
-  }, [tour.tourId, isAuthenticated, token]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleToggleFavorite = async (e) => {
     e.stopPropagation();
@@ -47,38 +27,16 @@ function ItemBagTourBestForYou({ tour }) {
       navigate('/login');
       return;
     }
+    if (isLoading) return;
 
+    setIsLoading(true);
     try {
-      if (isFavorite) {
-        await axios.delete(
-          `http://localhost:8080/api/tour-favourites/${tour.tourId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setIsFavorite(false);
-        message.success('Đã xóa tour khỏi yêu thích!');
-      } else {
-        await axios.post(
-          'http://localhost:8080/api/tour-favourites',
-          { tourId: tour.tourId },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setIsFavorite(true);
-        message.success('Đã thêm tour vào yêu thích!');
-      }
-      dispatch(fetchFavoriteTours());
+      await onFavoriteChange(tour.tourId, !isFavorite);
     } catch (error) {
-      const status = error?.response?.status;
-      if (status === 401 || status === 403) {
-        message.error('Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.');
-        localStorage.removeItem('TOKEN');
-        navigate('/login');
-      } else if (status === 409) {
-        console.warn('Tour đã có trong danh sách yêu thích.');
-        setIsFavorite(true);
-      } else {
-        console.error('Lỗi cập nhật yêu thích:', error);
-        message.error(error.response?.data?.message || 'Có lỗi xảy ra!');
-      }
+      // Error handling is managed by onFavoriteChange in SearchPage
+      // Only reset loading state here
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -136,15 +94,15 @@ function ItemBagTourBestForYou({ tour }) {
         key={tour.id}
         hoverable
         className="w-[1000px] flex flex-row rounded-lg shadow-md p-4 border border-gray-200"
-        onClick={handleTourClick} // Thay navigate trực tiếp bằng handleTourClick
+        onClick={handleTourClick}
       >
         {/* Nút yêu thích */}
         <div
-          className="absolute top-2 right-2 cursor-pointer text-[20px]"
+          className={`absolute top-2 right-2 cursor-pointer text-[20px] ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           onClick={handleToggleFavorite}
         >
           {isFavorite ? (
-            <HeartFilled className="text-red-500" />
+            <HeartFilled style={{color:'red'}} />
           ) : (
             <HeartOutlined className="text-gray-400 hover:text-red-500" />
           )}

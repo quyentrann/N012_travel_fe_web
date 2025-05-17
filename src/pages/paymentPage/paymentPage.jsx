@@ -10,21 +10,34 @@ const { Title, Text } = Typography;
 const VnpayReturn = () => {
   const [status, setStatus] = useState(null); // 'success', 'error', 'not-found', null
   const [messageText, setMessageText] = useState('');
+  const [bookingId, setBookingId] = useState(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (window.opener) {
+      // Gửi message về tab gốc để báo thanh toán hoàn tất
+      window.opener.postMessage({ type: 'PAYMENT_COMPLETED' }, '*');
+    }
+
+    let isMounted = true;
     const fetchVnpayResult = async () => {
+      if (!isMounted) return;
       try {
-        // Lấy query params từ URL
         const queryParams = new URLSearchParams(location.search);
         const paramsObject = {};
         queryParams.forEach((value, key) => {
           paramsObject[key] = value;
         });
 
-        // Gọi API vnpay-return với query params
+        const txnRef = paramsObject['vnp_TxnRef'];
+        if (txnRef) {
+          setBookingId(txnRef);
+        } else {
+          throw new Error('Không tìm thấy vnp_TxnRef');
+        }
+
         const response = await axios.get('http://localhost:8080/api/payment/vnpay-return', {
           params: paramsObject,
           headers: { Authorization: `Bearer ${localStorage.getItem('TOKEN')}` },
@@ -44,31 +57,42 @@ const VnpayReturn = () => {
         }
       } catch (error) {
         console.error('Lỗi khi xử lý kết quả VNPAY:', error.response || error.message);
-        setStatus('error');
-        setMessageText(
-          error.response?.data?.message || 'Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại.'
-        );
-        message.error('Lỗi khi xử lý kết quả thanh toán!');
+        if (isMounted) {
+          setStatus('error');
+          setMessageText(
+            error.response?.data?.message || 'Có lỗi xảy ra khi xử lý thanh toán. Vui lòng thử lại.'
+          );
+          message.error('Lỗi khi xử lý kết quả thanh toán!');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchVnpayResult();
-  }, [location]);
+    return () => {
+      isMounted = false;
+    };
+  }, [location.search]);
 
   const handleNavigate = () => {
-    if (status === 'success') {
-      navigate('/orders'); // Về danh sách đơn đặt tour
+    if (status === 'success' && bookingId) {
+      navigate('/booking-detail', { state: { id: bookingId }, replace: true });
     } else {
-      navigate('/'); // Về trang chính nếu thất bại hoặc lỗi
+      navigate('/orders', { replace: true });
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Spin size="large" tip="Đang xử lý kết quả thanh toán..." />
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-50/80 z-50 w-screen h-screen">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Spin size="large" tip="Đang xử lý kết quả thanh toán..." />
+        </motion.div>
       </div>
     );
   }
@@ -85,16 +109,14 @@ const VnpayReturn = () => {
           <Result
             icon={<CheckCircleOutlined className="text-6xl text-green-500" />}
             title={<Title level={3} className="text-green-600">Thanh Toán Thành Công</Title>}
-            subTitle={
-              <Text className="text-gray-600">{messageText}</Text>
-            }
+            subTitle={<Text className="text-gray-600">{messageText}</Text>}
             extra={
               <Button
                 type="primary"
-                className="h-10 rounded-md bg-green-300 hover:bg-blue-700"
+                className="h-10 rounded-md bg-blue-600 hover:bg-blue-700"
                 onClick={handleNavigate}
               >
-                Xem Danh Sách Đơn Đặt Tour
+                Xem Chi Tiết Đơn Đặt Tour
               </Button>
             }
           />
@@ -103,9 +125,7 @@ const VnpayReturn = () => {
           <Result
             icon={<CloseCircleOutlined className="text-6xl text-red-500" />}
             title={<Title level={3} className="text-red-600">Thanh Toán Thất Bại</Title>}
-            subTitle={
-              <Text className="text-gray-600">{messageText}</Text>
-            }
+            subTitle={<Text className="text-gray-600">{messageText}</Text>}
             extra={
               <div className="flex gap-4 justify-center">
                 <Button
@@ -117,7 +137,7 @@ const VnpayReturn = () => {
                 <Button
                   type="primary"
                   className="h-10 rounded-md bg-blue-600 hover:bg-blue-700"
-                  onClick={handleNavigate}
+                  onClick={() => navigate('/')}
                 >
                   Về Trang Chủ
                 </Button>
@@ -129,14 +149,12 @@ const VnpayReturn = () => {
           <Result
             icon={<ExclamationCircleOutlined className="text-6xl text-yellow-500" />}
             title={<Title level={3} className="text-yellow-600">Lỗi Đơn Đặt Tour</Title>}
-            subTitle={
-              <Text className="text-gray-600">{messageText}</Text>
-            }
+            subTitle={<Text className="text-gray-600">{messageText}</Text>}
             extra={
               <Button
                 type="primary"
                 className="h-10 rounded-md bg-blue-600 hover:bg-blue-700"
-                onClick={handleNavigate}
+                onClick={() => navigate('/')}
               >
                 Về Trang Chủ
               </Button>

@@ -39,7 +39,7 @@ export default function ItemTourComponent({
   };
 
   const handleToggleFavorite = async (e) => {
-    e.stopPropagation(); // Ngăn sự kiện click lan tỏa đến div cha
+    e.stopPropagation();
     if (!isAuthenticated || !token) {
       message.error('Vui lòng đăng nhập để thêm/xóa tour yêu thích!');
       navigate('/login');
@@ -48,14 +48,12 @@ export default function ItemTourComponent({
 
     try {
       if (isFavorite) {
-        await axios.delete(
-          `http://localhost:8080/api/tour-favourites/${tour.tourId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        await axios.delete('http://localhost:8080/api/tour-favourites', {
+          data: { tourId: tour.tourId }, // Added tourId in data
+          headers: { Authorization: `Bearer ${token}` },
+        });
         setIsFavorite(false);
-        message.success('Đã xóa tour khỏi yêu thích!');
+        // message.success('Đã xóa tour khỏi yêu thích!');
         if (onFavoriteChange) onFavoriteChange(tour.tourId, false);
       } else {
         await axios.post(
@@ -87,7 +85,6 @@ export default function ItemTourComponent({
 
   const handleTourClick = async () => {
     if (!isAuthenticated || !token) {
-      // Vẫn cho phép xem chi tiết tour dù không đăng nhập
       navigate(`/tour-detail?id=${tour.tourId}`);
       return;
     }
@@ -96,9 +93,7 @@ export default function ItemTourComponent({
       await axios.post(
         `http://localhost:8080/api/search-history/click/${tour.tourId}`,
         {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       console.log(`Tracked click for tour ${tour.tourId}`);
     } catch (error) {
@@ -110,10 +105,8 @@ export default function ItemTourComponent({
         return;
       }
       console.error('Lỗi khi ghi nhận click tour:', error);
-      // Không hiển thị lỗi cho người dùng để không làm gián đoạn trải nghiệm
     }
 
-    // Điều hướng đến trang chi tiết tour
     navigate(`/tour-detail?id=${tour.tourId}`);
   };
 
@@ -133,7 +126,7 @@ export default function ItemTourComponent({
       className="bg-white shadow-md rounded-lg cursor-pointer border border-gray-200 hover:shadow-lg transition duration-300 overflow-hidden max-w-full box-border w-[calc(100%-1rem)] sm:w-75 h-auto pb-2 sm:h-90 my-1 sm:my-3 mx-2 sm:mx-0"
       role="button"
       tabIndex={0}
-      onClick={handleTourClick} // Gọi handleTourClick thay vì navigate trực tiếp
+      onClick={handleTourClick}
     >
       <div className="relative group">
         <img

@@ -11,6 +11,8 @@ import {
   message,
   Modal,
   Input,
+  Tabs,
+  Select,
 } from 'antd';
 import React, { useEffect, useState } from 'react';
 import {
@@ -20,15 +22,21 @@ import {
   CreditCardOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
-import axios from 'axios';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import dayjs from 'dayjs';
 import logo from '../../images/logo.png';
 import Footer from '../../components/Footer';
 import Header from '../../components/Header1';
+import { getTours, calculateChangeFee, changeTour } from '../../apis/tour';
+import { calculateChangeFeeThunk, changeTourThunk } from '../../redux/tourSlice';
+import axiosInstance from '../../apis/axiosInstance';
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
+const { TabPane } = Tabs;
+const { Option } = Select;
 
 const statusColors = {
   CONFIRMED: 'gold',
@@ -36,9 +44,14 @@ const statusColors = {
   PAID: 'green',
   COMPLETED: 'blue',
   IN_PROGRESS: 'purple',
+  PENDING_PAYMENT: 'orange',
 };
 
 const Orders = () => {
+  const dispatch = useDispatch();
+  const { changeFee, changeTourResult, loading: reduxLoading, error: reduxError } = useSelector(
+    (state) => state.tours
+  );
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCancelModalVisible, setIsCancelModalVisible] = useState(false);
@@ -48,56 +61,202 @@ const Orders = () => {
   const [cancellationInfo, setCancellationInfo] = useState(null);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentInfoLoading, setPaymentInfoLoading] = useState(false);
   const [isPaymentModalVisible, setIsPaymentModalVisible] = useState(false);
+  const [isAdditionalPaymentModalVisible, setIsAdditionalPaymentModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('VNPAY');
+  const [additionalPaymentInfo, setAdditionalPaymentInfo] = useState(null);
+  const [isChangeModalVisible, setIsChangeModalVisible] = useState(false);
+  const [changeTourData, setChangeTourData] = useState({
+    bookingId: null,
+    currentTourName: '',
+    departureDate: null,
+    numberAdults: 1,
+    numberChildren: 0,
+    numberInfants: 0,
+    maxPeople: Infinity,
+    adultPrice: 0,
+    childPrice: 0,
+    infantPrice: 0,
+    totalPrice: 0,
+  });
+  const [availableDates, setAvailableDates] = useState([]);
+  const [changeFeeInfo, setChangeFeeInfo] = useState(null);
+  const [changeLoading, setChangeLoading] = useState(false);
+  const [cachedDates, setCachedDates] = useState({});
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const holidays = [
+    '01-01',
+    '03-08',
+    '04-30',
+    '05-01',
+    '09-02',
+    '12-25',
+    '11-20',
+    '07-27',
+    '08-19',
+    '10-10',
+    '09-15',
+    '12-23',
+  ];
+
+  // Calculate total price whenever quantities change
+  useEffect(() => {
+    const totalPrice =
+      changeTourData.numberAdults * changeTourData.adultPrice +
+      changeTourData.numberChildren * changeTourData.childPrice +
+      changeTourData.numberInfants * changeTourData.infantPrice;
+    setChangeTourData((prev) => ({ ...prev, totalPrice }));
+  }, [
+    changeTourData.numberAdults,
+    changeTourData.numberChildren,
+    changeTourData.numberInfants,
+    changeTourData.adultPrice,
+    changeTourData.childPrice,
+    changeTourData.infantPrice,
+  ]);
+
+  // Reset additionalPaymentInfo when modal closes
+  useEffect(() => {
+    if (!isAdditionalPaymentModalVisible) {
+      setAdditionalPaymentInfo(null);
+      setSelectedBooking(null);
+      setPaymentInfoLoading(false);
+    }
+  }, [isAdditionalPaymentModalVisible]);
+
+  // Fetch available dates and ticket prices
+  const fetchAvailableDates = async (tourId) => {
+    if (cachedDates[tourId]) {
+      setAvailableDates(cachedDates[tourId].dates);
+      setChangeTourData((prev) => ({
+        ...prev,
+        maxPeople: cachedDates[tourId].maxPeople,
+        adultPrice: cachedDates[tourId].adultPrice,
+        childPrice: cachedDates[tourId].childPrice,
+        infantPrice: cachedDates[tourId].infantPrice,
+      }));
+      return;
+    }
+    try {
+      const tours = await getTours();
+      const tour = tours.find((t) => t.tourId === tourId);
+      if (tour && tour.tourDetails) {
+        const validDates = tour.tourDetails
+          .map((detail) => detail.startDate)
+          .filter((date) => new Date(date) >= new Date());
+        const maxPeople = Math.max(
+          ...tour.tourDetails.map((detail) => detail.availableSlot || Infinity)
+        );
+        const { adultPrice = 0, childPrice = 0, infantPrice = 0 } = tour.tourDetails[0] || {};
+        setAvailableDates(validDates);
+        setCachedDates((prev) => ({
+          ...prev,
+          [tourId]: { dates: validDates, maxPeople, adultPrice, childPrice, infantPrice },
+        }));
+        setChangeTourData((prev) => ({
+          ...prev,
+          maxPeople,
+          adultPrice,
+          childPrice,
+          infantPrice,
+        }));
+      } else {
+        message.error('Không tìm thấy thông tin tour');
+        setAvailableDates([]);
+      }
+    } catch (error) {
+      console.error('Error fetching available dates:', error);
+      message.error('Không thể tải danh sách ngày khởi hành');
+      setAvailableDates([]);
+    }
+  };
+
+  // Fetch booking history
+  const fetchHistory = async () => {
+    try {
+      const token = localStorage.getItem('TOKEN');
+      if (!token) {
+        message.error('Vui lòng đăng nhập để xem lịch sử đặt tour');
+        navigate('/login');
+        return;
+      }
+      const response = await axiosInstance.get('/bookings/history', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const formattedData = response.data.map((item) => ({
+        key: item.bookingId,
+        tourId: item.tour?.tourId,
+        tourImage: item.tour?.imageURL || 'https://via.placeholder.com/80',
+        tourName: item.tour?.name || 'Tour không xác định',
+        bookingDate: item.bookingDate,
+        departureDate: item.departureDate,
+        status: item.status || 'PENDING',
+        price: item.totalPrice ? item.totalPrice.toLocaleString('vi-VN') + 'đ' : 'N/A',
+        numberPeople: item.numberPeople || 0,
+        numberAdults: item.numberAdults || item.numberPeople || 0,
+        numberChildren: item.numberChildren || 0,
+        numberInfants: item.numberInfants || 0,
+        totalPrice: item.totalPrice,
+      }));
+
+      formattedData.reverse();
+      setHistory(formattedData);
+    } catch (error) {
+      console.error('Lỗi khi lấy lịch sử đặt tour:', error.response || error.message);
+      // message.error(
+      //   error.response?.status === 403
+      //     ? 'Bạn không có quyền truy cập lịch sử đặt tour'
+      //     : 'Có lỗi xảy ra khi lấy lịch sử đặt tour. Vui lòng thử lại sau.'
+      // );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const token = localStorage.getItem('TOKEN');
-        if (!token) {
-          message.error('Vui lòng đăng nhập để xem lịch sử đặt tour');
-          navigate('/login');
-          return;
-        }
-        const response = await axios.get('http://localhost:8080/api/bookings/history', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+    fetchHistory();
 
-        const formattedData = response.data.map((item) => ({
-          key: item.bookingId,
-          tourImage: item.tour?.imageURL || 'https://via.placeholder.com/80',
-          tourName: item.tour?.name || 'Tour không xác định',
-          bookingDate: item.bookingDate,
-          departureDate: item.departureDate,
-          status: item.status || 'PENDING',
-          price: item.totalPrice ? item.totalPrice.toLocaleString('vi-VN') + 'đ' : 'N/A',
-          numberPeople: item.numberPeople || 'N/A',
-          totalPrice: item.totalPrice,
-        }));
-
-        formattedData.reverse();
-        setHistory(formattedData);
-      } catch (error) {
-        console.error('Lỗi khi lấy lịch sử đặt tour:', error.response || error.message);
-        message.error(
-          error.response?.status === 403
-            ? 'Bạn không có quyền truy cập lịch sử đặt tour'
-            : 'Có lỗi xảy ra khi lấy lịch sử đặt tour. Vui lòng thử lại sau.'
-        );
-      } finally {
-        setLoading(false);
+    const handleFocus = () => fetchHistory();
+    const handlePaymentCompleted = (event) => {
+      if (event.data.type === 'PAYMENT_COMPLETED') {
+        console.log('Received PAYMENT_COMPLETED message:', event.data);
+        fetchHistory();
+        message.success('Thanh toán đã được xử lý, danh sách booking đã được cập nhật.');
       }
     };
 
-    fetchHistory();
-    const handleFocus = () => fetchHistory();
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [navigate]);
+    window.addEventListener('message', handlePaymentCompleted);
 
+    // Handle navigation state refresh
+    if (location.state?.refresh) {
+      fetchHistory();
+    }
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('message', handlePaymentCompleted);
+    };
+  }, [navigate, location.state]);
+
+  // Filter bookings
+  const activeBookings = history.filter((item) =>
+    ['CONFIRMED', 'PAID', 'IN_PROGRESS', 'PENDING_PAYMENT'].includes(item.status)
+  );
+  const pastBookings = history.filter((item) => ['COMPLETED', 'CANCELED'].includes(item.status));
+
+  // Cancel tour handlers
   const showCancelModal = (bookingId) => {
+    const booking = history.find((item) => item.key === bookingId);
+    if (booking && booking.status === 'CANCELED') {
+      message.warning('Tour đã được hủy trước đó!');
+      return;
+    }
     setBookingIdToCancel(bookingId);
     setIsCancelModalVisible(true);
   };
@@ -118,8 +277,8 @@ const Orders = () => {
     try {
       const token = localStorage.getItem('TOKEN');
       const cancelDate = new Date().toISOString();
-      const response = await axios.post(
-        `http://localhost:8080/api/bookings/calculate-cancellation-fee/${bookingIdToCancel}`,
+      const response = await axiosInstance.post(
+        `/bookings/calculate-cancellation-fee/${bookingIdToCancel}`,
         {
           reason,
           cancelDate,
@@ -160,8 +319,9 @@ const Orders = () => {
     try {
       const token = localStorage.getItem('TOKEN');
       const cancelDate = new Date().toISOString();
-      const response = await axios.put(
-        `http://localhost:8080/api/bookings/cancel/${bookingIdToCancel}`,
+      // Gọi API hủy tour
+      await axiosInstance.put(
+        `/bookings/cancel/${bookingIdToCancel}`,
         {
           reason,
           cancelDate,
@@ -172,24 +332,60 @@ const Orders = () => {
         }
       );
 
+      // Lấy thông tin booking mới nhất
+      const bookingResponse = await axiosInstance.get(`/bookings/${bookingIdToCancel}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const updatedBooking = bookingResponse.data;
+
+      // Cập nhật danh sách history
       setHistory((prevHistory) =>
         prevHistory.map((item) =>
-          item.key === bookingIdToCancel ? { ...item, status: 'CANCELED' } : item
+          item.key === bookingIdToCancel
+            ? { ...item, status: updatedBooking.status || 'CANCELED' }
+            : item
         )
       );
+
       setIsConfirmModalVisible(false);
-      message.success(response.data.message || 'Tour đã được hủy thành công!');
+      message.success('Tour đã được hủy thành công!');
       setReason('');
       setBookingIdToCancel(null);
       setCancellationInfo(null);
+
+      // Gọi API lịch sử booking trong một try-catch riêng
+      if (updatedBooking.status === 'CANCELED') {
+        try {
+          const historyResponse = await axiosInstance.get(
+            `/bookings/history/${bookingIdToCancel}`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          const historyData = Array.isArray(historyResponse.data)
+            ? historyResponse.data
+            : historyResponse.data?.content || [];
+          // Có thể sử dụng historyData nếu cần hiển thị lịch sử trong UI
+        } catch (historyError) {
+          console.error('Lỗi khi lấy lịch sử booking:', historyError);
+          // message.warning('Không thể lấy lịch sử booking, nhưng tour đã được hủy thành công.');
+        }
+      } else {
+        console.warn('Booking không ở trạng thái CANCELED sau khi hủy:', updatedBooking.status);
+        // message.warning('Tour đã được hủy, nhưng trạng thái không được cập nhật đúng.');
+      }
     } catch (error) {
       console.error('Lỗi khi hủy tour:', error.response || error.message);
       let errorMessage = 'Không thể hủy tour';
       if (error.response) {
-        if (error.response.status === 404) {
+        if (error.response.status === 401) {
+          errorMessage = 'Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.';
+          localStorage.removeItem('TOKEN');
+          navigate('/login');
+        } else if (error.response.status === 404) {
           errorMessage = 'Không tìm thấy booking';
         } else if (error.response.status === 403) {
-          errorMessage = error.response.data.error || 'Không thể hủy tour do trạng thái hiện tại';
+          errorMessage = error.response.data.error || 'Bạn không có quyền hủy tour.';
         } else if (error.response.status === 400) {
           errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
         }
@@ -208,6 +404,7 @@ const Orders = () => {
     message.info('Đã hủy bỏ hành động hủy tour.');
   };
 
+  // View booking detail
   const goToBookingDetail = (bookingId) => {
     if (!bookingId) {
       message.error('Không có thông tin booking!');
@@ -216,33 +413,43 @@ const Orders = () => {
     navigate('/booking-detail', { state: { id: bookingId } });
   };
 
+  // Payment handlers
   const showPaymentModal = (bookingId, totalPrice, tourName) => {
-    setSelectedBooking({ bookingId, totalPrice, tourName });
+    setSelectedBooking({ bookingId, totalPrice, tourName });``
+    setPaymentMethod('VNPAY');
     setIsPaymentModalVisible(true);
   };
 
-  const handlePayment = async (bookingId, totalPrice) => {
-    if (!bookingId || !totalPrice) {
+  const handlePayment = async () => {
+    if (!selectedBooking?.bookingId || !selectedBooking?.totalPrice) {
       message.error('Không có thông tin booking hoặc giá tiền!');
       return;
     }
 
     setPaymentLoading(true);
     try {
-      const token = localStorage.getItem('TOKEN');
+      const token = localStorage.getItem('TOKEN');``
       if (!token) {
         message.error('Vui lòng đăng nhập để thanh toán');
         navigate('/login');
         return;
       }
-      const response = await axios.post(
-        'http://localhost:8080/api/payment/vnpay-create',
-        { bookingId, totalPrice },
+      const response = await axiosInstance.post(
+        '/payment/vnpay-create',
+        {
+          bookingId: selectedBooking.bookingId,
+          totalPrice: selectedBooking.totalPrice,
+          paymentMethod,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.paymentUrl) {
-        window.location.href = response.data.paymentUrl;
+        const newWindow = window.open(response.data.paymentUrl, '_blank');
+        if (!newWindow) {
+          message.warning('Trình duyệt chặn tab thanh toán. Vui lòng cho phép popup.');
+        }
+        setIsPaymentModalVisible(false);
       } else {
         message.error(response.data.error || 'Không thể tạo liên kết thanh toán!');
       }
@@ -250,11 +457,11 @@ const Orders = () => {
       console.error('Lỗi khi tạo thanh toán:', error.response || error.message);
       message.error(
         error.response?.data?.error ||
-          error.response?.status === 400
-          ? 'Dữ liệu không hợp lệ hoặc booking đã hết hạn'
-          : error.response?.status === 403
-          ? 'Bạn không có quyền thanh toán booking này'
-          : 'Lỗi khi tạo thanh toán, vui lòng thử lại!'
+          (error.response?.status === 400
+            ? 'Dữ liệu không hợp lệ hoặc booking đã hết hạn'
+            : error.response?.status === 403
+            ? 'Bạn không có quyền thanh toán booking này'
+            : 'Lỗi khi tạo thanh toán, vui lòng thử lại!')
       );
     } finally {
       setPaymentLoading(false);
@@ -263,7 +470,353 @@ const Orders = () => {
     }
   };
 
-  const columns = [
+  // Additional payment handlers
+  const showAdditionalPaymentModal = async (bookingId, tourName) => {
+    setSelectedBooking({ bookingId, tourName });
+    setPaymentMethod('VNPAY');
+    setPaymentInfoLoading(true);
+    try {
+      const token = localStorage.getItem('TOKEN');
+      if (!token) {
+        message.error('Vui lòng đăng nhập để thanh toán bổ sung');
+        navigate('/login');
+        return;
+      }
+
+      // Fetch booking history entries
+      const response = await axiosInstance.get(`/bookings/history/${bookingId}/entries`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log('Booking history entries response:', response.data);
+
+      // Validate response structure
+      if (!Array.isArray(response.data)) {
+        console.error('Invalid history response: Expected an array, received:', response.data);
+        message.error('Dữ liệu lịch sử booking không hợp lệ');
+        return;
+      }
+
+      // Find the latest history entry with additionalPayment > 0 and newStatus === 'PENDING_PAYMENT'
+      const latestHistory = response.data
+        .sort((a, b) => new Date(b.changeDate) - new Date(a.changeDate))
+        .find((entry) => entry.additionalPayment > 0 && entry.newStatus === 'PENDING_PAYMENT');
+
+      if (!latestHistory) {
+        console.warn(
+          `No history entry found with additionalPayment > 0 and newStatus = PENDING_PAYMENT for bookingId: ${bookingId}`
+        );
+        console.log('Available history entries:', response.data);
+        message.error(
+          'Không tìm thấy thông tin thanh toán bổ sung. Có thể booking chưa yêu cầu thanh toán bổ sung.'
+        );
+        return;
+      }
+
+      // Validate booking status
+      const booking = history.find((item) => item.key === bookingId);
+      if (!booking || booking.status !== 'PENDING_PAYMENT') {
+        console.warn(
+          `Booking status mismatch. Local status: ${booking?.status}, expected: PENDING_PAYMENT`
+        );
+        message.error('Booking không ở trạng thái chờ thanh toán bổ sung');
+        return;
+      }
+
+      setAdditionalPaymentInfo({
+        additionalPayment: latestHistory.additionalPayment,
+        changeDate: latestHistory.changeDate,
+      });
+      setIsAdditionalPaymentModalVisible(true);
+    } catch (error) {
+      console.error('Lỗi khi lấy thông tin thanh toán bổ sung:', error.response || error);
+      let errorMessage = 'Không thể lấy thông tin thanh toán bổ sung';
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage = 'Không tìm thấy booking';
+        } else if (error.response.status === 403) {
+          errorMessage = 'Bạn không có quyền truy cập thông tin booking';
+        } else if (error.response.status === 400) {
+          errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
+        } else {
+          errorMessage = error.response.data.error || 'Lỗi server';
+        }
+      }
+      message.error(errorMessage);
+    } finally {
+      setPaymentInfoLoading(false);
+    }
+  };
+
+  const handleAdditionalPayment = async () => {
+    if (!selectedBooking?.bookingId) {
+      message.error('Không có thông tin booking!');
+      return;
+    }
+    if (!additionalPaymentInfo?.additionalPayment || additionalPaymentInfo.additionalPayment <= 0) {
+      message.error('Số tiền thanh toán bổ sung không hợp lệ!');
+      return;
+    }
+
+    setPaymentLoading(true);
+    try {
+      const token = localStorage.getItem('TOKEN');
+      if (!token) {
+        message.error('Vui lòng đăng nhập để thanh toán bổ sung');
+        navigate('/login');
+        return;
+      }
+
+      // Fetch client IP
+      let ipAddress = '127.0.0.1';
+      try {
+        const ipResponse = await axios.get('https://api.ipify.org?format=json');
+        ipAddress = ipResponse.data.ip;
+      } catch (ipError) {
+        console.warn('Failed to fetch client IP, using default:', ipError);
+      }
+
+      // Validate booking status
+      const bookingResponse = await axiosInstance.get(`/bookings/${selectedBooking.bookingId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const bookingStatus = bookingResponse.data.status;
+      console.log(`Booking ID: ${selectedBooking.bookingId}, Status: ${bookingStatus}`);
+      if (bookingStatus !== 'PENDING_PAYMENT' && bookingStatus !== 'CONFIRMED') {
+        message.error('Booking không ở trạng thái cho phép thanh toán. Vui lòng kiểm tra lại.');
+        return;
+      }
+
+      const response = await axiosInstance.post(
+        '/payment/vnpay-create',
+        {
+          bookingId: selectedBooking.bookingId,
+          totalPrice: additionalPaymentInfo.additionalPayment,
+          ipAddress,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.paymentUrl) {
+        console.log('VNPAY payment URL:', response.data.paymentUrl);
+        const newWindow = window.open(response.data.paymentUrl, '_blank');
+        if (!newWindow) {
+          message.warning('Trình duyệt chặn tab thanh toán. Vui lòng cho phép popup.');
+          setPaymentLoading(false);
+          return;
+        }
+
+        message.info('Vui lòng hoàn tất thanh toán trên cổng VNPAY.');
+        setIsAdditionalPaymentModalVisible(false);
+      } else {
+        message.error(response.data.error || 'Không thể tạo liên kết thanh toán bổ sung!');
+      }
+    } catch (error) {
+      console.error('Lỗi khi thực hiện thanh toán bổ sung:', error.response || error);
+      message.error(
+        error.response?.data?.error ||
+          (error.response?.status === 400
+            ? 'Dữ liệu không hợp lệ'
+            : error.response?.status === 403
+            ? 'Bạn không có quyền thực hiện thanh toán này'
+            : 'Lỗi khi thực hiện thanh toán bổ sung, vui lòng thử lại!')
+      );
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  // Change tour handlers
+  const showChangeModal = async (
+    bookingId,
+    tourName,
+    tourId,
+    numberAdults,
+    numberChildren,
+    numberInfants
+  ) => {
+    setChangeTourData({
+      bookingId,
+      currentTourName: tourName,
+      departureDate: null,
+      numberAdults: numberAdults || 1,
+      numberChildren: numberChildren || 0,
+      numberInfants: numberInfants || 0,
+      maxPeople: Infinity,
+      adultPrice: 0,
+      childPrice: 0,
+      infantPrice: 0,
+      totalPrice: 0,
+    });
+    setChangeFeeInfo(null);
+    await fetchAvailableDates(tourId);
+    setIsChangeModalVisible(true);
+  };
+
+  const handleChangeModalCancel = () => {
+    setIsChangeModalVisible(false);
+    setChangeTourData({
+      bookingId: null,
+      currentTourName: '',
+      departureDate: null,
+      numberAdults: 1,
+      numberChildren: 0,
+      numberInfants: 0,
+      maxPeople: Infinity,
+      adultPrice: 0,
+      childPrice: 0,
+      infantPrice: 0,
+      totalPrice: 0,
+    });
+    setChangeFeeInfo(null);
+  };
+
+  const handleCalculateChangeFee = async () => {
+    if (
+      !changeTourData.departureDate ||
+      (!changeTourData.numberAdults &&
+        !changeTourData.numberChildren &&
+        !changeTourData.numberInfants)
+    ) {
+      message.error('Vui lòng chọn ngày khởi hành và số người');
+      return;
+    }
+    const totalPeople =
+      changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
+    if (totalPeople > changeTourData.maxPeople) {
+      message.error(`Số người vượt quá số chỗ khả dụng (${changeTourData.maxPeople})`);
+      return;
+    }
+
+    setChangeLoading(true);
+    try {
+      const isHoliday = changeTourData.departureDate
+        ? holidays.includes(dayjs(changeTourData.departureDate).format('MM-DD'))
+        : false;
+      const changeRequest = {
+        departureDate: dayjs(changeTourData.departureDate).format('YYYY-MM-DD'),
+        numberAdults: changeTourData.numberAdults,
+        numberChildren: changeTourData.numberChildren,
+        numberInfants: changeTourData.numberInfants,
+        isHoliday,
+        changeDate: new Date().toISOString(),
+      };
+      const result = await dispatch(
+        calculateChangeFeeThunk({ bookingId: changeTourData.bookingId, changeRequest })
+      ).unwrap();
+      setChangeFeeInfo({
+        changeFee: result.changeFee,
+        priceDifference: result.priceDifference,
+        newTotalPrice: result.newTotalPrice,
+        refundAmount: result.refundAmount,
+        message: result.message,
+      });
+    } catch (error) {
+      console.error('Error calculating change fee:', error);
+      message.error(error.message || 'Không thể tính phí đổi tour');
+      setChangeFeeInfo(null);
+    } finally {
+      setChangeLoading(false);
+    }
+  };
+
+  const handleConfirmChange = async () => {
+    if (
+      !changeTourData.departureDate ||
+      (!changeTourData.numberAdults &&
+        !changeTourData.numberChildren &&
+        !changeTourData.numberInfants)
+    ) {
+      message.error('Vui lòng chọn ngày khởi hành và số người');
+      return;
+    }
+    const totalPeople =
+      changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
+    if (totalPeople > changeTourData.maxPeople) {
+      message.error(`Số người vượt quá số chỗ khả dụng (${changeTourData.maxPeople})`);
+      return;
+    }
+
+    setChangeLoading(true);
+    try {
+      const isHoliday = changeTourData.departureDate
+        ? holidays.includes(dayjs(changeTourData.departureDate).format('MM-DD'))
+        : false;
+      const changeRequest = {
+        departureDate: dayjs(changeTourData.departureDate).format('YYYY-MM-DD'),
+        numberAdults: changeTourData.numberAdults,
+        numberChildren: changeTourData.numberChildren,
+        numberInfants: changeTourData.numberInfants,
+        isHoliday,
+        changeDate: new Date().toISOString(),
+      };
+      const response = await dispatch(
+        changeTourThunk({ bookingId: changeTourData.bookingId, changeRequest })
+      ).unwrap();
+
+      // Log for debugging
+      console.log('Change tour response:', response);
+      console.log('Updated history with PENDING_PAYMENT:', {
+        bookingId: changeTourData.bookingId,
+        priceDifference: changeFeeInfo.priceDifference,
+        newTotalPrice: changeFeeInfo.newTotalPrice,
+        status: changeFeeInfo.priceDifference > 0 ? 'PENDING_PAYMENT' : item.status,
+      });
+
+      setHistory((prevHistory) =>
+        prevHistory.map((item) =>
+          item.key === changeTourData.bookingId
+            ? {
+                ...item,
+                departureDate: changeTourData.departureDate,
+                numberPeople: totalPeople,
+                numberAdults: changeTourData.numberAdults,
+                numberChildren: changeTourData.numberChildren,
+                numberInfants: changeTourData.numberInfants,
+                totalPrice: changeFeeInfo.newTotalPrice,
+                price: changeFeeInfo.newTotalPrice
+                  ? changeFeeInfo.newTotalPrice.toLocaleString('vi-VN') + 'đ'
+                  : item.price,
+                status: changeFeeInfo.priceDifference > 0 ? 'PENDING_PAYMENT' : item.status,
+              }
+            : item
+        )
+      );
+
+      setIsChangeModalVisible(false);
+      if (changeFeeInfo.priceDifference > 0) {
+        message.success(
+          `Đổi lịch tour thành công! Vui lòng thanh toán bổ sung ${changeFeeInfo.priceDifference.toLocaleString(
+            'vi-VN'
+          )} VND.`
+        );
+      } else {
+        message.success(response.message || 'Đổi lịch tour thành công!');
+      }
+      setChangeTourData({
+        bookingId: null,
+        currentTourName: '',
+        departureDate: null,
+        numberAdults: 1,
+        numberChildren: 0,
+        numberInfants: 0,
+        maxPeople: Infinity,
+        adultPrice: 0,
+        childPrice: 0,
+        infantPrice: 0,
+        totalPrice: 0,
+      });
+      setChangeFeeInfo(null);
+    } catch (error) {
+      console.error('Error changing tour:', error);
+      message.error(error.message || 'Không thể đổi tour');
+    } finally {
+      setChangeLoading(false);
+    }
+  };
+
+  // Columns for Active Bookings
+  const activeColumns = [
     {
       title: 'Tour',
       dataIndex: 'tourImage',
@@ -321,11 +874,27 @@ const Orders = () => {
       render: (price) => <span className="font-semibold text-black">{price}</span>,
     },
     {
-      title: 'Số lượng',
-      dataIndex: 'numberPeople',
-      key: 'numberPeople',
-      render: (numberPeople) => (
-        <span className="font-semibold text-gray-700">{numberPeople}</span>
+      title: 'Người Lớn',
+      dataIndex: 'numberAdults',
+      key: 'numberAdults',
+      render: (numberAdults) => (
+        <span className="font-semibold text-gray-700">{numberAdults}</span>
+      ),
+    },
+    {
+      title: 'Trẻ Em',
+      dataIndex: 'numberChildren',
+      key: 'numberChildren',
+      render: (numberChildren) => (
+        <span className="font-semibold text-gray-700">{numberChildren}</span>
+      ),
+    },
+    {
+      title: 'Trẻ Nhỏ',
+      dataIndex: 'numberInfants',
+      key: 'numberInfants',
+      render: (numberInfants) => (
+        <span className="font-semibold text-gray-700">{numberInfants}</span>
       ),
     },
     {
@@ -359,11 +928,29 @@ const Orders = () => {
                 Thanh toán
               </Menu.Item>
               <Menu.Item
-                key="doi"
+                key="additional_payment"
+                icon={<CreditCardOutlined className="text-orange-500" />}
+                disabled={record.status !== 'PENDING_PAYMENT'}
+                onClick={() => showAdditionalPaymentModal(record.key, record.tourName)}
+              >
+                Thanh toán bổ sung
+              </Menu.Item>
+              <Menu.Item
+                key="change"
                 icon={<SwapOutlined className="text-purple-500" />}
                 disabled={record.status !== 'CONFIRMED' && record.status !== 'PAID'}
+                onClick={() =>
+                  showChangeModal(
+                    record.key,
+                    record.tourName,
+                    record.tourId,
+                    record.numberAdults,
+                    record.numberChildren,
+                    record.numberInfants
+                  )
+                }
               >
-                Đổi tour
+                Đổi lịch
               </Menu.Item>
             </Menu>
           }
@@ -378,6 +965,103 @@ const Orders = () => {
     },
   ];
 
+  // Columns for Booking History
+  const historyColumns = [
+    {
+      title: 'Tour',
+      dataIndex: 'tourImage',
+      key: 'tourImage',
+      render: (text) => (
+        <Avatar shape="square" size={64} src={text} className="border border-gray-200" />
+      ),
+    },
+    {
+      title: 'Tên Tour',
+      dataIndex: 'tourName',
+      key: 'tourName',
+      render: (text) => <span className="text-gray-800 font-medium">{text}</span>,
+    },
+    {
+      title: 'Ngày Đặt',
+      dataIndex: 'bookingDate',
+      key: 'bookingDate',
+      render: (date) =>
+        date
+          ? new Date(date).toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : 'N/A',
+    },
+    {
+      title: 'Ngày Đi',
+      dataIndex: 'departureDate',
+      key: 'departureDate',
+      render: (date) =>
+        date
+          ? new Date(date).toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : 'N/A',
+    },
+    {
+      title: 'Trạng Thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => (
+        <Tag color={statusColors[status]} className="px-3 py-1 rounded-full">
+          {status}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Giá Tiền',
+      dataIndex: 'price',
+      key: 'price',
+      render: (price) => <span className="font-semibold text-black">{price}</span>,
+    },
+    {
+      title: 'Người Lớn',
+      dataIndex: 'numberAdults',
+      key: 'numberAdults',
+      render: (numberAdults) => (
+        <span className="font-semibold text-gray-700">{numberAdults}</span>
+      ),
+    },
+    {
+      title: 'Trẻ Em',
+      dataIndex: 'numberChildren',
+      key: 'numberChildren',
+      render: (numberChildren) => (
+        <span className="font-semibold text-gray-700">{numberChildren}</span>
+      ),
+    },
+    {
+      title: 'Trẻ Nhỏ',
+      dataIndex: 'numberInfants',
+      key: 'numberInfants',
+      render: (numberInfants) => (
+        <span className="font-semibold text-gray-700">{numberInfants}</span>
+      ),
+    },
+    {
+      title: 'Hành động',
+      key: 'action',
+      render: (record) => (
+        <Button
+          icon={<EyeOutlined />}
+          onClick={() => goToBookingDetail(record.key)}
+          className="border-gray-300 text-blue-500 hover:border-blue-500 rounded-md"
+        >
+          Xem chi tiết
+        </Button>
+      ),
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col w-screen">
       {/* Header */}
@@ -385,132 +1069,271 @@ const Orders = () => {
 
       {/* Content */}
       <Content className="flex-grow py-10 px-4 sm:px-6 mt-10">
+        <Title level={3} className="text-gray-800 mb-6 ml-30 pt-5">
+          Danh Sách Tour Đã Đặt
+        </Title>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="mx-auto"
+          className="mx-auto max-w-7xl"
         >
-          {/* Desktop View */}
-          <div className="hidden md:block max-w-6xl mx-auto bg-white shadow-lg rounded-xl p-8">
-            <Title level={2} className="text-gray-800 mb-6">
-              Danh Sách Tour Đã Đặt
-            </Title>
-            <Table
-              columns={columns}
-              dataSource={history}
-              loading={loading || paymentLoading}
-              pagination={{ pageSize: 5, showSizeChanger: false }}
-              rowClassName="hover:bg-gray-50 transition-colors"
-              className="rounded-lg"
-              scroll={{ x: 'max-content' }}
-            />
-          </div>
-
-          {/* Mobile View */}
-          <div className="md:hidden bg-white shadow-md rounded-lg p-4 sm:max-w-md mx-auto">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">Danh Sách Tour Đã Đặt</h2>
-            {loading || paymentLoading ? (
-              <div className="flex justify-center py-8">
-                <Spin size="large" />
+          <Tabs
+            defaultActiveKey="1"
+            className="bg-white rounded-xl shadow-lg p-8"
+            style={{ padding: '10px' }}
+          >
+            {/* Active Bookings Tab */}
+            <TabPane tab="Tour Đã Đặt" key="1">
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                <Table
+                  columns={activeColumns}
+                  dataSource={activeBookings}
+                  loading={loading || paymentLoading || changeLoading}
+                  pagination={{ pageSize: 5, showSizeChanger: false }}
+                  rowClassName="hover:bg-gray-50 transition-colors"
+                  className="rounded-lg"
+                  scroll={{ x: 'max-content' }}
+                  locale={{ emptyText: 'Không có tour nào còn hiệu lực.' }}
+                />
               </div>
-            ) : history.length === 0 ? (
-              <p className="text-center text-gray-500">Không có tour nào đã đặt.</p>
-            ) : (
-              <div className="space-y-4">
-                {history.map((record) => (
-                  <div
-                    key={record.key}
-                    className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-lg transition-shadow"
-                  >
-                    <div className="flex items-start space-x-4">
-                      <Avatar
-                        shape="square"
-                        size={60}
-                        src={record.tourImage}
-                        className="border border-gray-200 flex-shrink-0"
-                      />
-                      <div className="flex-1">
-                        <h3 className="text-base font-semibold text-gray-800">{record.tourName}</h3>
-                        <div className="text-sm text-gray-600 space-y-1 mt-1">
-                          <p>
-                            <span className="font-medium">Ngày Đặt:</span>{' '}
-                            {record.bookingDate
-                              ? new Date(record.bookingDate).toLocaleDateString('vi-VN', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                })
-                              : 'N/A'}
-                          </p>
-                          <p>
-                            <span className="font-medium">Ngày Đi:</span>{' '}
-                            {record.departureDate
-                              ? new Date(record.departureDate).toLocaleDateString('vi-VN', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                })
-                              : 'N/A'}
-                          </p>
-                          <p>
-                            <span className="font-medium">Số Lượng:</span> {record.numberPeople}
-                          </p>
-                          <p>
-                            <span className="font-medium">Giá:</span>{' '}
-                            <span className="text-black font-semibold">{record.price}</span>
-                          </p>
-                          <p>
-                            <span className="font-medium">Trạng Thái:</span>{' '}
-                            <Tag
-                              color={statusColors[record.status]}
-                              className="px-2 py-0.5 rounded-full text-xs"
-                            >
-                              {record.status}
-                            </Tag>
-                          </p>
+
+              {/* Mobile View */}
+              <div className="md:hidden">
+                {loading || paymentLoading || changeLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Spin size="large" />
+                  </div>
+                ) : activeBookings.length === 0 ? (
+                  <p className="text-center text-gray-500">Không có tour nào còn hiệu lực.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {activeBookings.map((record) => (
+                      <div
+                        key={record.key}
+                        className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-lg transition-shadow"
+                      >
+                        <div className="flex items-start space-x-4">
+                          <Avatar
+                            shape="square"
+                            size={60}
+                            src={record.tourImage}
+                            className="border border-gray-200 flex-shrink-0"
+                          />
+                          <div className="flex-1">
+                            <h3 className="text-base font-semibold text-gray-800">
+                              {record.tourName}
+                            </h3>
+                            <div className="text-sm text-gray-600 space-y-1 mt-1">
+                              <p>
+                                <span className="font-medium">Ngày Đặt:</span>{' '}
+                                {record.bookingDate
+                                  ? new Date(record.bookingDate).toLocaleDateString('vi-VN', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                    })
+                                  : 'N/A'}
+                              </p>
+                              <p>
+                                <span className="font-medium">Ngày Đi:</span>{' '}
+                                {record.departureDate
+                                  ? new Date(record.departureDate).toLocaleDateString('vi-VN', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                    })
+                                  : 'N/A'}
+                              </p>
+                              <p>
+                                <span className="font-medium">Người Lớn:</span> {record.numberAdults}
+                              </p>
+                              <p>
+                                <span className="font-medium">Trẻ Em:</span> {record.numberChildren}
+                              </p>
+                              <p>
+                                <span className="font-medium">Trẻ Nhỏ:</span> {record.numberInfants}
+                              </p>
+                              <p>
+                                <span className="font-medium">Giá:</span>{' '}
+                                <span className="text-black font-semibold">{record.price}</span>
+                              </p>
+                              <p>
+                                <span className="font-medium">Trạng Thái:</span>{' '}
+                                <Tag
+                                  color={statusColors[record.status]}
+                                  className="px-2 py-0.5 rounded-full text-xs"
+                                >
+                                  {record.status}
+                                </Tag>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          <Button
+                            icon={<EyeOutlined />}
+                            onClick={() => goToBookingDetail(record.key)}
+                            className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-blue-500 hover:border-blue-500 rounded-md"
+                          >
+                            Chi tiết
+                          </Button>
+                          <Button
+                            icon={<CreditCardOutlined />}
+                            onClick={() =>
+                              showPaymentModal(record.key, record.totalPrice, record.tourName)
+                            }
+                            disabled={record.status !== 'CONFIRMED'}
+                            className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-green-500 hover:border-green-500 rounded-md disabled:opacity-50"
+                          >
+                            Thanh toán
+                          </Button>
+                          <Button
+                            icon={<CreditCardOutlined />}
+                            onClick={() => showAdditionalPaymentModal(record.key, record.tourName)}
+                            disabled={record.status !== 'PENDING_PAYMENT'}
+                            className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-orange-500 hover:border-orange-500 rounded-md disabled:opacity-50"
+                          >
+                            Thanh toán bổ sung
+                          </Button>
+                          <Button
+                            icon={<CloseCircleOutlined />}
+                            onClick={() => showCancelModal(record.key)}
+                            disabled={record.status !== 'CONFIRMED' && record.status !== 'PAID'}
+                            className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-red-500 hover:border-red-500 rounded-md disabled:opacity-50"
+                          >
+                            Hủy
+                          </Button>
+                          <Button
+                            icon={<SwapOutlined />}
+                            onClick={() =>
+                              showChangeModal(
+                                record.key,
+                                record.tourName,
+                                record.tourId,
+                                record.numberAdults,
+                                record.numberChildren,
+                                record.numberInfants
+                              )
+                            }
+                            disabled={record.status !== 'CONFIRMED' && record.status !== 'PAID'}
+                            className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-purple-500 hover:border-purple-500 rounded-md disabled:opacity-50"
+                          >
+                            Đổi lịch
+                          </Button>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <Button
-                        icon={<EyeOutlined />}
-                        onClick={() => goToBookingDetail(record.key)}
-                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-blue-500 hover:border-blue-500 rounded-md"
-                      >
-                        Chi tiết
-                      </Button>
-                      <Button
-                        icon={<CreditCardOutlined />}
-                        onClick={() =>
-                          showPaymentModal(record.key, record.totalPrice, record.tourName)
-                        }
-                        disabled={record.status !== 'CONFIRMED'}
-                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-green-500 hover:border-green-500 rounded-md disabled:opacity-50"
-                      >
-                        Thanh toán
-                      </Button>
-                      <Button
-                        icon={<CloseCircleOutlined />}
-                        onClick={() => showCancelModal(record.key)}
-                        disabled={record.status !== 'CONFIRMED' && record.status !== 'PAID'}
-                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-red-500 hover:border-red-500 rounded-md disabled:opacity-50"
-                      >
-                        Hủy
-                      </Button>
-                      <Button
-                        icon={<SwapOutlined />}
-                        disabled={record.status !== 'CONFIRMED' && record.status !== 'PAID'}
-                        className="flex-1 min-w-[80px] h-8 text-xs border-gray-300 text-purple-500 hover:border-purple-500 rounded-md disabled:opacity-50"
-                      >
-                        Đổi
-                      </Button>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
+            </TabPane>
+
+            {/* Booking History Tab */}
+            <TabPane tab="Lịch Sử Đặt Tour" key="2">
+              {/* Desktop View */}
+              <div className="hidden md:block">
+                <Table
+                  columns={historyColumns}
+                  dataSource={pastBookings}
+                  loading={loading}
+                  pagination={{ pageSize: 5, showSizeChanger: false }}
+                  rowClassName="hover:bg-gray-50 transition-colors"
+                  className="rounded-lg"
+                  scroll={{ x: 'max-content' }}
+                  locale={{ emptyText: 'Không có lịch sử đặt tour.' }}
+                />
+              </div>
+
+              {/* Mobile View */}
+              <div className="md:hidden">
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <Spin size="large" />
+                  </div>
+                ) : pastBookings.length === 0 ? (
+                  <p className="text-center text-gray-500">Không có lịch sử đặt tour.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {pastBookings.map((record) => (
+                      <div
+                        key={record.key}
+                        className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-lg transition-shadow"
+                      >
+                        <div className="flex items-start space-x-4">
+                          <Avatar
+                            shape="square"
+                            size={60}
+                            src={record.tourImage}
+                            className="border border-gray-200 flex-shrink-0"
+                          />
+                          <div className="flex-1">
+                            <h3 className="text-base font-semibold text-gray-800">
+                              {record.tourName}
+                            </h3>
+                            <div className="text-sm text-gray-600 space-y-1 mt-1">
+                              <p>
+                                <span className="font-medium">Ngày Đặt:</span>{' '}
+                                {record.bookingDate
+                                  ? new Date(record.bookingDate).toLocaleDateString('vi-VN', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                    })
+                                  : 'N/A'}
+                              </p>
+                              <p>
+                                <span className="font-medium">Ngày Đi:</span>{' '}
+                                {record.departureDate
+                                  ? new Date(record.departureDate).toLocaleDateString('vi-VN', {
+                                      day: '2-digit',
+                                      month: '2-digit',
+                                      year: 'numeric',
+                                    })
+                                  : 'N/A'}
+                              </p>
+                              <p>
+                                <span className="font-medium">Người Lớn:</span> {record.numberAdults}
+                              </p>
+                              <p>
+                                <span className="font-medium">Trẻ Em:</span> {record.numberChildren}
+                              </p>
+                              <p>
+                                <span className="font-medium">Trẻ Nhỏ:</span> {record.numberInfants}
+                              </p>
+                              <p>
+                                <span className="font-medium">Giá:</span>{' '}
+                                <span className="text-black font-semibold">{record.price}</span>
+                              </p>
+                              <p>
+                                <span className="font-medium">Trạng Thái:</span>{' '}
+                                <Tag
+                                  color={statusColors[record.status]}
+                                  className="px-2 py-0.5 rounded-full text-xs"
+                                >
+                                  {record.status}
+                                </Tag>
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex justify-center mt-3">
+                          <Button
+                            icon={<EyeOutlined />}
+                            onClick={() => goToBookingDetail(record.key)}
+                            className="h-8 text-xs border-gray-300 text-blue-500 hover:border-blue-500 rounded-md"
+                          >
+                            Xem chi tiết
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </TabPane>
+          </Tabs>
         </motion.div>
       </Content>
 
@@ -590,46 +1413,313 @@ const Orders = () => {
         <Modal
           title={<Title level={4} className="text-green-600">Xác nhận thanh toán</Title>}
           open={isPaymentModalVisible}
-          onOk={() => handlePayment(selectedBooking.bookingId, selectedBooking.totalPrice)}
+          onOk={handlePayment}
           onCancel={() => {
             setIsPaymentModalVisible(false);
             setSelectedBooking(null);
+            setPaymentMethod('VNPAY');
           }}
           okText="Thanh toán"
           cancelText="Hủy"
           okButtonProps={{
-            className: 'bg-green-600 hover:bg-green-700 rounded-md h-10 md:w-24',
+            className: 'bg-green-600 hover:bg-green-700 rounded-md h-10',
             loading: paymentLoading,
           }}
-          cancelButtonProps={{ className: 'rounded-md h-10 md:w-24' }}
+          cancelButtonProps={{ className: 'rounded-md h-10' }}
           centered
-          closable
-          maskClosable
-          width={320}
+          className="rounded-xl"
         >
           <div className="space-y-3 text-sm">
-            <p className="text-gray-600">Bạn sắp thanh toán cho tour:</p>
-            <p className="font-semibold text-gray-800">{selectedBooking.tourName}</p>
-            <p className="text-gray-600">
+            <Text className="text-gray-600">Bạn sắp thanh toán cho tour:</Text>
+            <Text className="font-semibold text-gray-800">{selectedBooking.tourName}</Text>
+            <Text className="text-gray-600">
               Tổng giá:{' '}
-              <span className="font-semibold text-red-500">
+              <span className="font-semibold">
                 {selectedBooking.totalPrice
                   ? selectedBooking.totalPrice.toLocaleString('vi-VN')
                   : 'N/A'}{' '}
                 VND
               </span>
-            </p>
-            <p className="text-gray-500 italic">
+            </Text>
+            <div>
+              <Text className="text-gray-600">Phương thức thanh toán:</Text>
+              <Select
+                value={paymentMethod}
+                onChange={setPaymentMethod}
+                className="w-full mt-2"
+                disabled={paymentLoading}
+              >
+                <Option value="VNPAY">VNPAY</Option>
+              </Select>
+            </div>
+            <Text className="text-gray-500 italic">
               Bạn sẽ được chuyển hướng đến cổng thanh toán VNPAY để hoàn tất.
-            </p>
+            </Text>
           </div>
         </Modal>
       )}
 
+      {/* Modal thanh toán bổ sung */}
+      {selectedBooking && (
+        <Modal
+          title={<Title level={4} className="text-orange-600">Xác nhận thanh toán bổ sung</Title>}
+          open={isAdditionalPaymentModalVisible}
+          onOk={handleAdditionalPayment}
+          onCancel={() => {
+            setIsAdditionalPaymentModalVisible(false);
+            setSelectedBooking(null);
+            setAdditionalPaymentInfo(null);
+            setPaymentMethod('VNPAY');
+            setPaymentInfoLoading(false);
+          }}
+          okText="Thanh toán bổ sung"
+          cancelText="Hủy"
+          okButtonProps={{
+            className: 'bg-orange-600 hover:bg-orange-700 rounded-md h-10',
+            loading: paymentLoading,
+            disabled:
+              paymentInfoLoading ||
+              !additionalPaymentInfo?.additionalPayment ||
+              additionalPaymentInfo.additionalPayment <= 0,
+          }}
+          cancelButtonProps={{ className: 'rounded-md h-10' }}
+          centered
+          className="rounded-xl"
+        >
+          <div className="space-y-3 text-sm">
+            {paymentInfoLoading ? (
+              <div className="flex justify-center py-4">
+                <Spin tip="Đang tải thông tin thanh toán..." />
+              </div>
+            ) : additionalPaymentInfo?.additionalPayment > 0 ? (
+              <>
+                <Text className="text-gray-600">Bạn cần thanh toán bổ sung cho tour:</Text>
+                <Text className="font-semibold text-gray-800">{selectedBooking.tourName}</Text>
+                <Text className="text-gray-600">
+                  Số tiền cần thanh toán bổ sung:{' '}
+                  <span className="font-semibold">
+                    {additionalPaymentInfo.additionalPayment.toLocaleString('vi-VN')} VND
+                  </span>
+                </Text>
+                {additionalPaymentInfo.changeDate && (
+                  <Text className="text-gray-600">
+                    Ngày thay đổi:{' '}
+                    <span className="font-semibold">
+                      {new Date(additionalPaymentInfo.changeDate).toLocaleDateString('vi-VN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })}
+                    </span>
+                  </Text>
+                )}
+                <div>
+                  <Text className="text-gray-600">Phương thức thanh toán:</Text>
+                  <Select
+                    value={paymentMethod}
+                    onChange={setPaymentMethod}
+                    className="w-full mt-2"
+                    disabled={paymentLoading}
+                  >
+                    <Option value="VNPAY">VNPAY</Option>
+                  </Select>
+                </div>
+                <Text className="text-gray-500 italic">
+                  Bạn sẽ được chuyển hướng đến cổng thanh toán VNPAY để hoàn tất.
+                </Text>
+              </>
+            ) : (
+              <Text className="text-red-600">Không có thông tin thanh toán bổ sung khả dụng.</Text>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal đổi lịch tour */}
+      <Modal
+        title={<Title level={4} className="text-purple-600">Đổi lịch tour</Title>}
+        open={isChangeModalVisible}
+        onOk={changeFeeInfo ? handleConfirmChange : handleCalculateChangeFee}
+        onCancel={handleChangeModalCancel}
+        okText={changeFeeInfo ? 'Xác nhận đổi' : 'Tính phí đổi'}
+        cancelText="Hủy"
+        okButtonProps={{
+          className: 'bg-purple-600 hover:bg-purple-700 rounded-md h-10',
+          loading: changeLoading,
+          disabled:
+            !changeTourData.departureDate ||
+            (!changeTourData.numberAdults &&
+              !changeTourData.numberChildren &&
+              !changeTourData.numberInfants) ||
+            !availableDates.length,
+        }}
+        cancelButtonProps={{ className: 'rounded-md h-10' }}
+        centered
+        className="rounded-xl"
+        width={450}
+      >
+        <div className="space-y-4 text-sm">
+          <div>
+            <Text className="text-gray-600">Tour hiện tại:</Text>
+            <Text className="block font-semibold text-gray-800">
+              {changeTourData.currentTourName}
+            </Text>
+          </div>
+          <div>
+            <Text className="text-gray-600">Chọn ngày khởi hành mới:</Text>
+            <Select
+              value={changeTourData.departureDate}
+              onChange={(value) =>
+                setChangeTourData((prev) => ({ ...prev, departureDate: value }))
+              }
+              className="w-full mt-2"
+              placeholder="Chọn ngày khởi hành"
+              disabled={changeLoading || !availableDates.length}
+              aria-label="Ngày khởi hành mới"
+            >
+              {availableDates.map((date) => (
+                <Option key={date} value={date}>
+                  {new Date(date).toLocaleDateString('vi-VN', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                  })}
+                </Option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Text className="text-gray-600">
+              Người lớn (≥10 tuổi, tối đa {changeTourData.maxPeople},{' '}
+              {changeTourData.adultPrice.toLocaleString('vi-VN')} VND/người):
+            </Text>
+            <Input
+              type="number"
+              min={0}
+              max={changeTourData.maxPeople}
+              value={changeTourData.numberAdults}
+              onChange={(e) =>
+                setChangeTourData((prev) => ({
+                  ...prev,
+                  numberAdults: parseInt(e.target.value) || 0,
+                }))
+              }
+              className="w-full mt-2"
+              placeholder="Nhập số người lớn"
+              disabled={changeLoading}
+              aria-label="Số người lớn tham gia"
+            />
+          </div>
+          <div>
+            <Text className="text-gray-600">
+              Trẻ em (2–10 tuổi, tối đa {changeTourData.maxPeople},{' '}
+              {changeTourData.childPrice.toLocaleString('vi-VN')} VND/người):
+            </Text>
+            <Input
+              type="number"
+              min={0}
+              max={changeTourData.maxPeople}
+              value={changeTourData.numberChildren}
+              onChange={(e) =>
+                setChangeTourData((prev) => ({
+                  ...prev,
+                  numberChildren: parseInt(e.target.value) || 0,
+                }))
+              }
+              className="w-full mt-2"
+              placeholder="Nhập số trẻ em"
+              disabled={changeLoading}
+              aria-label="Số trẻ em tham gia"
+            />
+          </div>
+          <div>
+            <Text className="text-gray-600">
+              Trẻ nhỏ (2 tuổi, tối đa {changeTourData.maxPeople},{' '}
+              {changeTourData.infantPrice.toLocaleString('vi-VN')} VND/người):
+            </Text>
+            <Input
+              type="number"
+              min={0}
+              max={changeTourData.maxPeople}
+              value={changeTourData.numberInfants}
+              onChange={(e) =>
+                setChangeTourData((prev) => ({
+                  ...prev,
+                  numberInfants: parseInt(e.target.value) || 0,
+                }))
+              }
+              className="w-full mt-2"
+              placeholder="Nhập số trẻ nhỏ"
+              disabled={changeLoading}
+              aria-label="Số trẻ nhỏ tham gia"
+            />
+          </div>
+          <div>
+            <Text className="text-gray-600">
+              Tổng giá tạm tính:{' '}
+              <span className="font-semibold text-gray-800">
+                {changeTourData.totalPrice.toLocaleString('vi-VN')} VND
+              </span>
+            </Text>
+          </div>
+          {changeFeeInfo && (
+            <div className="space-y-2">
+              <Text className="text-gray-600">Thông tin phí đổi:</Text>
+              <p>
+                Phí đổi:{' '}
+                <span className="font-medium text-purple-600">
+                  {changeFeeInfo.changeFee
+                    ? changeFeeInfo.changeFee.toLocaleString('vi-VN')
+                    : '0'}{' '}
+                  VND
+                </span>
+              </p>
+              <p>
+                Chênh lệch giá:{' '}
+                <span
+                  className={`font-medium ${
+                    changeFeeInfo.priceDifference >= 0 ? 'text-red-600' : 'text-green-600'
+                  }`}
+                >
+                  {changeFeeInfo.priceDifference
+                    ? changeFeeInfo.priceDifference.toLocaleString('vi-VN')
+                    : '0'}{' '}
+                  VND
+                </span>
+                {changeFeeInfo.priceDifference > 0 && (
+                  <span className="text-gray-500 italic"> (Cần thanh toán bổ sung)</span>
+                )}
+              </p>
+              <p>
+                Tổng giá mới:{' '}
+                <span className="font-medium text-gray-800">
+                  {changeFeeInfo.newTotalPrice
+                    ? changeFeeInfo.newTotalPrice.toLocaleString('vi-VN')
+                    : '0'}{' '}
+                  VND
+                </span>
+              </p>
+              {changeFeeInfo.refundAmount > 0 && (
+                <p>
+                  Số tiền hoàn lại:{' '}
+                  <span className="font-medium text-green-600">
+                    {changeFeeInfo.refundAmount
+                      ? changeFeeInfo.refundAmount.toLocaleString('vi-VN')
+                      : '0'}{' '}
+                    VND
+                  </span>
+                </p>
+              )}
+              {changeFeeInfo.message && (
+                <Text className="text-gray-500 italic">{changeFeeInfo.message}</Text>
+              )}
+            </div>
+          )}
+        </div>
+      </Modal>
+
       {/* Footer */}
-      <motion.footer>
-        <Footer />
-      </motion.footer>
+      <Footer />
     </div>
   );
 };

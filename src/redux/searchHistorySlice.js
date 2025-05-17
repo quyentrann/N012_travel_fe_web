@@ -8,15 +8,12 @@ export const fetchSearchHistory = createAsyncThunk(
     try {
       const data = await getSearchHistory();
       console.log('Raw history data from API:', data);
-      const currentDate = new Date();
-      const filteredTours = data
-        .filter((tour) => 
-          tour.status === 'ACTIVE' &&
-          tour.availableSlot > 0 &&
-          tour.tourDetails?.some((detail) => new Date(detail.startDate) >= currentDate)
-        );
+      const filteredTours = data.filter((tour) => {
+        console.log(`Tour ${tour.tour?.tourId || 'unknown'}, availableSlot: ${tour.tour?.availableSlot}`);
+        return tour.tour?.availableSlot > 0;
+      });
       const uniqueTours = Array.from(
-        new Map(filteredTours.map((tour) => [tour.tourId, tour])).values()
+        new Map(filteredTours.map((tour) => [tour.tour?.tourId, tour])).values()
       );
       console.log('Filtered history tours:', uniqueTours);
       return uniqueTours;

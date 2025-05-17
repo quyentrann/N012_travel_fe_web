@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { SearchOutlined, UserOutlined, BellOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import axios from 'axios';
-import { Input, Button, Dropdown, Menu, Avatar, Carousel, Spin } from 'antd';
+import { Input, Button, Dropdown, Menu, Avatar, Carousel, Skeleton } from 'antd';
 import { getTours } from '../../apis/tour';
 import logo from '../../images/logo.png';
 import nen1 from '../../images/nen5.png';
@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tab } from '@headlessui/react';
 import ItemTourComponent from '../../components/ItemTourComponent';
 import { logout } from '../../redux/userSlice';
-import { setFilteredTours, fetchTours } from '../../redux/tourSlice';
+import { setFilteredTours, fetchTours, fetchFavoriteTours } from '../../redux/tourSlice'; // Add fetchFavoriteTours
 import { fetchLocations } from '../../redux/locationSlice';
 import { fetchUnreadCount } from '../../redux/notificationSlice';
 import { setSearchTerm } from '../../redux/searchSlice';
@@ -32,7 +32,7 @@ const navLinks = [
 ];
 
 const buttonVariants = {
-  hover: { scale: 1.1, transition: { duration: 0.3 } },
+  hover: { scale: 1.05, transition: { duration: 0.3 } },
 };
 
 const Home = () => {
@@ -41,6 +41,7 @@ const Home = () => {
   const {
     tours,
     filteredTours,
+    favoriteTours, // Add favoriteTours
     loading: toursLoading,
     error: toursError,
   } = useSelector((state) => state.tours);
@@ -63,7 +64,8 @@ const Home = () => {
       if (isAuthenticated) {
         promises.push(
           dispatch(fetchSearchHistory()),
-          dispatch(fetchUnreadCount())
+          dispatch(fetchUnreadCount()),
+          dispatch(fetchFavoriteTours()) // Fetch favorite tours
         );
       }
       await Promise.all(promises);
@@ -107,61 +109,98 @@ const Home = () => {
     }
   };
 
+  // Handle favorite change (optional, if you want to update favorite status)
+  const handleFavoriteChange = (tourId, isFavorite) => {
+    if (!isFavorite) {
+      dispatch(fetchFavoriteTours()).then(() => {
+        message.success('Đã xóa tour khỏi danh sách yêu thích!');
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen font-sans w-screen bg-gray-50">
+    <div className="min-h-screen font-sans w-screen bg-gray-50 flex flex-col">
       <Header />
 
       {history.length > 0 && (
-        <section className="py-10 bg-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 sm:mt-15 mt-10">
-            <div className="flex justify-between items-center mb-8">
+        <section className="py-12 sm:py-16 bg-gradient-to-b from-gray-100 to-gray-200 flex-grow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
               <motion.div variants={buttonVariants} whileHover="hover">
                 <Button
                   onClick={() => navigate('/')}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-3 sm:px-4"
+                  className="bg-gradient-to-r from-blue-400 to-blue-200 hover:from-blue-500 hover:to-blue-400 text-white font-medium rounded-full px-4 py-2 shadow-md"
                 >
                   <ArrowLeftOutlined />
                 </Button>
               </motion.div>
-              <h2 className="text-[26px] font-bold text-[#0088c2] flex-1 text-center">
-                Dành cho bạn
-              </h2>
+              <div className="text-center flex-1">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-500 tracking-tight pt-10 pb-3">
+                  Dành Cho Bạn
+                </h2>
+                <p className="mt-2 text-sm sm:text-base text-gray-600">
+                  Khám phá những hành trình được cá nhân hóa dựa trên sở thích của bạn
+                </p>
+                <div className="mt-4 h-1 w-20 bg-blue-300 mx-auto rounded" />
+              </div>
               <div className="w-10" />
             </div>
 
             <div className="relative">
               {historyLoading ? (
-                <div className="flex justify-center items-center h-32">
-                  <Spin size="large" tip="Loading recommendations..." />
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
+                  {[...Array(3)].map((_, index) => (
+                    <Skeleton
+                      key={index}
+                      active
+                      avatar={{ shape: 'square', size: 'large' }}
+                      paragraph={{ rows: 3 }}
+                      className="w-full max-w-[250px]"
+                    />
+                  ))}
                 </div>
               ) : historyError ? (
-                <div className="text-center text-red-600">
-                  Error: {historyError}
+                <div className="text-center text-red-600 bg-red-100 py-4 rounded-lg">
+                  Lỗi: {historyError}
                 </div>
               ) : (
-                <div className="w-full grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 justify-items-center">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 pl-10">
                   {history.map((tour) => (
                     <motion.div
-                      key={tour.tourId}
+                      key={tour.tour?.tourId}
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
-                      className="h-full w-full"
+                      className="w-full"
+                      whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
                     >
                       <ItemTourBestForYou
                         tour={tour}
-                        onClick={() => handleTourClick(tour.name)}
+                        isFavorite={favoriteTours.some((fav) => fav.tourId === tour.tour?.tourId)} // Pass isFavorite
+                        onFavoriteChange={handleFavoriteChange} // Pass onFavoriteChange
+                        onClick={() => handleTourClick(tour.tour?.name || tour.name || 'Unknown')}
                       />
                     </motion.div>
                   ))}
                 </div>
               )}
             </div>
+
+            {history.length >= 8 && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={() => navigate('/search')}
+                  className="px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition"
+                >
+                  Xem thêm tour gợi ý
+                </button>
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      <Footer className="mt-20" />
+      <Footer />
     </div>
   );
 };

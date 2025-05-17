@@ -61,8 +61,9 @@ const { Title, Paragraph } = Typography;
 const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
-  { label: 'Tour', path: '/tours' },
-  { label: 'Tour Yêu Thích', path: '/tours' },
+  { label: 'Tour', path: '/search' },
+  { label: 'Tour Yêu Thích', path: '/favourite-tours' },
+  { label: 'Dành Cho Bạn', path: '/recommended' },
 ];
 
 const itemss = [
@@ -650,7 +651,7 @@ export default function TourDetail() {
             {/* Desktop Navigation */}
             <div className="hidden sm:flex items-center space-x-4">
               {navLinks.map((link) => {
-                if (link.label === 'Tour Yêu Thích' && !isAuthenticated) {
+                if (link.label === 'Tour Yêu Thích' && link.label === 'Dành Cho Bạn'  && !isAuthenticated) {
                   return null;
                 }
                 return (
@@ -909,7 +910,7 @@ export default function TourDetail() {
           <div className="w-full md:w-2/3 px-0 md:px-5 min-h-screen">
             <div className="rounded-[8px] border-1 border-gray-300 shadow">
               <Carousel autoplay arrows className="touch-pan-y">
-                {listImageTour.map((tour) => (
+                {/* {listImageTour.map((tour) => (
                   <div key={tour.id}>
                     <img
                       src={tour.image}
@@ -917,14 +918,19 @@ export default function TourDetail() {
                       className="h-[200px] sm:h-[450px] w-full rounded-[5px] object-cover"
                     />
                   </div>
-                ))}
+                ))} */}
+                 <img
+                      src={tour?.imageURL}
+                      alt={`Tour ${tour?.id}`}
+                      className="h-[200px] sm:h-[400px] w-full rounded-[5px] object-cover"
+                    />
               </Carousel>
             </div>
             <motion.div
               initial={{ opacity: 0, scale: 1 }}
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="sticky top-16 bg-white shadow z-50">
+              className="sticky top-20 bg-white shadow z-50">
               <nav className="h-16 mt-5 font-semibold flex justify-between text-[14px] sm:text-[15px] mobile-nav md:flex-row">
                 <button onClick={() => scrollToSection('tong-quan')}>
                   Tổng Quan
@@ -1787,40 +1793,40 @@ export default function TourDetail() {
           </div>
 
           <Modal
-            open={showBookingModal}
-            onCancel={handleCloseModal}
-            footer={null}
-            width="90%"
-            closeIcon={<CloseOutlined />}
-            title={
-              <span className="text-lg font-bold text-cyan-600">
-                Chi Tiết Đặt Tour
-              </span>
-            }
-            destroyOnClose={true}
-            style={{ top: 10 }}
-            className="md:w-[600px]">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}>
-              <TourBookingForm
-                tourId={tourId}
-                adults={adults}
-                children={children}
-                infants={infants}
-                discountAmount={discountAmount}
-                startDate={
-                  startDate ? dayjs(startDate).format('YYYY-MM-DD') : null
-                }
-                totalPrice={totalPrice}
-                priceForOneAdult={priceForOneAdult}
-                priceForOneChild={priceForOneChild}
-                priceForOneInfant={priceForOneInfant}
-                tour={tour}
-              />
-            </motion.div>
-          </Modal>
+  open={showBookingModal}
+  onCancel={handleCloseModal}
+  footer={null}
+  closeIcon={<CloseOutlined />}
+  title={
+    <span className="text-lg font-bold text-cyan-600">
+      Chi Tiết Đặt Tour
+    </span>
+  }
+  destroyOnClose={true}
+  style={{ top: 10 }}
+  className="!w-[90%] md:!w-[60%] max-w-none">
+  <motion.div
+    initial={{ opacity: 0, scale: 0.95 }}
+    animate={{ opacity: 1, scale: 1 }}
+    transition={{ duration: 0.3 }}>
+    <TourBookingForm
+      tourId={tourId}
+      adults={adults}
+      children={children}
+      infants={infants}
+      discountAmount={discountAmount}
+      startDate={
+        startDate ? dayjs(startDate).format('YYYY-MM-DD') : null
+      }
+      totalPrice={totalPrice}
+      priceForOneAdult={priceForOneAdult}
+      priceForOneChild={priceForOneChild}
+      priceForOneInfant={priceForOneInfant}
+      tour={tour}
+    />
+  </motion.div>
+</Modal>
+
         </motion.div>
       </div>
       <motion.footer

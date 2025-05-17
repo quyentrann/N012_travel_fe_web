@@ -6,10 +6,19 @@ import { useNavigate } from 'react-router-dom';
 import { message } from 'antd';
 import { motion } from 'framer-motion';
 
-export default function ItemCradComponent({ tour, isFavorite: initialFavorite = false, onFavoriteChange }) {
+export default function ItemCradComponent({
+  tour,
+  isFavorite: initialFavorite = false,
+  onFavoriteChange,
+}) {
   const navigate = useNavigate();
   const [isFavorite, setIsFavorite] = useState(initialFavorite);
   const token = localStorage.getItem('TOKEN');
+
+  console.log('Tour object:', JSON.stringify(tour, null, 2));
+  console.log('Tour.tour:', tour?.tour);
+  console.log('Reviews:', tour?.tour?.reviews);
+  console.log('Bookings:', JSON.stringify(tour?.tour?.bookings, null, 2));
 
   useEffect(() => {
     if (token) {
@@ -88,58 +97,71 @@ export default function ItemCradComponent({ tour, isFavorite: initialFavorite = 
     }
   };
 
-  const averageRating = tour.reviews?.length
-    ? (tour.reviews.reduce((sum, review) => sum + review.rating, 0) / tour.reviews.length).toFixed(1)
-    : 'Chưa có';
+  const averageRating = (() => {
+    const reviews = tour?.tour?.reviews;
+    if (!Array.isArray(reviews) || reviews.length === 0) return 'Chưa có';
+    const totalRating = reviews.reduce((sum, review) => sum + (Number(review?.rating) || 0), 0);
+    return (totalRating / reviews.length).toFixed(1);
+  })();
 
-  const totalSeatsBooked = (tour.bookings || []).reduce(
-    (sum, booking) => sum + (booking?.numberPeople || 0),
-    0
-  );
+const totalBookings = (tour?.tour?.bookings || []).filter(
+  booking => booking?.status === 'COMPLETED'
+).length;
 
   return (
-    <div
-      className="bg-[#fffcfa] h-[220px] sm:h-67 w-[160px] sm:w-52 rounded-[8px] cursor-pointer hover:scale-101 p-2 sm:p-4 flex flex-col relative"
-      onClick={handleTourClick} // Thay navigate trực tiếp bằng handleTourClick
+    <motion.div
+      className="relative bg-white rounded-xl shadow-md overflow-hidden w-full max-w-[220px] h-[270px] mx-auto cursor-pointer 
+      hover:shadow-xl transition-all duration-200 border border-gray-100 flex flex-col my-5"
+      onClick={handleTourClick}
+      whileHover={{ scale: 1 }}
+      whileTap={{ scale: 0.98 }}
     >
       <motion.div
         animate={{ scale: isFavorite && token ? 1.2 : 1 }}
         transition={{ duration: 0.2 }}
-        className="absolute top-0.5 sm:top-1 right-1 sm:right-1.5 cursor-pointer text-[20px]"
+        className="absolute top-2 right-2 z-10"
         onClick={handleToggleFavorite}
       >
         {token && isFavorite ? (
-          <HeartFilled style={{ color: '#FF6666', fontSize: '16px sm:20px' }} />
+          <HeartFilled className="text-red-500 text-base" style={{ color: '#EB3232' }} />
         ) : (
-          <HeartOutlined style={{ color: '#CC6666', fontSize: '16px sm:20px' }} />
+          <HeartOutlined className="text-gray-500 text-base hover:text-red-400" />
         )}
       </motion.div>
 
-      <div className="flex justify-center flex-col items-center">
+      <div className="relative flex-shrink-0">
         <img
-          src={tour.imageURL || card}
-          alt={tour.name || 'Travel'}
-          className="h-[110px] sm:h-33 w-[150px] sm:w-49 rounded-[3px] m-0.5"
+          src={tour?.tour?.imageURL || card}
+          alt={tour?.tour?.name || 'Travel'}
+          className="w-full h-32 object-cover rounded-t-xl"
           loading="lazy"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
       </div>
-      <div className="flex flex-col justify-between pt-1 h-1/2">
-        <div className="pt-1 sm:pt-2 px-1">
-          <p className="text-[12px] sm:text-[14px] font-medium">{tour.name}</p>
-        </div>
 
-        <div className="flex pt-1 sm:pt-2 px-1 text-[12px] sm:text-[14px] font-bold text-red-600">
-          <p>{tour.price ? `${tour.price.toLocaleString()} đ/người` : 'Giá không có'}</p>
-        </div>
+      <div className="p-3 flex flex-col justify-between flex-1 gap-1">
+        <h3 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-tight">
+          {tour?.tour?.name || 'Tour Name'}
+        </h3>
 
-        <div className="flex items-center justify-between px-1 pt-1 sm:pt-2 text-[10px] sm:text-[12px] text-gray-600">
-          <div className="flex items-center text-yellow-500">
-            <StarFilled className="text-gray-300" />
-            <span className="text-gray-600 ml-1">{averageRating}</span>
+        <p className="text-red-600 font-bold text-[13px]">
+          {tour?.tour?.price
+            ? `${tour.tour.price.toLocaleString()} đ/người`
+            : 'Liên hệ'}
+        </p>
+
+        <div className="flex items-center justify-between text-xs text-gray-600">
+          <div className="flex items-center gap-1">
+            <StarFilled className="text-yellow-500" style={{ color: '#D4D10B' }} />
+            <span>{averageRating}</span>
           </div>
-          <p>{totalSeatsBooked ? `${totalSeatsBooked} lượt đặt` : 'Chưa có lượt đặt'}</p>
+          <span>
+            {totalBookings
+              ? `${totalBookings} lượt đặt`
+              : 'Chưa có lượt đặt'}
+          </span>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

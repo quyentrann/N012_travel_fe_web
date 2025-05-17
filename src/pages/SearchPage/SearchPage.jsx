@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { Input, Select, DatePicker, Button, Spin, Avatar } from 'antd';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Input, Select, DatePicker, Button, Spin, Avatar, Skeleton, Empty, message } from 'antd';
 import {
   SearchOutlined,
   FilterOutlined,
@@ -14,21 +14,18 @@ import {
   ArrowLeftOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
-import { setSearchTerm } from '../../redux/searchSlice';
-import { setFilteredTours } from '../../redux/tourSlice';
 import { fetchUnreadCount } from '../../redux/notificationSlice';
+import { fetchFavoriteTours } from '../../redux/tourSlice';
 import { logout } from '../../redux/userSlice';
 import ItemTourComponent from '../../components/ItemTourComponent';
 import logo from '../../images/logo.png';
-import axios from 'axios';
-import {getTours, getSearchHistory, saveSearchQuery} from '../../apis/tour'
+import { getTours, saveSearchQuery } from '../../apis/tour';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 const defaultAvatar = 'https://via.placeholder.com/40?text=User';
 
-// Navigation links
 const navLinks = [
   { label: 'Trang Chủ', path: '/' },
   { label: 'Giới Thiệu', path: '/about' },
@@ -37,7 +34,6 @@ const navLinks = [
   { label: 'Tour Yêu Thích', path: '/favourite-tours' },
 ];
 
-// Các loại hình tour
 const tourCategories = [
   'Biển đảo',
   'Núi rừng',
@@ -46,16 +42,9 @@ const tourCategories = [
   'Sinh thái và khám phá',
 ];
 
-// Hàm chuẩn hóa location để so sánh
 const cleanLocation = (location) => {
   if (!location || typeof location !== 'string') return '';
   return location.replace(/^(Tỉnh|Thành phố)\s+/i, '').trim();
-};
-
-const simplifyLocation = (location) => {
-  if (!location) return '';
-  const parts = location.split('-').map((part) => part.trim());
-  return parts[parts.length - 1];
 };
 
 const cleanText = (text) => {
@@ -63,29 +52,29 @@ const cleanText = (text) => {
   return text.replace(/[,.]/g, ' ').replace(/\s+/g, ' ').trim();
 };
 
-const computeSimilarity = (query, text, weight) => {
+const computeSimilarity = (query, text, weight, isLocation = false) => {
   if (!query || !text) return 0.0;
   const cleanedQuery = cleanText(query).toLowerCase();
   const cleanedText = cleanText(text).toLowerCase();
-  const queryWords = cleanedQuery.split(' ').filter((word) => word);
-  const textWords = cleanedText.split(' ').filter((word) => word);
-  let matches = 0;
-  for (const queryWord of queryWords) {
-    for (const textWord of textWords) {
-      if (
-        textWord.includes(queryWord) ||
-        queryWord.includes(textWord) ||
-        textWord === queryWord
-      ) {
-        matches += 1.0;
-      }
+
+  let score = 0;
+  if (isLocation) {
+    // Ưu tiên khớp chính xác hoặc chứa chuỗi đầy đủ cho location
+    if (cleanedText === cleanedQuery) {
+      score = weight * 3; // Điểm rất cao cho khớp chính xác
+    } else if (cleanedText.includes(cleanedQuery)) {
+      score = weight * 2; // Điểm cao cho chứa chuỗi
+    }
+  } else {
+    // Cho name: chỉ chấp nhận chứa chuỗi đầy đủ
+    if (cleanedText.includes(cleanedQuery)) {
+      score = weight;
     }
   }
-  const lengthPenalty = textWords.length <= 2 ? 1.5 : 1.0;
-  return (matches / Math.max(textWords.length, 1)) * weight * lengthPenalty;
+
+  return score;
 };
 
-// Animation variants for the button
 const buttonVariants = {
   hover: { scale: 1.1, transition: { duration: 0.2 } },
 };
@@ -93,15 +82,18 @@ const buttonVariants = {
 const SearchPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { tours, filteredTours, loading } = useSelector((state) => state.tours);
-  const { locations } = useSelector((state) => state.locations);
-  const searchTerm = useSelector((state) => state.search.searchTerm);
+  const location = useLocation();
   const { isAuthenticated, user } = useSelector((state) => state.user);
+  const { favoriteTours } = useSelector((state) => state.tours);
   const unreadCount = useSelector((state) => state.notifications.unreadCount);
+  const [tours, setTours] = useState([]);
+  const [filteredTours, setFilteredTours] = useState([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [open, setOpen] = useState(false); // Desktop user dropdown
-  const [menuOpen, setMenuOpen] = useState(false); // Mobile menu
-  const [accountOpen, setAccountOpen] = useState(false); // Mobile account sub-menu
+  const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const dropdownRef = useRef(null);
   const menuRef = useRef(null);
   const [visibleCount, setVisibleCount] = useState(6);
@@ -111,16 +103,56 @@ const SearchPage = () => {
     priceRange: '',
     category: '',
   });
-  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
+  const [localSearchTerm, setLocalSearchTerm] = useState(() => {
+    const query = new URLSearchParams(location.search).get('query');
+    return query ? decodeURIComponent(query) : '';
+  });
 
-  // Fetch unread notifications
+  // Tải tours từ API
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsInitialLoading(true);
+      setError(null);
+      try {
+        const response = await getTours();
+        const tourData = response.data || response || [];
+        console.log('Dữ liệu tours:', tourData.map(t => ({ id: t.tourId, location: t.location, name: t.name })));
+        setTours(tourData);
+        setFilteredTours(tourData);
+      } catch (error) {
+        console.error('Error fetching tours:', error);
+        setError('Không thể tải danh sách tour. Vui lòng thử lại sau.');
+        message.error('Không thể tải danh sách tour!');
+        setTours([]);
+        setFilteredTours([]);
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Tạo danh sách locations từ tours
+  const locations = Array.from(
+    new Set(tours.map((tour) => tour.location).filter(Boolean))
+  ).map((loc) => ({ label: loc }));
+
+  // Fetch unread notifications và favorite tours
   useEffect(() => {
     if (isAuthenticated) {
       dispatch(fetchUnreadCount());
+      dispatch(fetchFavoriteTours()).catch((error) => {
+        console.error('Error fetching favorite tours:', error);
+        if (error.status === 401 || error.status === 403) {
+          localStorage.removeItem('TOKEN');
+          dispatch(logout());
+          navigate('/login');
+        }
+      });
     }
-  }, [isAuthenticated, dispatch]);
+  }, [isAuthenticated, dispatch, navigate]);
 
-  // Handle click outside for dropdown and mobile menu
+  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -135,49 +167,44 @@ const SearchPage = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSearch = () => {
+  const handleSearch = (currentFilter, currentSearchTerm) => {
     let filtered = tours;
     let scoredTours = [];
 
-    if (localSearchTerm.trim()) {
+    if (currentSearchTerm.trim()) {
+      const cleanedQuery = cleanText(currentSearchTerm.trim()).toLowerCase();
       scoredTours = filtered.map((tour) => {
         let score = 0.0;
-        const query = localSearchTerm.trim();
-        score += computeSimilarity(query, tour.name || '', 2.0);
-        score += computeSimilarity(query, tour.description || '', 1.0);
-        score += computeSimilarity(query, tour.location || '', 1.5);
-        if (tour.tourCategory && tour.tourCategory.categoryName) {
-          score += computeSimilarity(query, tour.tourCategory.categoryName, 1.2);
-        }
+        // Chỉ so sánh với location và name
+        score += computeSimilarity(cleanedQuery, tour.location || '', 3.0, true);
+        score += computeSimilarity(cleanedQuery, tour.name || '', 2.0);
+        console.log(`Tour ${tour.tourId}: location=${tour.location}, name=${tour.name}, score=${score}`);
         return { tour, score };
       });
       filtered = scoredTours
-        .filter((item) => item.score > 0.1)
+        .filter((item) => item.score > 1.0) // Tăng ngưỡng
         .sort((a, b) => b.score - a.score)
         .map((item) => item.tour);
     }
 
-    if (filter.location) {
-      const cleanedFilterLocation = cleanLocation(filter.location);
-      const simplifiedFilterLocation = simplifyLocation(cleanedFilterLocation);
+    if (currentFilter.location) {
+      const cleanedFilterLocation = cleanLocation(currentFilter.location).toLowerCase();
       filtered = filtered.filter(
         (tour) =>
           typeof tour?.location === 'string' &&
-          cleanText(tour?.location)
-            .toLowerCase()
-            .includes(simplifiedFilterLocation.toLowerCase())
+          cleanLocation(tour.location).toLowerCase() === cleanedFilterLocation
       );
     }
 
-    if (filter.priceRange) {
-      const [min, max] = filter.priceRange.split('-').map(Number);
+    if (currentFilter.priceRange) {
+      const [min, max] = currentFilter.priceRange.split('-').map(Number);
       filtered = filtered.filter(
         (tour) => tour.price >= min && tour.price <= max
       );
     }
 
-    if (filter.dates) {
-      const [start, end] = filter.dates;
+    if (currentFilter.dates) {
+      const [start, end] = currentFilter.dates;
       filtered = filtered.filter((tour) => {
         if (!tour.tourDetails || !Array.isArray(tour.tourDetails)) {
           return false;
@@ -197,36 +224,28 @@ const SearchPage = () => {
       });
     }
 
-    if (filter.category) {
+    if (currentFilter.category) {
       filtered = filtered.filter(
         (tour) =>
           tour.tourCategory?.categoryName &&
-          tour.tourCategory.categoryName.toLowerCase() === filter.category.toLowerCase()
+          tour.tourCategory.categoryName.toLowerCase() ===
+            currentFilter.category.toLowerCase()
       );
     }
 
-    dispatch(setFilteredTours(filtered));
+    setFilteredTours(filtered);
     return scoredTours;
   };
 
-  useEffect(() => {
-    handleSearch();
-  }, [searchTerm, filter, tours, dispatch]);
-
- const triggerSearch = async () => {
-    dispatch(setSearchTerm(localSearchTerm));
+  const triggerSearch = async () => {
     if (isAuthenticated && localSearchTerm.trim()) {
       try {
-        const filteredTours = await saveSearchQuery(localSearchTerm.trim());
-        setTours(filteredTours);
-        dispatch(setFilteredTours(filteredTours));
+        await saveSearchQuery(localSearchTerm.trim());
       } catch (error) {
         console.error('❌ Lỗi khi lưu lịch sử tìm kiếm:', error);
-        handleSearch(); // Fallback to client-side filtering
       }
-    } else {
-      handleSearch();
     }
+    handleSearch(filter, localSearchTerm);
   };
 
   const handleSearchChange = (e) => {
@@ -234,12 +253,18 @@ const SearchPage = () => {
   };
 
   const handleClearFilters = () => {
-    setFilter({ location: '', dates: null, priceRange: '', category: '' });
-    dispatch(setSearchTerm(''));
+    const clearedFilter = { location: '', dates: null, priceRange: '', category: '' };
+    setFilter(clearedFilter);
+    setLocalSearchTerm('');
+    handleSearch(clearedFilter, '');
   };
 
   const handleFilterChange = (key, value) => {
-    setFilter((prev) => ({ ...prev, [key]: value }));
+    setFilter((prev) => {
+      const newFilter = { ...prev, [key]: value };
+      handleSearch(newFilter, localSearchTerm);
+      return newFilter;
+    });
   };
 
   const handleLogout = () => {
@@ -251,29 +276,30 @@ const SearchPage = () => {
     setAccountOpen(false);
   };
 
-  // Filter navLinks for mobile menu when not authenticated
+  const handleFavoriteChange = (tourId, isFavorite) => {
+    if (!isFavorite) {
+      dispatch(fetchFavoriteTours()).then(() => {
+        message.success('Đã xóa tour khỏi danh sách yêu thích!');
+      });
+    }
+  };
+
   const mobileNavLinks = isAuthenticated
     ? navLinks
     : navLinks.filter(
         (link) =>
           link.label === 'Trang Chủ' ||
           link.label === 'Giới Thiệu' ||
-          link.label === 'Tour Gợi Ý'
+          link.label === 'Tours'
       );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-200 to-white font-sans w-screen">
+    <div className="min-h-screen bg-gradient-to-b from-gray-200 to-white font-sans w-screen relative">
       {/* Navbar */}
-      <motion.nav
-        className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3] py-2">
+      <motion.nav className="fixed top-0 left-0 right-0 z-50 bg-[#e5e1d3] py-2">
         <div className="mx-[10px] md:mx-[30px] flex justify-between items-center">
-          {/* Logo, Brand, and Desktop Navigation */}
           <div className="flex items-center">
-            {/* Mobile Back Button */}
-            <motion.div
-              variants={buttonVariants}
-              whileHover="hover"
-              className="md:hidden">
+            <motion.div variants={buttonVariants} whileHover="hover" className="md:hidden">
               <Button
                 onClick={() => navigate('/')}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-3"
@@ -281,19 +307,19 @@ const SearchPage = () => {
                 <ArrowLeftOutlined />
               </Button>
             </motion.div>
-            {/* Desktop Logo and Navigation */}
             <div className="hidden md:flex items-center">
               <img src={logo} alt="logo" className="h-8 w-auto" />
               <span
                 className="text-[16px] font-bold text-black ml-1 w-30"
-                style={{ fontFamily: 'Dancing Script, cursive' }}>
+                style={{ fontFamily: 'Dancing Script, cursive' }}
+              >
                 Travel TADA
               </span>
               <div className="pl-10 flex items-center space-x-6">
                 {navLinks.map((link) => {
                   if (
                     (link.label === 'Dành cho bạn' ||
-                      link.label === 'Tour Yêu Thích' ) &&
+                      link.label === 'Tour Yêu Thích') &&
                     !isAuthenticated
                   ) {
                     return null;
@@ -302,7 +328,8 @@ const SearchPage = () => {
                     <span
                       key={link.label}
                       onClick={() => navigate(link.path)}
-                      className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer">
+                      className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer"
+                    >
                       {link.label}
                     </span>
                   );
@@ -310,14 +337,9 @@ const SearchPage = () => {
               </div>
             </div>
           </div>
-
-          {/* Right Section: Search, Notifications, User Profile */}
           <div className="flex items-center space-x-1 md:space-x-2">
-            {/* Mobile and Desktop Search Bar */}
             {isAuthenticated && (
-              <motion.div
-                className="relative flex items-center "
-                whileHover={{ scale: 1.05 }}>
+              <motion.div className="relative flex items-center" whileHover={{ scale: 1.05 }}>
                 <Input
                   placeholder="Tìm kiếm tour..."
                   value={localSearchTerm}
@@ -328,17 +350,18 @@ const SearchPage = () => {
                     }
                   }}
                   className="w-28 md:w-60 rounded-full text-xs md:text-sm py-1 pl-3 pr-8 border-none shadow-sm"
-                  suffix={<SearchOutlined className="text-gray-500 text-xs md:text-base" />}
+                  suffix={
+                    <SearchOutlined className="text-gray-500 text-xs md:text-base" />
+                  }
                 />
               </motion.div>
             )}
-
-            {/* Notifications (Desktop only) */}
             {isAuthenticated && (
               <motion.div
                 whileHover={{ scale: 1.1, rotate: 10 }}
                 className="hidden md:block relative cursor-pointer text-gray-700 hover:text-cyan-600 transition-all duration-200 text-[16px] p-1 rounded-full hover:bg-cyan-50"
-                onClick={() => navigate('/notifications')}>
+                onClick={() => navigate('/notifications')}
+              >
                 <BellOutlined />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-semibold px-1 py-0.5 rounded-full shadow-sm">
@@ -347,17 +370,17 @@ const SearchPage = () => {
                 )}
               </motion.div>
             )}
-
-            {/* Desktop User Profile Dropdown */}
             <div className="hidden md:block relative" ref={dropdownRef}>
               <button
                 onClick={() => setOpen(!open)}
-                className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200">
+                className="flex items-center space-x-1 text-gray-900 hover:text-cyan-600 transition-all duration-200"
+              >
                 {isAuthenticated && user ? (
                   <>
                     <motion.span
                       whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium truncate max-w-[140px]">
+                      className="text-sm font-medium truncate max-w-[140px]"
+                    >
                       {user.customer?.fullName || 'User'}
                     </motion.span>
                     <motion.div whileHover={{ scale: 1.1 }}>
@@ -376,7 +399,8 @@ const SearchPage = () => {
                     </motion.div>
                     <motion.span
                       whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium">
+                      className="text-sm font-medium"
+                    >
                       Tài khoản
                     </motion.span>
                   </>
@@ -387,7 +411,8 @@ const SearchPage = () => {
                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50">
+                  className="absolute right-0 mt-2 w-40 bg-[#f0ede3] shadow-lg rounded-lg border border-gray-200 p-2 z-50"
+                >
                   {isAuthenticated && user ? (
                     <>
                       <button
@@ -395,7 +420,8 @@ const SearchPage = () => {
                         onClick={() => {
                           navigate('/profile');
                           setOpen(false);
-                        }}>
+                        }}
+                      >
                         Thông tin cá nhân
                       </button>
                       <button
@@ -403,12 +429,14 @@ const SearchPage = () => {
                         onClick={() => {
                           navigate('/orders');
                           setOpen(false);
-                        }}>
+                        }}
+                      >
                         Đơn mua
                       </button>
                       <button
                         className="w-full text-red-600 py-1.5 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                        onClick={handleLogout}>
+                        onClick={handleLogout}
+                      >
                         Đăng xuất
                       </button>
                     </>
@@ -419,7 +447,8 @@ const SearchPage = () => {
                         onClick={() => {
                           navigate('/login');
                           setOpen(false);
-                        }}>
+                        }}
+                      >
                         Đăng nhập
                       </button>
                       <p className="text-center text-gray-600 text-xs mt-2 px-2">
@@ -429,7 +458,8 @@ const SearchPage = () => {
                           onClick={() => {
                             navigate('/register');
                             setOpen(false);
-                          }}>
+                          }}
+                        >
                           Đăng ký ngay
                         </span>
                       </p>
@@ -438,8 +468,6 @@ const SearchPage = () => {
                 </motion.div>
               )}
             </div>
-
-            {/* Mobile Hamburger Menu Icon */}
             <div className="md:hidden">
               <button onClick={() => setMenuOpen(!menuOpen)}>
                 {menuOpen ? (
@@ -451,17 +479,15 @@ const SearchPage = () => {
             </div>
           </div>
         </div>
-
-        {/* Mobile Navigation Menu */}
         {menuOpen && (
           <motion.div
             ref={menuRef}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="md:hidden bg-[#e5e1d3] shadow-lg border-t border-gray-200 p-3 absolute top-[56px] left-0 right-0 z-50">
+            className="md:hidden bg-[#e5e1d3] shadow-lg border-t border-gray-200 p-3 absolute top-[56px] left-0 right-0 z-50"
+          >
             <div className="flex flex-col space-y-2">
-              {/* Navigation Links */}
               {mobileNavLinks.map((link) => (
                 <span
                   key={link.label}
@@ -470,11 +496,11 @@ const SearchPage = () => {
                     setMenuOpen(false);
                     setAccountOpen(false);
                   }}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5">
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5"
+                >
                   {link.label}
                 </span>
               ))}
-              {/* Notifications Link */}
               {isAuthenticated && (
                 <span
                   onClick={() => {
@@ -482,24 +508,30 @@ const SearchPage = () => {
                     setMenuOpen(false);
                     setAccountOpen(false);
                   }}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5">
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5"
+                >
                   Thông báo {unreadCount > 0 ? `(${unreadCount})` : ''}
                 </span>
               )}
-              {/* Account Section */}
               <div className="border-t border-gray-200 pt-2">
                 <button
                   onClick={() => setAccountOpen(!accountOpen)}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5 flex items-center justify-between w-full">
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-1.5 flex items-center justify-between w-full"
+                >
                   Tài khoản
-                  {accountOpen ? <UpOutlined className="text-sm" /> : <DownOutlined className="text-sm" />}
+                  {accountOpen ? (
+                    <UpOutlined className="text-sm" />
+                  ) : (
+                    <DownOutlined className="text-sm" />
+                  )}
                 </button>
                 {accountOpen && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="flex flex-col pl-3 space-y-1 mt-1">
+                    className="flex flex-col pl-3 space-y-1 mt-1"
+                  >
                     {isAuthenticated && user ? (
                       <>
                         <button
@@ -508,7 +540,8 @@ const SearchPage = () => {
                             navigate('/profile');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}>
+                          }}
+                        >
                           Thông tin cá nhân
                         </button>
                         <button
@@ -517,12 +550,14 @@ const SearchPage = () => {
                             navigate('/orders');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}>
+                          }}
+                        >
                           Đơn mua
                         </button>
                         <button
                           className="w-full text-red-600 py-1 px-2 text-sm font-medium hover:bg-cyan-50 rounded transition text-left"
-                          onClick={handleLogout}>
+                          onClick={handleLogout}
+                        >
                           Đăng xuất
                         </button>
                       </>
@@ -534,7 +569,8 @@ const SearchPage = () => {
                             navigate('/login');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}>
+                          }}
+                        >
                           Đăng nhập
                         </button>
                         <button
@@ -543,7 +579,8 @@ const SearchPage = () => {
                             navigate('/register');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}>
+                          }}
+                        >
                           Đăng ký ngay
                         </button>
                       </>
@@ -561,7 +598,8 @@ const SearchPage = () => {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5, delay: 0.7 }}
-        className="sticky top-[64px] z-40 bg-white py-4 px-5">
+        className="sticky top-[64px] z-40 bg-white py-4 px-5"
+      >
         <div className="max-w-7xl mx-auto flex items-center gap-3">
           <AnimatePresence>
             {isFilterOpen && (
@@ -570,7 +608,8 @@ const SearchPage = () => {
                 animate={{ width: 'auto', opacity: 1, scaleX: 1 }}
                 exit={{ width: 0, opacity: 0, scaleX: 0 }}
                 transition={{ duration: 0.3, ease: 'easeInOut' }}
-                className="flex-1 overflow-hidden">
+                className="flex-1 overflow-hidden"
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-xl shadow-md border border-gray-100">
                   <div className="flex flex-col">
                     <label className="text-sm font-semibold text-gray-800 mb-2">
@@ -586,7 +625,8 @@ const SearchPage = () => {
                       optionFilterProp="children"
                       filterOption={(input, option) =>
                         option?.children?.toLowerCase().includes(input.toLowerCase())
-                      }>
+                      }
+                    >
                       {locations.map((loc) => (
                         <Option key={loc.label} value={loc.label}>
                           {loc.label}
@@ -613,7 +653,8 @@ const SearchPage = () => {
                       value={filter.priceRange}
                       onChange={(value) => handleFilterChange('priceRange', value)}
                       className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
-                      allowClear>
+                      allowClear
+                    >
                       <Option value="0-1000000">Dưới 1M</Option>
                       <Option value="1000000-3000000">1M - 3M</Option>
                       <Option value="3000000-5000000">3M - 5M</Option>
@@ -630,7 +671,8 @@ const SearchPage = () => {
                       value={filter.category}
                       onChange={(value) => handleFilterChange('category', value)}
                       className="w-full rounded-lg border-gray-300 focus:border-cyan-600 focus:ring-cyan-600"
-                      allowClear>
+                      allowClear
+                    >
                       {tourCategories.map((category) => (
                         <Option key={category} value={category}>
                           {category}
@@ -648,12 +690,14 @@ const SearchPage = () => {
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
             whileHover={{ scale: 1.05 }}
-            className="flex-none">
+            className="flex-none"
+          >
             <Button
               type="primary"
               icon={isFilterOpen ? <CloseOutlined /> : <FilterOutlined />}
               className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-4 py-1.5 text-sm font-medium flex items-center gap-2"
-              onClick={() => setIsFilterOpen(!isFilterOpen)}>
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+            >
               {isFilterOpen ? 'Ẩn bộ lọc' : 'Bộ lọc'}
             </Button>
           </motion.div>
@@ -661,63 +705,93 @@ const SearchPage = () => {
       </motion.div>
 
       {/* Results Section */}
-      <section className="max-w-6xl mx-auto py-20 px-1">
-        <motion.h2
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="lg:text-2xl font-semibold text-gray-800 lg:mb-6 px-5 mb-1">
-          Kết quả tìm kiếm ({filteredTours.length})
-        </motion.h2>
-
-        {loading ? (
-          <div className="text-center py-12">
-            <Spin size="large" />
-          </div>
-        ) : filteredTours.length === 0 ? (
-          <motion.div
+      <section className="max-w-7xl mx-auto py-12 sm:py-16 px-4 sm:px-6 lg:px-8">
+        {/* Tiêu đề */}
+        <div className="text-center mb-10">
+          <motion.h2
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-12">
-            <p className="text-gray-600 text-lg mb-4">
-              Không tìm thấy tour nào phù hợp.
-            </p>
-            <Button
-              type="primary"
-              className="rounded-lg bg-cyan-600 hover:bg-cyan-700 px-6 py-2 text-sm font-medium"
-              onClick={handleClearFilters}>
-              Xóa bộ lọc và thử lại
-            </Button>
-          </motion.div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredTours.slice(0, visibleCount).map((tour) => (
-                <motion.div
-                  key={tour.tourId}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                  whileHover={{ scale: 1.03, transition: { duration: 0.2 } }}>
-                  <ItemTourComponent tour={tour} />
-                </motion.div>
+            transition={{ duration: 0.5 }}
+            className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-500 tracking-tight mt-10"
+          >
+            Khám Phá Hành Trình
+          </motion.h2>
+          <p className="mt-2 text-sm sm:text-base text-gray-600">
+            Tìm kiếm và lọc để tìm tour du lịch hoàn hảo cho bạn
+          </p>
+          <div className="mt-4 h-1 w-20 bg-blue-300 mx-auto rounded" />
+        </div>
+
+        <div className="relative">
+          {isInitialLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto justify-items-center">
+              {/* Skeleton loading */}
+              {[...Array(6)].map((_, index) => (
+                <Skeleton
+                  key={index}
+                  active
+                  avatar={{ shape: 'square', size: 'large' }}
+                  paragraph={{ rows: 3 }}
+                  className="w-full max-w-[250px]"
+                />
               ))}
             </div>
-            {visibleCount < filteredTours.length && (
-              <div className="flex justify-center mt-8">
-                <button
-                  onClick={() => setVisibleCount((prev) => prev + 6)}
-                  className="px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition">
-                  Load More
-                </button>
+          ) : error ? (
+            <div className="text-center text-red-600 bg-red-100 py-4 rounded-lg">
+              Lỗi: {error}
+            </div>
+          ) : filteredTours.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <Empty description="Không tìm thấy tour nào phù hợp!" className="mt-8 sm:mt-16">
+                <Button
+                  type="primary"
+                  className="bg-cyan-600 hover:bg-cyan-700 text-white font-medium rounded-full px-6 py-2"
+                  onClick={handleClearFilters}
+                >
+                  Xóa bộ lọc và thử lại
+                </Button>
+              </Empty>
+            </motion.div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto justify-items-center pl-10">
+                {filteredTours.slice(0, visibleCount).map((tour) => (
+                  <motion.div
+                    key={tour.tourId}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
+                    className="w-full"
+                  >
+                    <ItemTourComponent
+                      tour={tour}
+                      isFavorite={favoriteTours.some((fav) => fav.tourId === tour.tourId)}
+                      onFavoriteChange={handleFavoriteChange}
+                    />
+                  </motion.div>
+                ))}
               </div>
-            )}
-          </>
-        )}
+              {visibleCount < filteredTours.length && (
+                <div className="flex justify-center mt-8">
+                  <button
+                    onClick={() => setVisibleCount((prev) => prev + 6)}
+                    className="px-6 py-3 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition"
+                  >
+                    Xem thêm
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#f0ede3] text-black py-4">
+      <footer className="absolute bottom-0 left-0 right-0 bg-[#f0ede3] text-black py-4">
         <div className="max-w-7xl mx-auto px-5 text-center">
           <p className="text-sm">© 2025 Travel TADA. All rights reserved.</p>
         </div>
