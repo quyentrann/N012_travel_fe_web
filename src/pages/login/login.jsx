@@ -15,7 +15,7 @@ import {
 } from '../../redux/userSlice';
 import { login, LOCAL_STORAGE_USER_INFO } from '../../apis/auth/auth';
 import { motion } from 'framer-motion';
-import nen from '../../images/nen.webp';
+import nen from '../../images/nen.png';
 import logo from '../../images/logo.png';
 import plan from '../../images/maybay.png';
 import gg from '../../images/Google.png';
@@ -178,7 +178,7 @@ export default function Login() {
       initial="initial"
       animate="animate"
       exit="exit"
-      className="relative h-screen w-screen flex flex-col lg:flex-row bg-[url('src/images/nen.webp')] bg-[length:800px_650px] lg:bg-[length:700px_700px] bg-gradient-to-b from-[#009EE2]/10 to-transparent"
+      className="relative h-screen w-screen flex flex-col lg:flex-row bg-[url('src/images/nen.png')] bg-[length:800px_650px] lg:bg-[length:700px_700px] bg-gradient-to-b from-[#009EE2]/10 to-transparent"
       style={{ overflowY: 'hidden' }}>
       <div className="absolute inset-0 bg-white/50 lg:hidden"></div>
       {/* Left Section */}
