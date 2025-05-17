@@ -192,13 +192,18 @@ export default function Register() {
   };
 
   return (
-    <motion.div
+        <motion.div
       variants={pageVariants}
       initial="initial"
       animate="animate"
       exit="exit"
-      className="min-h-screen w-screen flex flex-col lg:flex-row overflow-hidden bg-[url('src/images/nen.png')] bg-[length:450px_630px] lg:bg-[length:700px_700px]">
-      {/* Left Section (Desktop Only) */}
+      className="relative h-screen w-screen flex flex-col lg:flex-row bg-gradient-to-b from-[#009EE2]/10 to-transparent"
+      style={{
+        backgroundImage: `url(${nen})`,
+        backgroundSize: '810px 680px', // Tương ứng với bg-[length:800px_650px]
+        backgroundRepeat: 'no-repeat', // Nếu không muốn lặp lại
+      }}
+    >
       <div className="hidden lg:flex lg:w-1/2 min-h-full flex-col pt-12">
         <img
           src={logo}
