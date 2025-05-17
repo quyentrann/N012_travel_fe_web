@@ -218,13 +218,18 @@ export default function ForgotPassword() {
   };
 
   return (
-    <motion.div
-      variants={pageVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      className="relative h-screen w-screen flex flex-col lg:flex-row bg-[url('src/images/nen.png')] bg-[length:700px_800px] lg:bg-[length:700px_700px] bg-gradient-to-b from-[#009EE2]/10 to-transparent"
-      style={{ overflowY: 'hidden' }}>
+       <motion.div
+     variants={pageVariants}
+     initial="initial"
+     animate="animate"
+     exit="exit"
+     className="relative h-screen w-screen flex flex-col lg:flex-row bg-gradient-to-b from-[#009EE2]/10 to-transparent"
+     style={{
+       backgroundImage: `url(${nen})`,
+       backgroundSize: '810px 680px', // Tương ứng với bg-[length:800px_650px]
+       backgroundRepeat: 'no-repeat', // Nếu không muốn lặp lại
+     }}
+   >
       <div className="absolute inset-0 bg-white/50 lg:hidden"></div>
       {/* Mobile logo */}
       <div className="flex lg:hidden items-center px-5 pt-10 relative">
