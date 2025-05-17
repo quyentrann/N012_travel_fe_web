@@ -22,7 +22,7 @@ import { registerUser, verifyOtp, resendOtp } from '../../apis/user';
 import { useNavigate } from 'react-router-dom';
 
 // Import hình ảnh
-import nen from '../../images/nen.webp';
+import nen from '../../images/nen.png';
 import logo from '../../images/logo.png';
 import plan from '../../images/maybay.png';
 import vt1 from '../../images/Vector.png';
@@ -197,7 +197,7 @@ export default function Register() {
       initial="initial"
       animate="animate"
       exit="exit"
-      className="min-h-screen w-screen flex flex-col lg:flex-row overflow-hidden bg-[url('src/images/nen.webp')] bg-[length:450px_630px] lg:bg-[length:700px_700px]">
+      className="min-h-screen w-screen flex flex-col lg:flex-row overflow-hidden bg-[url('src/images/nen.png')] bg-[length:450px_630px] lg:bg-[length:700px_700px]">
       {/* Left Section (Desktop Only) */}
       <div className="hidden lg:flex lg:w-1/2 min-h-full flex-col pt-12">
         <img
