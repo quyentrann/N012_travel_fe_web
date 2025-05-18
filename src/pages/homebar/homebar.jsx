@@ -495,7 +495,7 @@ const Home = () => {
               slidesToShow={Math.min(isMobile ? 1 : 3, sortedTours.length)}
               slidesToScroll={1}
               infinite={sortedTours.length > (isMobile ? 1 : 3)}
-              className="pl-20"
+              className="pl-7 md:pl-20"
             >
               {sortedTours.map((tour, index) => (
                 <div key={tour.tourId} className="px-3 py-3">

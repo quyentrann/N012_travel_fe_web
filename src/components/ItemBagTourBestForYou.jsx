@@ -48,7 +48,7 @@ function ItemBagTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
 
     try {
       await axios.post(
-        `http://localhost:8080/api/search-history/click/${tour.tourId}`,
+        `http://18.138.107.49:8080/api/search-history/click/${tour.tourId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -94,15 +94,15 @@ function ItemBagTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
         key={tour.id}
         hoverable
         className="w-[1000px] flex flex-row rounded-lg shadow-md p-4 border border-gray-200"
-        onClick={handleTourClick}
-      >
+        onClick={handleTourClick}>
         {/* Nút yêu thích */}
         <div
-          className={`absolute top-2 right-2 cursor-pointer text-[20px] ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          onClick={handleToggleFavorite}
-        >
+          className={`absolute top-2 right-2 cursor-pointer text-[20px] ${
+            isLoading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
+          onClick={handleToggleFavorite}>
           {isFavorite ? (
-            <HeartFilled style={{color:'red'}} />
+            <HeartFilled style={{ color: 'red' }} />
           ) : (
             <HeartOutlined className="text-gray-400 hover:text-red-500" />
           )}
@@ -130,7 +130,9 @@ function ItemBagTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
                 <CalendarOutlined className="text-gray-500 text-md" />
                 <span>
                   {tour.tourDetails?.[0]?.startDate
-                    ? new Date(tour.tourDetails[0]?.startDate).toLocaleDateString('vi-VN')
+                    ? new Date(
+                        tour.tourDetails[0]?.startDate
+                      ).toLocaleDateString('vi-VN')
                     : 'Chưa có'}
                 </span>
               </div>
@@ -170,7 +172,9 @@ function ItemBagTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
                 </div>
               </div>
               <p className="text-[18px] font-bold text-red-600">
-                {tour.price ? `${tour.price.toLocaleString()}đ` : 'Giá không có'}
+                {tour.price
+                  ? `${tour.price.toLocaleString()}đ`
+                  : 'Giá không có'}
               </p>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { getTourById } from '../apis/tour';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import { message, Button, Modal, Spin } from 'antd';
+import { useNavigate } from 'react-router-dom';
 
 export default function TourBookingForm({
   tourId,
@@ -21,11 +22,12 @@ export default function TourBookingForm({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
-  const [isBookingSuccess, setIsBookingSuccess] = useState(false); // Trạng thái đặt tour thành công
+  const [isBookingSuccess, setIsBookingSuccess] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false); // Thêm trạng thái loading
-  const [bookingId, setBookingId] = useState(null); // Thêm useState để lưu bookingId
+  const [loading, setLoading] = useState(false);
+  const [bookingId, setBookingId] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const navigate = useNavigate();
 
   const holidays = [
     '01-01',
@@ -41,14 +43,6 @@ export default function TourBookingForm({
     '09-15',
     '12-23',
   ];
-  
-  useEffect(() => {
-    if (tourId) {
-      getTourById(tourId)
-        .then((data) => setTour(data))
-        .catch((err) => console.error('Lỗi API:', err));
-    }
-  }, [tourId]);
 
   useEffect(() => {
     if (tourId) {
@@ -60,34 +54,33 @@ export default function TourBookingForm({
 
   const handleBooking = async () => {
     const token = localStorage.getItem('TOKEN');
-  
+
     if (!fullName || !phone || !email) {
       message.warning('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Email!');
       return;
     }
-  
+
     if (!startDate) {
       message.warning('Vui lòng chọn ngày khởi hành!');
       return;
     }
-  
-    // Kiểm tra số lượng người
+
     if (adults < 0 || children < 0 || infants < 0) {
       message.error('Số lượng người lớn, trẻ em, hoặc trẻ nhỏ không được âm!');
       return;
     }
-  
+
     const totalPeople = adults + children + infants;
     if (totalPeople <= 0) {
       message.error('Vui lòng chọn ít nhất một người tham gia!');
       return;
     }
-  
+
     setLoading(true);
-  
+
     try {
       const response = await axios.post(
-        'http://localhost:8080/api/bookings/book',
+        'http://18.138.107.49:8080/api/bookings/book',
         {
           tourId,
           numberPeople: totalPeople,
@@ -97,7 +90,7 @@ export default function TourBookingForm({
           numberAdults: adults,
           numberChildren: children,
           numberInfants: infants,
-          departureDate: startDate, // Thêm departureDate
+          departureDate: startDate,
           notes,
         },
         {
@@ -108,7 +101,7 @@ export default function TourBookingForm({
           withCredentials: true,
         }
       );
-  
+
       const receivedBookingId = response.data.bookingId;
       console.log('Booking ID nhận được:', receivedBookingId);
       if (!receivedBookingId) {
@@ -119,7 +112,7 @@ export default function TourBookingForm({
       setIsModalVisible(true);
     } catch (error) {
       message.error(
-        error.response?.data || 'Đặt tour thất bại, vui lòng thử lại!'
+        error.response?.data?.message || 'Đặt tour thất bại, vui lòng thử lại!'
       );
       console.error('Booking Error:', error.response?.data || error.message);
     } finally {
@@ -133,34 +126,66 @@ export default function TourBookingForm({
       message.error('Không thể tạo thanh toán do thiếu thông tin!');
       return;
     }
-  
+
     setIsProcessing(true);
     try {
-      const response = await fetch('http://localhost:8080/api/payment/vnpay-create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const token = localStorage.getItem('TOKEN');
+      if (!token) {
+        message.error('Vui lòng đăng nhập để thanh toán');
+        navigate('/login');
+        return;
+      }
+
+      const response = await axios.post(
+        'http://18.138.107.49:8080/api/payment/vnpay-create',
+        {
+          bookingId,
+          totalPrice,
+          paymentMethod: 'VNPAY',
         },
-        body: JSON.stringify({ bookingId, totalPrice }),
-      });
-  
-      const data = await response.json();
-      if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.data.paymentUrl) {
+        const newWindow = window.open(
+          response.data.paymentUrl,
+          '_blank',
+          'noopener,noreferrer'
+        );
+        if (!newWindow) {
+          message.warning(
+            'Trình duyệt chặn tab thanh toán. Vui lòng cho phép popup.'
+          );
+        } else {
+          setIsModalVisible(false); // Đóng modal chỉ khi cửa sổ mới mở thành công
+        }
       } else {
-        console.error('Không nhận được paymentUrl từ API!');
-        message.error('Không thể tạo liên kết thanh toán!');
+        message.error(
+          response.data.error || 'Không thể tạo liên kết thanh toán!'
+        );
       }
     } catch (error) {
       console.error('Lỗi khi tạo thanh toán:', error);
-      message.error('Lỗi khi tạo thanh toán, vui lòng thử lại!');
+      if (error.response?.status === 401) {
+        message.error('Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.');
+        localStorage.removeItem('TOKEN');
+        navigate('/login');
+      } else {
+        message.error('Lỗi khi tạo thanh toán, vui lòng thử lại!');
+      }
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleKeepBooking = () => {
-    setIsModalVisible(false); // Đóng modal khi người dùng quay lại
+    setIsModalVisible(false);
+    navigate('/booking-detail', { state: { id: bookingId } });
   };
 
   useEffect(() => {
@@ -170,12 +195,9 @@ export default function TourBookingForm({
         const payload = JSON.parse(
           atob(storedToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))
         );
-        console.log('Decoded Token:', payload);
+        setEmail(payload.sub || '');
 
-        setEmail(payload.sub || ''); // Email vẫn có trong token
-
-        // Gọi API lấy thông tin user đầy đủ
-        fetch('http://localhost:8080/api/users/me', {
+        fetch('http://18.138.107.49:8080/api/users/me', {
           headers: { Authorization: `Bearer ${storedToken}` },
         })
           .then((res) => res.json())
@@ -193,7 +215,7 @@ export default function TourBookingForm({
   }, []);
 
   return (
-    <div className="px-4 py-2  ">
+    <div className="px-4 py-2">
       <p className="text-gray-600 text-xs mb-3">
         Vui lòng kiểm tra và cung cấp thông tin đầy đủ trước khi gửi yêu cầu.
         Chúng tôi sẽ liên hệ và hỗ trợ bạn nhanh chóng.
@@ -204,16 +226,15 @@ export default function TourBookingForm({
         </div>
       )}
 
-      {/* Bảng thông tin tour */}
       <div className="border-b mb-3">
         <h3 className="font-medium text-sm text-gray-700">Thông tin tour</h3>
         <table className="min-w-full mt-2">
           <tbody>
             <tr>
-              <td className="pb-1 px-2 font-medium text-gray-600 text-[13px] ">
+              <td className="pb-1 px-2 font-medium text-gray-600 text-[13px]">
                 Tên tour
               </td>
-              <td className="pb-1  font-medium text-gray-600 text-[14px] ">
+              <td className="pb-1 font-medium text-gray-600 text-[14px]">
                 <p>{tour?.name}</p>
               </td>
             </tr>
@@ -221,7 +242,7 @@ export default function TourBookingForm({
               <td className="px-2 font-medium text-gray-600 text-[13px]">
                 Số người
               </td>
-              <td className="font-medium text-gray-600 text-[14px] ">
+              <td className="font-medium text-gray-600 text-[14px]">
                 <p>{adults + children + infants}</p>
               </td>
             </tr>
@@ -241,30 +262,28 @@ export default function TourBookingForm({
         </table>
       </div>
 
-      {/* Bảng chi tiết giá */}
       <div className="border-b mb-3">
         <h3 className="font-medium text-sm text-gray-700 py-2">Chi tiết giá</h3>
         <table className="w-full border-collapse border text-sm">
           <thead>
             <tr className="bg-gray-100">
-              <th className="border p-2 ">Loại giá</th>
-              <th className="border p-2 ">
+              <th className="border p-2">Loại giá</th>
+              <th className="border p-2">
                 Người lớn <br />
-                (&gt;10 tuổi)
+                (10 tuổi)
               </th>
               <th className="border p-2">
                 Trẻ em <br />
                 (2 - 10 tuổi)
               </th>
               <th className="border p-2">
-                Trẻ nhỏ <br />
-                (&lt; 2 tuổi)
+                Trẻ nhỏ <br />( 2 tuổi)
               </th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td className="border p-2 font-medium ">Giá</td>
+              <td className="border p-2 font-medium">Giá</td>
               <td className="border p-2 text-center">
                 {priceForOneAdult.toLocaleString('vi-VN')}đ
               </td>
@@ -278,17 +297,17 @@ export default function TourBookingForm({
             <tr>
               <td className="border p-2 font-medium">Số lượng</td>
               <td className="border">
-                <p className="w-full rounded text-center appearance-none ">
+                <p className="w-full rounded text-center appearance-none">
                   {adults}
                 </p>
               </td>
               <td className="border">
-                <p className="w-full rounded text-center appearance-none ">
+                <p className="w-full rounded text-center appearance-none">
                   {children}
                 </p>
               </td>
               <td className="border p-2">
-                <p className="w-full rounded text-center appearance-none ">
+                <p className="w-full rounded text-center appearance-none">
                   {infants}
                 </p>
               </td>
@@ -309,7 +328,6 @@ export default function TourBookingForm({
         </table>
       </div>
 
-      {/* Thông tin cá nhân */}
       <div className="mt-3">
         <label className="block font-medium text-xs mb-1">
           Họ và Tên <span className="text-red-500">*</span>
@@ -369,7 +387,6 @@ export default function TourBookingForm({
           Gửi yêu cầu
         </button>
 
-        {/* Modal thông báo thành công */}
         <Modal
           title="Đặt tour thành công!"
           visible={isModalVisible}
@@ -382,7 +399,8 @@ export default function TourBookingForm({
               key="submit"
               type="primary"
               onClick={() => handleRedirectToPayment(bookingId, totalPrice)}
-              disabled={!bookingId || isProcessing}>
+              disabled={!bookingId || isProcessing}
+              loading={isProcessing}>
               Đi đến thanh toán
             </Button>,
           ]}>

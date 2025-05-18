@@ -36,7 +36,7 @@ export default function ItemCradComponent({
 
     try {
       await axios.post(
-        `http://localhost:8080/api/search-history/click/${tour.tourId}`,
+        `http://18.138.107.49:8080/api/search-history/click/${tour.tourId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -64,7 +64,7 @@ export default function ItemCradComponent({
 
     try {
       if (isFavorite) {
-        await axios.delete('http://localhost:8080/api/tour-favourites', {
+        await axios.delete('http://18.138.107.49:8080/api/tour-favourites', {
           data: { tourId: tour.tourId },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -73,7 +73,7 @@ export default function ItemCradComponent({
         message.success('Đã xóa tour khỏi yêu thích!');
       } else {
         await axios.post(
-          'http://localhost:8080/api/tour-favourites',
+          'http://18.138.107.49:8080/api/tour-favourites',
           { tourId: tour.tourId },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -100,13 +100,16 @@ export default function ItemCradComponent({
   const averageRating = (() => {
     const reviews = tour?.tour?.reviews;
     if (!Array.isArray(reviews) || reviews.length === 0) return 'Chưa có';
-    const totalRating = reviews.reduce((sum, review) => sum + (Number(review?.rating) || 0), 0);
+    const totalRating = reviews.reduce(
+      (sum, review) => sum + (Number(review?.rating) || 0),
+      0
+    );
     return (totalRating / reviews.length).toFixed(1);
   })();
 
-const totalBookings = (tour?.tour?.bookings || []).filter(
-  booking => booking?.status === 'COMPLETED'
-).length;
+  const totalBookings = (tour?.tour?.bookings || []).filter(
+    (booking) => booking?.status === 'COMPLETED'
+  ).length;
 
   return (
     <motion.div
@@ -114,16 +117,17 @@ const totalBookings = (tour?.tour?.bookings || []).filter(
       hover:shadow-xl transition-all duration-200 border border-gray-100 flex flex-col my-5"
       onClick={handleTourClick}
       whileHover={{ scale: 1 }}
-      whileTap={{ scale: 0.98 }}
-    >
+      whileTap={{ scale: 0.98 }}>
       <motion.div
         animate={{ scale: isFavorite && token ? 1.2 : 1 }}
         transition={{ duration: 0.2 }}
         className="absolute top-2 right-2 z-10"
-        onClick={handleToggleFavorite}
-      >
+        onClick={handleToggleFavorite}>
         {token && isFavorite ? (
-          <HeartFilled className="text-red-500 text-base" style={{ color: '#EB3232' }} />
+          <HeartFilled
+            className="text-red-500 text-base"
+            style={{ color: '#EB3232' }}
+          />
         ) : (
           <HeartOutlined className="text-gray-500 text-base hover:text-red-400" />
         )}
@@ -152,13 +156,14 @@ const totalBookings = (tour?.tour?.bookings || []).filter(
 
         <div className="flex items-center justify-between text-xs text-gray-600">
           <div className="flex items-center gap-1">
-            <StarFilled className="text-yellow-500" style={{ color: '#D4D10B' }} />
+            <StarFilled
+              className="text-yellow-500"
+              style={{ color: '#D4D10B' }}
+            />
             <span>{averageRating}</span>
           </div>
           <span>
-            {totalBookings
-              ? `${totalBookings} lượt đặt`
-              : 'Chưa có lượt đặt'}
+            {totalBookings ? `${totalBookings} lượt đặt` : 'Chưa có lượt đặt'}
           </span>
         </div>
       </div>

@@ -48,7 +48,7 @@ export default function ItemTourComponent({
 
     try {
       if (isFavorite) {
-        await axios.delete('http://localhost:8080/api/tour-favourites', {
+        await axios.delete('http://18.138.107.49:8080/api/tour-favourites', {
           data: { tourId: tour.tourId }, // Added tourId in data
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -57,7 +57,7 @@ export default function ItemTourComponent({
         if (onFavoriteChange) onFavoriteChange(tour.tourId, false);
       } else {
         await axios.post(
-          'http://localhost:8080/api/tour-favourites',
+          'http://18.138.107.49:8080/api/tour-favourites',
           { tourId: tour.tourId },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -91,7 +91,7 @@ export default function ItemTourComponent({
 
     try {
       await axios.post(
-        `http://localhost:8080/api/search-history/click/${tour.tourId}`,
+        `http://18.138.107.49:8080/api/search-history/click/${tour.tourId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -126,38 +126,40 @@ export default function ItemTourComponent({
       className="bg-white shadow-md rounded-lg cursor-pointer border border-gray-200 hover:shadow-lg transition duration-300 overflow-hidden max-w-full box-border w-[calc(100%-1rem)] sm:w-75 h-auto pb-2 sm:h-90 my-1 sm:my-3 mx-2 sm:mx-0"
       role="button"
       tabIndex={0}
-      onClick={handleTourClick}
-    >
+      onClick={handleTourClick}>
       <div className="relative group">
         <img
           src={tour.imageURL || card}
           alt={tour.name || 'Travel'}
-          className="h-30 sm:h-36 w-full object-cover rounded-t-lg transition duration-300"
+          className="h-20 sm:h-36 w-full object-cover rounded-t-lg transition duration-300"
         />
-        <span className="absolute top-1 left-1 bg-black/50 text-white px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[10px] rounded-md">
+        {/* <span className="absolute top-1 left-1 bg-black/50 text-white px-1.5 sm:px-2 py-0.5 text-[8px] sm:text-[10px] rounded-md">
           Từ Hà Nội
-        </span>
+        </span> */}
         <div
           className="absolute top-1 right-1 cursor-pointer text-[16px] sm:text-[20px]"
-          onClick={handleToggleFavorite}
-        >
+          onClick={handleToggleFavorite}>
           {isFavorite ? (
-            <HeartFilled style={{ color: '#CC0000', fontSize: '16px sm:20px' }} />
+            <HeartFilled
+              style={{ color: '#CC0000', fontSize: '16px sm:20px' }}
+            />
           ) : (
-            <HeartOutlined style={{ color: '#CCCCCC', fontSize: '16px sm:20px' }} />
+            <HeartOutlined
+              style={{ color: '#CCCCCC', fontSize: '16px sm:20px' }}
+            />
           )}
         </div>
       </div>
 
-      <div className="pt-1 px-3 sm:pt-1.5 sm:px-4 space-y-1 sm:space-y-1.5">
-        <h3 className="text-[15px] sm:text-[17px] py-0.5 sm:py-1 font-bold text-gray-900 leading-5 line-clamp-2">
+      <div className="pt-1 px-2 sm:pt-1.5 sm:px-4 space-y-0.5 sm:space-y-1.5">
+        <h3 className="text-[9px] sm:text-[17px] py-0.1 sm:py-1 font-bold text-gray-900 leading-3 line-clamp-2">
           {tour.name || 'Tên Tour'}
         </h3>
-        <p className="text-[12px] sm:text-[14px] text-gray-600 line-clamp-1">
+        <p className="text-[9px] sm:text-[14px] text-gray-600 line-clamp-1">
           Mô tả: {tour.description || 'Mô tả tour'}
         </p>
-        <p className="text-[12px] sm:text-[14px] text-gray-600 line-clamp-2 pb-0.5 sm:pb-1">
-          Loại hình tour: {tour.tourCategory?.categoryName || 'Chưa có loại'}
+        <p className="text-[9px] sm:text-[14px] text-gray-600 line-clamp-2 pb-0.5 sm:pb-1">
+          Loại hình tour: {tour.tourcategory?.categoryName || 'Chưa có loại'}
         </p>
         <div className="flex flex-wrap justify-between text-[10px] sm:text-[12px] text-gray-500 gap-1 sm:gap-0">
           <span className="flex items-center gap-1">
@@ -170,7 +172,9 @@ export default function ItemTourComponent({
           <span className="flex items-center gap-1">
             <CalendarOutlined />
             {tour.tourDetails?.[0]?.startDate
-              ? new Date(tour.tourDetails[0].startDate).toLocaleDateString('vi-VN')
+              ? new Date(tour.tourDetails[0].startDate).toLocaleDateString(
+                  'vi-VN'
+                )
               : 'N/A'}
           </span>
           <span className="flex items-center gap-1 text-yellow-500">
@@ -178,19 +182,23 @@ export default function ItemTourComponent({
             <span className="text-gray-600">{averageRating}</span>
           </span>
         </div>
-        <div className="flex items-center space-x-1 sm:space-x-2 text-[11px] sm:text-[13px] pb-0.5 sm:pb-1 text-gray-700">
+        <div className="flex items-center space-x-1 sm:space-x-2 text-[9px] sm:text-[13px] pb-0.5 sm:pb-1 text-gray-700">
           <UserOutlined className="text-gray-500 text-[8px] sm:text-[10px]" />
           <span>
             {tour.availableSlot ? `${tour.availableSlot} chỗ còn` : 'Hết chỗ'} |{' '}
-            {totalSeatsBooked ? `${totalSeatsBooked} lượt đặt` : 'Chưa có lượt đặt'}
+            {totalSeatsBooked
+              ? `${totalSeatsBooked} lượt đặt`
+              : 'Chưa có lượt đặt'}
           </span>
         </div>
         <div className="flex justify-between items-center border-t pt-1 sm:pt-2 mt-0.5 sm:mt-1 text-xs">
           <div className="flex items-center space-x-1 text-gray-700">
             <EnvironmentOutlined className="text-[9px] sm:text-[11px]" />
-            <span className="text-[11px] sm:text-[12px]">{tour.location || 'Đà Nẵng'}</span>
+            <span className="text-[8px] sm:text-[12px]">
+              {tour.location || 'Đà Nẵng'}
+            </span>
           </div>
-          <p className="text-[14px] sm:text-base font-bold text-red-600">
+          <p className="text-[8px] sm:text-base font-bold text-red-600">
             {tour.price ? `${tour.price.toLocaleString()} đ` : 'Giá không có'}
           </p>
         </div>
