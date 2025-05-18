@@ -1,30 +1,42 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
-import { getTours, getFavoriteTours, calculateChangeFee, changeTour } from '../apis/tour';
+import {
+  getTours,
+  getFavoriteTours,
+  calculateChangeFee,
+  changeTour,
+} from '../apis/tour';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://18.138.107.49:8080/api';
 
-export const fetchTours = createAsyncThunk('tours/fetchTours', async (_, { rejectWithValue }) => {
-  try {
-    const data = await getTours();
-    console.log('fetchTours data:', data);
-    return data;
-  } catch (error) {
-    console.error('fetchTours error:', error);
-    return rejectWithValue(error.message || 'Không tải được danh sách tour');
+export const fetchTours = createAsyncThunk(
+  'tours/fetchTours',
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await getTours();
+      console.log('fetchTours data:', data);
+      return data;
+    } catch (error) {
+      console.error('fetchTours error:', error);
+      return rejectWithValue(error.message || 'Không tải được danh sách tour');
+    }
   }
-});
+);
 
-export const fetchFavoriteTours = createAsyncThunk('tours/fetchFavoriteTours', async (_, { rejectWithValue }) => {
-  try {
-    const data = await getFavoriteTours();
-    console.log('fetchFavoriteTours data:', data);
-    return data;
-  } catch (error) {
-    console.error('fetchFavoriteTours error:', error);
-    return rejectWithValue(error.message || 'Không tải được tour yêu thích');
+export const fetchFavoriteTours = createAsyncThunk(
+  'tours/fetchFavoriteTours',
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await getFavoriteTours();
+      console.log('fetchFavoriteTours data:', data);
+      return data;
+    } catch (error) {
+      console.error('fetchFavoriteTours error:', error);
+      return rejectWithValue(error.message || 'Không tải được tour yêu thích');
+    }
   }
-});
+);
 
 export const toggleFavoriteTour = createAsyncThunk(
   'tours/toggleFavoriteTour',
@@ -111,7 +123,9 @@ const tourSlice = createSlice({
       })
       .addCase(fetchTours.fulfilled, (state, action) => {
         const uniqueTours = Array.from(
-          new Map((action.payload || []).map((tour) => [tour.tourId, tour])).values()
+          new Map(
+            (action.payload || []).map((tour) => [tour.tourId, tour])
+          ).values()
         );
         state.tours = uniqueTours;
         state.filteredTours = uniqueTours;
@@ -131,11 +145,16 @@ const tourSlice = createSlice({
       })
       .addCase(fetchFavoriteTours.fulfilled, (state, action) => {
         const uniqueTours = Array.from(
-          new Map((action.payload || []).map((tour) => [tour.tourId, tour])).values()
+          new Map(
+            (action.payload || []).map((tour) => [tour.tourId, tour])
+          ).values()
         );
         state.favoriteTours = uniqueTours;
         state.loading = false;
-        console.log('fetchFavoriteTours fulfilled, favoriteTours:', state.favoriteTours);
+        console.log(
+          'fetchFavoriteTours fulfilled, favoriteTours:',
+          state.favoriteTours
+        );
       })
       .addCase(fetchFavoriteTours.rejected, (state, action) => {
         state.favoriteTours = [];
@@ -150,18 +169,27 @@ const tourSlice = createSlice({
       .addCase(toggleFavoriteTour.fulfilled, (state, action) => {
         const { tourId, isFavorite, tour } = action.payload;
         if (isFavorite) {
-          if (tour && !state.favoriteTours.some((fav) => fav.tourId === tourId)) {
+          if (
+            tour &&
+            !state.favoriteTours.some((fav) => fav.tourId === tourId)
+          ) {
             state.favoriteTours.push(tour);
           }
         } else {
-          state.favoriteTours = state.favoriteTours.filter((fav) => fav.tourId !== tourId);
+          state.favoriteTours = state.favoriteTours.filter(
+            (fav) => fav.tourId !== tourId
+          );
         }
         state.loading = false;
-        console.log('toggleFavoriteTour fulfilled, favoriteTours:', state.favoriteTours);
+        console.log(
+          'toggleFavoriteTour fulfilled, favoriteTours:',
+          state.favoriteTours
+        );
       })
       .addCase(toggleFavoriteTour.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload.message || 'Không thể cập nhật tour yêu thích';
+        state.error =
+          action.payload.message || 'Không thể cập nhật tour yêu thích';
         console.log('toggleFavoriteTour rejected, error:', state.error);
       })
       .addCase(calculateChangeFeeThunk.pending, (state) => {
@@ -171,7 +199,10 @@ const tourSlice = createSlice({
       .addCase(calculateChangeFeeThunk.fulfilled, (state, action) => {
         state.changeFee = action.payload;
         state.loading = false;
-        console.log('calculateChangeFee fulfilled, changeFee:', state.changeFee);
+        console.log(
+          'calculateChangeFee fulfilled, changeFee:',
+          state.changeFee
+        );
       })
       .addCase(calculateChangeFeeThunk.rejected, (state, action) => {
         state.loading = false;
@@ -185,7 +216,10 @@ const tourSlice = createSlice({
       .addCase(changeTourThunk.fulfilled, (state, action) => {
         state.changeTourResult = action.payload;
         state.loading = false;
-        console.log('changeTour fulfilled, changeTourResult:', state.changeTourResult);
+        console.log(
+          'changeTour fulfilled, changeTourResult:',
+          state.changeTourResult
+        );
       })
       .addCase(changeTourThunk.rejected, (state, action) => {
         state.loading = false;
@@ -195,5 +229,6 @@ const tourSlice = createSlice({
   },
 });
 
-export const { setFilteredTours, resetFavoriteTours, clearChangeFee } = tourSlice.actions;
+export const { setFilteredTours, resetFavoriteTours, clearChangeFee } =
+  tourSlice.actions;
 export default tourSlice.reducer;

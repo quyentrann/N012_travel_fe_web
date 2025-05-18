@@ -103,21 +103,31 @@ const Orders = () => {
     '12-23',
   ];
 
+  const calculateTotalPrice = (data) => {
+    const { numberAdults, numberChildren, numberInfants, adultPrice, childPrice, infantPrice, departureDate } = data;
+    let totalPrice = numberAdults * adultPrice + numberChildren * childPrice + numberInfants * infantPrice;
+    const isHoliday = departureDate ? holidays.includes(dayjs(departureDate).format('MM-DD')) : false;
+    totalPrice *= isHoliday ? 1.2 : 1.0; // Apply holiday multiplier
+    const totalPeople = numberAdults + numberChildren + numberInfants;
+    if (totalPeople >= 5) {
+        totalPrice *= 0.9; // Apply 10% discount for 5 or more people
+    }
+    return Math.round(totalPrice); // Round to avoid floating-point issues
+};
+
   // Calculate total price whenever quantities change
-  useEffect(() => {
-    const totalPrice =
-      changeTourData.numberAdults * changeTourData.adultPrice +
-      changeTourData.numberChildren * changeTourData.childPrice +
-      changeTourData.numberInfants * changeTourData.infantPrice;
+useEffect(() => {
+    const totalPrice = calculateTotalPrice(changeTourData);
     setChangeTourData((prev) => ({ ...prev, totalPrice }));
-  }, [
+}, [
     changeTourData.numberAdults,
     changeTourData.numberChildren,
     changeTourData.numberInfants,
     changeTourData.adultPrice,
     changeTourData.childPrice,
     changeTourData.infantPrice,
-  ]);
+    changeTourData.departureDate,
+]);
 
   // Reset additionalPaymentInfo when modal closes
   useEffect(() => {
@@ -476,155 +486,148 @@ const Orders = () => {
     setPaymentMethod('VNPAY');
     setPaymentInfoLoading(true);
     try {
-      const token = localStorage.getItem('TOKEN');
-      if (!token) {
-        message.error('Vui lòng đăng nhập để thanh toán bổ sung');
-        navigate('/login');
-        return;
-      }
-
-      // Fetch booking history entries
-      const response = await axiosInstance.get(`/bookings/history/${bookingId}/entries`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      console.log('Booking history entries response:', response.data);
-
-      // Validate response structure
-      if (!Array.isArray(response.data)) {
-        console.error('Invalid history response: Expected an array, received:', response.data);
-        message.error('Dữ liệu lịch sử booking không hợp lệ');
-        return;
-      }
-
-      // Find the latest history entry with additionalPayment > 0 and newStatus === 'PENDING_PAYMENT'
-      const latestHistory = response.data
-        .sort((a, b) => new Date(b.changeDate) - new Date(a.changeDate))
-        .find((entry) => entry.additionalPayment > 0 && entry.newStatus === 'PENDING_PAYMENT');
-
-      if (!latestHistory) {
-        console.warn(
-          `No history entry found with additionalPayment > 0 and newStatus = PENDING_PAYMENT for bookingId: ${bookingId}`
-        );
-        console.log('Available history entries:', response.data);
-        message.error(
-          'Không tìm thấy thông tin thanh toán bổ sung. Có thể booking chưa yêu cầu thanh toán bổ sung.'
-        );
-        return;
-      }
-
-      // Validate booking status
-      const booking = history.find((item) => item.key === bookingId);
-      if (!booking || booking.status !== 'PENDING_PAYMENT') {
-        console.warn(
-          `Booking status mismatch. Local status: ${booking?.status}, expected: PENDING_PAYMENT`
-        );
-        message.error('Booking không ở trạng thái chờ thanh toán bổ sung');
-        return;
-      }
-
-      setAdditionalPaymentInfo({
-        additionalPayment: latestHistory.additionalPayment,
-        changeDate: latestHistory.changeDate,
-      });
-      setIsAdditionalPaymentModalVisible(true);
-    } catch (error) {
-      console.error('Lỗi khi lấy thông tin thanh toán bổ sung:', error.response || error);
-      let errorMessage = 'Không thể lấy thông tin thanh toán bổ sung';
-      if (error.response) {
-        if (error.response.status === 404) {
-          errorMessage = 'Không tìm thấy booking';
-        } else if (error.response.status === 403) {
-          errorMessage = 'Bạn không có quyền truy cập thông tin booking';
-        } else if (error.response.status === 400) {
-          errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
-        } else {
-          errorMessage = error.response.data.error || 'Lỗi server';
+        const token = localStorage.getItem('TOKEN');
+        if (!token) {
+            message.error('Vui lòng đăng nhập để thanh toán bổ sung');
+            navigate('/login');
+            return;
         }
-      }
-      message.error(errorMessage);
+
+        const response = await axiosInstance.get(`/bookings/history/${bookingId}/entries`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log('Booking history entries response:', response.data);
+
+        if (!Array.isArray(response.data)) {
+            console.error('Invalid history response: Expected an array, received:', response.data);
+            message.error('Dữ liệu lịch sử booking không hợp lệ');
+            return;
+        }
+
+        const latestHistory = response.data
+            .sort((a, b) => new Date(b.changeDate) - new Date(a.changeDate))
+            .find((entry) => entry.additionalPayment > 0 && entry.newStatus === 'PENDING_PAYMENT');
+
+        if (!latestHistory) {
+            console.warn(
+                `No history entry found with additionalPayment > 0 and newStatus = PENDING_PAYMENT for bookingId: ${bookingId}`
+            );
+            message.error(
+                'Không tìm thấy thông tin thanh toán bổ sung.'
+            );
+            return;
+        }
+
+        const booking = history.find((item) => item.key === bookingId);
+        if (!booking || booking.status !== 'PENDING_PAYMENT') {
+            console.warn(
+                `Booking status mismatch. Local status: ${booking?.status}, expected: PENDING_PAYMENT`
+            );
+            message.error('Booking không ở trạng thái chờ thanh toán bổ sung');
+            return;
+        }
+
+        setAdditionalPaymentInfo({
+            additionalPayment: latestHistory.additionalPayment,
+            changeDate: latestHistory.changeDate,
+        });
+        setIsAdditionalPaymentModalVisible(true);
+    } catch (error) {
+        console.error('Lỗi khi lấy thông tin thanh toán bổ sung:', error.response || error);
+        let errorMessage = 'Không thể lấy thông tin thanh toán bổ sung';
+        if (error.response) {
+            if (error.response.status === 404) {
+                errorMessage = 'Không tìm thấy booking';
+            } else if (error.response.status === 403) {
+                errorMessage = 'Bạn không có quyền truy cập thông tin booking';
+            } else if (error.response.status === 400) {
+                errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
+            } else {
+                errorMessage = error.response.data.error || 'Lỗi server';
+            }
+        }
+        message.error(errorMessage);
     } finally {
-      setPaymentInfoLoading(false);
+        setPaymentInfoLoading(false);
     }
-  };
+};
 
   const handleAdditionalPayment = async () => {
     if (!selectedBooking?.bookingId) {
-      message.error('Không có thông tin booking!');
-      return;
+        message.error('Không có thông tin booking!');
+        return;
     }
     if (!additionalPaymentInfo?.additionalPayment || additionalPaymentInfo.additionalPayment <= 0) {
-      message.error('Số tiền thanh toán bổ sung không hợp lệ!');
-      return;
+        message.error('Số tiền thanh toán bổ sung không hợp lệ!');
+        return;
     }
 
     setPaymentLoading(true);
     try {
-      const token = localStorage.getItem('TOKEN');
-      if (!token) {
-        message.error('Vui lòng đăng nhập để thanh toán bổ sung');
-        navigate('/login');
-        return;
-      }
-
-      // Fetch client IP
-      let ipAddress = '127.0.0.1';
-      try {
-        const ipResponse = await axios.get('https://api.ipify.org?format=json');
-        ipAddress = ipResponse.data.ip;
-      } catch (ipError) {
-        console.warn('Failed to fetch client IP, using default:', ipError);
-      }
-
-      // Validate booking status
-      const bookingResponse = await axiosInstance.get(`/bookings/${selectedBooking.bookingId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const bookingStatus = bookingResponse.data.status;
-      console.log(`Booking ID: ${selectedBooking.bookingId}, Status: ${bookingStatus}`);
-      if (bookingStatus !== 'PENDING_PAYMENT' && bookingStatus !== 'CONFIRMED') {
-        message.error('Booking không ở trạng thái cho phép thanh toán. Vui lòng kiểm tra lại.');
-        return;
-      }
-
-      const response = await axiosInstance.post(
-        '/payment/vnpay-create',
-        {
-          bookingId: selectedBooking.bookingId,
-          totalPrice: additionalPaymentInfo.additionalPayment,
-          ipAddress,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (response.data.paymentUrl) {
-        console.log('VNPAY payment URL:', response.data.paymentUrl);
-        const newWindow = window.open(response.data.paymentUrl, '_blank');
-        if (!newWindow) {
-          message.warning('Trình duyệt chặn tab thanh toán. Vui lòng cho phép popup.');
-          setPaymentLoading(false);
-          return;
+        const token = localStorage.getItem('TOKEN');
+        if (!token) {
+            message.error('Vui lòng đăng nhập để thanh toán bổ sung');
+            navigate('/login');
+            return;
         }
 
-        message.info('Vui lòng hoàn tất thanh toán trên cổng VNPAY.');
-        setIsAdditionalPaymentModalVisible(false);
-      } else {
-        message.error(response.data.error || 'Không thể tạo liên kết thanh toán bổ sung!');
-      }
+        let ipAddress = '127.0.0.1';
+        try {
+            const ipResponse = await axios.get('https://api.ipify.org?format=json');
+            ipAddress = ipResponse.data.ip;
+        } catch (ipError) {
+            console.warn('Failed to fetch client IP, using default:', ipError);
+        }
+
+        const bookingResponse = await axiosInstance.get(`/bookings/${selectedBooking.bookingId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const bookingStatus = bookingResponse.data.status;
+        console.log(`Booking ID: ${selectedBooking.bookingId}, Status: ${bookingStatus}`);
+        if (bookingStatus !== 'PENDING_PAYMENT' && bookingStatus !== 'CONFIRMED') {
+            message.error('Booking không ở trạng thái cho phép thanh toán. Vui lòng kiểm tra lại.');
+            return;
+        }
+
+        const response = await axiosInstance.post(
+            '/payment/vnpay-create',
+            {
+                bookingId: selectedBooking.bookingId,
+                totalPrice: additionalPaymentInfo.additionalPayment,
+                ipAddress,
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (response.data.paymentUrl) {
+            console.log('VNPAY payment URL:', response.data.paymentUrl);
+            const newWindow = window.open(response.data.paymentUrl, '_blank');
+            if (!newWindow) {
+                message.warning('Trình duyệt chặn tab thanh toán. Vui lòng cho phép popup.');
+                setPaymentLoading(false);
+                return;
+            }
+
+            message.info('Vui lòng hoàn tất thanh toán trên cổng VNPAY.');
+            setIsAdditionalPaymentModalVisible(false);
+        } else {
+            message.error(response.data.error || 'Không thể tạo liên kết thanh toán bổ sung!');
+        }
     } catch (error) {
-      console.error('Lỗi khi thực hiện thanh toán bổ sung:', error.response || error);
-      message.error(
-        error.response?.data?.error ||
-          (error.response?.status === 400
-            ? 'Dữ liệu không hợp lệ'
-            : error.response?.status === 403
-            ? 'Bạn không có quyền thực hiện thanh toán này'
-            : 'Lỗi khi thực hiện thanh toán bổ sung, vui lòng thử lại!')
-      );
+        console.error('Lỗi khi thực hiện thanh toán bổ sung:', error.response || error);
+        message.error(
+            error.response?.data?.error ||
+                (error.response?.status === 400
+                    ? 'Dữ liệu không hợp lệ'
+                    : error.response?.status === 403
+                    ? 'Bạn không có quyền thực hiện thanh toán này'
+                    : 'Lỗi khi thực hiện thanh toán bổ sung, vui lòng thử lại!')
+        );
     } finally {
-      setPaymentLoading(false);
+        setPaymentLoading(false);
     }
-  };
+};
 
   // Change tour handlers
   const showChangeModal = async (
@@ -720,100 +723,94 @@ const Orders = () => {
     }
   };
 
-  const handleConfirmChange = async () => {
+  // In handleConfirmChange
+const handleConfirmChange = async () => {
     if (
-      !changeTourData.departureDate ||
-      (!changeTourData.numberAdults &&
-        !changeTourData.numberChildren &&
-        !changeTourData.numberInfants)
+        !changeTourData.departureDate ||
+        (!changeTourData.numberAdults &&
+            !changeTourData.numberChildren &&
+            !changeTourData.numberInfants)
     ) {
-      message.error('Vui lòng chọn ngày khởi hành và số người');
-      return;
+        message.error('Vui lòng chọn ngày khởi hành và số người');
+        return;
     }
     const totalPeople =
-      changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
+        changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
     if (totalPeople > changeTourData.maxPeople) {
-      message.error(`Số người vượt quá số chỗ khả dụng (${changeTourData.maxPeople})`);
-      return;
+        message.error(`Số người vượt quá số chỗ khả dụng (${changeTourData.maxPeople})`);
+        return;
     }
 
     setChangeLoading(true);
     try {
-      const isHoliday = changeTourData.departureDate
-        ? holidays.includes(dayjs(changeTourData.departureDate).format('MM-DD'))
-        : false;
-      const changeRequest = {
-        departureDate: dayjs(changeTourData.departureDate).format('YYYY-MM-DD'),
-        numberAdults: changeTourData.numberAdults,
-        numberChildren: changeTourData.numberChildren,
-        numberInfants: changeTourData.numberInfants,
-        isHoliday,
-        changeDate: new Date().toISOString(),
-      };
-      const response = await dispatch(
-        changeTourThunk({ bookingId: changeTourData.bookingId, changeRequest })
-      ).unwrap();
+        const isHoliday = changeTourData.departureDate
+            ? holidays.includes(dayjs(changeTourData.departureDate).format('MM-DD'))
+            : false;
+        const changeRequest = {
+            departureDate: dayjs(changeTourData.departureDate).format('YYYY-MM-DD'),
+            numberAdults: changeTourData.numberAdults,
+            numberChildren: changeTourData.numberChildren,
+            numberInfants: changeTourData.numberInfants,
+            isHoliday,
+            changeDate: new Date().toISOString(),
+        };
+        console.log('Change request:', changeRequest); // Debug log
+        const response = await dispatch(
+            changeTourThunk({ bookingId: changeTourData.bookingId, changeRequest })
+        ).unwrap();
 
-      // Log for debugging
-      console.log('Change tour response:', response);
-      console.log('Updated history with PENDING_PAYMENT:', {
-        bookingId: changeTourData.bookingId,
-        priceDifference: changeFeeInfo.priceDifference,
-        newTotalPrice: changeFeeInfo.newTotalPrice,
-        status: changeFeeInfo.priceDifference > 0 ? 'PENDING_PAYMENT' : item.status,
-      });
-
-      setHistory((prevHistory) =>
-        prevHistory.map((item) =>
-          item.key === changeTourData.bookingId
-            ? {
-                ...item,
-                departureDate: changeTourData.departureDate,
-                numberPeople: totalPeople,
-                numberAdults: changeTourData.numberAdults,
-                numberChildren: changeTourData.numberChildren,
-                numberInfants: changeTourData.numberInfants,
-                totalPrice: changeFeeInfo.newTotalPrice,
-                price: changeFeeInfo.newTotalPrice
-                  ? changeFeeInfo.newTotalPrice.toLocaleString('vi-VN') + 'đ'
-                  : item.price,
-                status: changeFeeInfo.priceDifference > 0 ? 'PENDING_PAYMENT' : item.status,
-              }
-            : item
-        )
-      );
-
-      setIsChangeModalVisible(false);
-      if (changeFeeInfo.priceDifference > 0) {
-        message.success(
-          `Đổi lịch tour thành công! Vui lòng thanh toán bổ sung ${changeFeeInfo.priceDifference.toLocaleString(
-            'vi-VN'
-          )} VND.`
+        console.log('Change tour response:', response);
+        setHistory((prevHistory) =>
+            prevHistory.map((item) =>
+                item.key === changeTourData.bookingId
+                    ? {
+                          ...item,
+                          departureDate: changeTourData.departureDate,
+                          numberPeople: totalPeople,
+                          numberAdults: changeTourData.numberAdults,
+                          numberChildren: changeTourData.numberChildren,
+                          numberInfants: changeTourData.numberInfants,
+                          totalPrice: changeFeeInfo.newTotalPrice,
+                          price: changeFeeInfo.newTotalPrice
+                              ? changeFeeInfo.newTotalPrice.toLocaleString('vi-VN') + 'đ'
+                              : item.price,
+                          status: changeFeeInfo.priceDifference > 0 ? 'PENDING_PAYMENT' : item.status,
+                      }
+                    : item
+            )
         );
-      } else {
-        message.success(response.message || 'Đổi lịch tour thành công!');
-      }
-      setChangeTourData({
-        bookingId: null,
-        currentTourName: '',
-        departureDate: null,
-        numberAdults: 1,
-        numberChildren: 0,
-        numberInfants: 0,
-        maxPeople: Infinity,
-        adultPrice: 0,
-        childPrice: 0,
-        infantPrice: 0,
-        totalPrice: 0,
-      });
-      setChangeFeeInfo(null);
+
+        setIsChangeModalVisible(false);
+        if (changeFeeInfo.priceDifference > 0) {
+            message.success(
+                `Đổi lịch tour thành công! Vui lòng thanh toán bổ sung ${changeFeeInfo.priceDifference.toLocaleString(
+                    'vi-VN'
+                )} VND.`
+            );
+        } else {
+            message.success(response.message || 'Đổi lịch tour thành công!');
+        }
+        setChangeTourData({
+            bookingId: null,
+            currentTourName: '',
+            departureDate: null,
+            numberAdults: 1,
+            numberChildren: 0,
+            numberInfants: 0,
+            maxPeople: Infinity,
+            adultPrice: 0,
+            childPrice: 0,
+            infantPrice: 0,
+            totalPrice: 0,
+        });
+        setChangeFeeInfo(null);
     } catch (error) {
-      console.error('Error changing tour:', error);
-      message.error(error.message || 'Không thể đổi tour');
+        console.error('Error changing tour:', error);
+        message.error(error.message || 'Không thể đổi tour');
     } finally {
-      setChangeLoading(false);
+        setChangeLoading(false);
     }
-  };
+};
 
   // Columns for Active Bookings
   const activeColumns = [
@@ -1655,13 +1652,13 @@ const Orders = () => {
             />
           </div>
           <div>
-            <Text className="text-gray-600">
-              Tổng giá tạm tính:{' '}
-              <span className="font-semibold text-gray-800">
-                {changeTourData.totalPrice.toLocaleString('vi-VN')} VND
-              </span>
-            </Text>
-          </div>
+    <Text className="text-gray-600">
+        Tổng giá tạm tính:{' '}
+        <span className="font-semibold text-gray-800">
+            {changeTourData.totalPrice.toLocaleString('vi-VN')} VND
+        </span>
+    </Text>
+</div>
           {changeFeeInfo && (
             <div className="space-y-2">
               <Text className="text-gray-600">Thông tin phí đổi:</Text>

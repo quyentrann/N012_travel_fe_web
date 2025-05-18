@@ -410,7 +410,7 @@ export default function TourDetail() {
   const getSimilarTours = async (tourId) => {
     try {
       const response = await fetch(
-        `http://localhost:8080/api/tours/${tourId}/similar`
+        `http://18.138.107.49:8080/api/tours/${tourId}/similar`
       );
       if (!response.ok) {
         throw new Error('Lỗi khi lấy tour tương tự');
@@ -484,21 +484,17 @@ export default function TourDetail() {
     children: (
       <div className="text-[14px] pl-4">
         <p>
-          <ClockCircleOutlined style={{ paddingRight: '5px' }} />
-          <strong> Thời gian:</strong> {schedule.arrivalTime} -{' '}
+          <span>- Thời gian:</span> {schedule.arrivalTime} -{' '}
           {schedule.departureTime}
         </p>
         <p>
-          <CarOutlined style={{ paddingRight: '5px' }} />
-          <strong> Phương tiện:</strong> {schedule.stransport}
+          <span>- Phương tiện:</span> {schedule.transport}
         </p>
         <p>
-          <ForkOutlined style={{ paddingRight: '5px' }} />
-          <strong> Bữa ăn:</strong> {schedule.meal}
+          <span>- Bữa ăn:</span> {schedule.meal}
         </p>
         <p>
-          <CheckOutlined style={{ paddingRight: '5px', color: '#228B22' }} />
-          <strong> Hoạt động:</strong> {schedule.activities}
+          <span>- Hoạt động:</span> {schedule.activities}
         </p>
       </div>
     ),
@@ -628,8 +624,7 @@ export default function TourDetail() {
             <motion.div variants={buttonVariants} whileHover="hover">
               <Button
                 onClick={() => navigate(-1)}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4"
-              >
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-4">
                 <ArrowLeftOutlined />
               </Button>
             </motion.div>
@@ -640,8 +635,7 @@ export default function TourDetail() {
             />
             <span
               className="text-xl font-bold text-gray-900 hidden sm:block"
-              style={{ fontFamily: 'Dancing Script, cursive' }}
-            >
+              style={{ fontFamily: 'Dancing Script, cursive' }}>
               TADA
             </span>
           </div>
@@ -651,7 +645,11 @@ export default function TourDetail() {
             {/* Desktop Navigation */}
             <div className="hidden sm:flex items-center space-x-4">
               {navLinks.map((link) => {
-                if (link.label === 'Tour Yêu Thích' && link.label === 'Dành Cho Bạn'  && !isAuthenticated) {
+                if (
+                  link.label === 'Tour Yêu Thích' &&
+                  link.label === 'Dành Cho Bạn' &&
+                  !isAuthenticated
+                ) {
                   return null;
                 }
                 return (
@@ -660,8 +658,7 @@ export default function TourDetail() {
                     whileHover={{ scale: 1.05 }}
                     className="text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors"
                     onClick={() => navigate(link.path)}
-                    aria-label={link.label}
-                  >
+                    aria-label={link.label}>
                     {link.label}
                   </motion.button>
                 );
@@ -672,14 +669,12 @@ export default function TourDetail() {
             <div className="hidden sm:block relative" ref={dropdownRef}>
               <button
                 onClick={() => setOpen(!open)}
-                className="flex items-center space-x-1 text-gray-900 hover:text-blue-600 transition-all duration-200"
-              >
+                className="flex items-center space-x-1 text-gray-900 hover:text-blue-600 transition-all duration-200">
                 {isAuthenticated && user ? (
                   <>
                     <motion.span
                       whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium truncate max-w-[140px] mr-2"
-                    >
+                      className="text-sm font-medium truncate max-w-[140px] mr-2">
                       {user.customer?.fullName || 'User'}
                     </motion.span>
                     <motion.div whileHover={{ scale: 1.1 }}>
@@ -702,8 +697,7 @@ export default function TourDetail() {
                     </motion.div>
                     <motion.span
                       whileHover={{ scale: 1.05 }}
-                      className="text-sm font-medium"
-                    >
+                      className="text-sm font-medium">
                       Tài khoản
                     </motion.span>
                   </>
@@ -723,8 +717,7 @@ export default function TourDetail() {
                         onClick={() => {
                           navigate('/profile');
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Thông tin cá nhân
                       </button>
                       <button
@@ -732,8 +725,7 @@ export default function TourDetail() {
                         onClick={() => {
                           navigate('/orders');
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Đơn mua
                       </button>
                       <button
@@ -741,8 +733,7 @@ export default function TourDetail() {
                         onClick={() => {
                           handleLogout();
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Đăng xuất
                       </button>
                     </>
@@ -753,8 +744,7 @@ export default function TourDetail() {
                         onClick={() => {
                           navigate('/login');
                           setOpen(false);
-                        }}
-                      >
+                        }}>
                         Đăng nhập
                       </button>
                       <p className="text-center text-gray-600 text-xs mt-2 px-2">
@@ -764,8 +754,7 @@ export default function TourDetail() {
                           onClick={() => {
                             navigate('/register');
                             setOpen(false);
-                          }}
-                        >
+                          }}>
                           Đăng ký ngay
                         </span>
                       </p>
@@ -806,16 +795,14 @@ export default function TourDetail() {
                     setMenuOpen(false);
                     setAccountOpen(false);
                   }}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-2"
-                >
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-2">
                   {link.label}
                 </span>
               ))}
               <div className="border-t border-gray-200 pt-3">
                 <button
                   onClick={() => setAccountOpen(!accountOpen)}
-                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-2 flex items-center justify-between w-full"
-                >
+                  className="text-gray-700 text-base font-medium hover:text-cyan-600 transition duration-150 cursor-pointer py-2 flex items-center justify-between w-full">
                   Tài khoản
                   {accountOpen ? (
                     <UpOutlined className="text-sm" />
@@ -828,8 +815,7 @@ export default function TourDetail() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="flex flex-col pl-4 space-y-2 mt-2"
-                  >
+                    className="flex flex-col pl-4 space-y-2 mt-2">
                     {isAuthenticated && user ? (
                       <>
                         <button
@@ -838,8 +824,7 @@ export default function TourDetail() {
                             navigate('/profile');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Thông tin cá nhân
                         </button>
                         <button
@@ -848,8 +833,7 @@ export default function TourDetail() {
                             navigate('/orders');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Đơn mua
                         </button>
                         <button
@@ -858,8 +842,7 @@ export default function TourDetail() {
                             handleLogout();
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Đăng xuất
                         </button>
                       </>
@@ -871,8 +854,7 @@ export default function TourDetail() {
                             navigate('/login');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Đăng nhập
                         </button>
                         <button
@@ -881,8 +863,7 @@ export default function TourDetail() {
                             navigate('/register');
                             setMenuOpen(false);
                             setAccountOpen(false);
-                          }}
-                        >
+                          }}>
                           Đăng ký ngay
                         </button>
                       </>
@@ -919,11 +900,11 @@ export default function TourDetail() {
                     />
                   </div>
                 ))} */}
-                 <img
-                      src={tour?.imageURL}
-                      alt={`Tour ${tour?.id}`}
-                      className="h-[200px] sm:h-[400px] w-full rounded-[5px] object-cover"
-                    />
+                <img
+                  src={tour?.imageURL}
+                  alt={`Tour ${tour?.id}`}
+                  className="h-[200px] sm:h-[400px] w-full rounded-[5px] object-cover"
+                />
               </Carousel>
             </div>
             <motion.div
@@ -966,10 +947,11 @@ export default function TourDetail() {
                       {tour?.location}
                     </span>
                   </p>
+
                   <p className="font-medium mt-2 sm:mt-0">
-                    Mã Tour:{' '}
+                    Số chỗ còn lại:{' '}
                     <span className="font-bold text-[14px] sm:text-[15px]">
-                      TO2467
+                      {tour?.availableSlot}
                     </span>
                   </p>
                 </div>
@@ -1418,7 +1400,7 @@ export default function TourDetail() {
                   </p>
                 </div>
               </div>
-              <div className="w-full border-b-gray-50 border-1"></div>
+              <div className="w-full border-b-gray-50 border-1 "></div>
               <div className="flex justify-between">
                 <p className="text-[16px] font-medium">Tổng Thanh Toán</p>
                 <div className="flex flex-row items-end">
@@ -1486,7 +1468,7 @@ export default function TourDetail() {
                 transform: showBookingPanel
                   ? 'translateY(0)'
                   : 'translateY(100%)',
-              }} >
+              }}>
               <div
                 className={`bg-amber-50 rounded-xl p-4 flex flex-col justify-between border-1 border-gray-200 shadow relative ${
                   tour?.availableSlot === 0
@@ -1522,7 +1504,6 @@ export default function TourDetail() {
                   <div className="flex items-center justify-center px-2">
                     <CalendarOutlined className="text-gray-500 text-[13px]" />
                   </div>
-                  histology
                   <DatePicker
                     value={startDate ? dayjs(startDate) : null}
                     onChange={(date) =>
@@ -1786,47 +1767,46 @@ export default function TourDetail() {
               </div>
             </motion.div>
             <div
-              className="mobile-sticky-booking-toggle mb-20 mr-3"
+              className="mobile-sticky-booking-toggle mb-40 mr-3 "
               onClick={() => setShowBookingPanel(!showBookingPanel)}>
               {showBookingPanel ? <CloseOutlined /> : <CalendarOutlined />}
             </div>
           </div>
 
           <Modal
-  open={showBookingModal}
-  onCancel={handleCloseModal}
-  footer={null}
-  closeIcon={<CloseOutlined />}
-  title={
-    <span className="text-lg font-bold text-cyan-600">
-      Chi Tiết Đặt Tour
-    </span>
-  }
-  destroyOnClose={true}
-  style={{ top: 10 }}
-  className="!w-[90%] md:!w-[60%] max-w-none">
-  <motion.div
-    initial={{ opacity: 0, scale: 0.95 }}
-    animate={{ opacity: 1, scale: 1 }}
-    transition={{ duration: 0.3 }}>
-    <TourBookingForm
-      tourId={tourId}
-      adults={adults}
-      children={children}
-      infants={infants}
-      discountAmount={discountAmount}
-      startDate={
-        startDate ? dayjs(startDate).format('YYYY-MM-DD') : null
-      }
-      totalPrice={totalPrice}
-      priceForOneAdult={priceForOneAdult}
-      priceForOneChild={priceForOneChild}
-      priceForOneInfant={priceForOneInfant}
-      tour={tour}
-    />
-  </motion.div>
-</Modal>
-
+            open={showBookingModal}
+            onCancel={handleCloseModal}
+            footer={null}
+            closeIcon={<CloseOutlined />}
+            title={
+              <span className="text-lg font-bold text-cyan-600">
+                Chi Tiết Đặt Tour
+              </span>
+            }
+            destroyOnClose={true}
+            style={{ top: 10 }}
+            className="!w-[90%] md:!w-[60%] max-w-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}>
+              <TourBookingForm
+                tourId={tourId}
+                adults={adults}
+                children={children}
+                infants={infants}
+                discountAmount={discountAmount}
+                startDate={
+                  startDate ? dayjs(startDate).format('YYYY-MM-DD') : null
+                }
+                totalPrice={totalPrice}
+                priceForOneAdult={priceForOneAdult}
+                priceForOneChild={priceForOneChild}
+                priceForOneInfant={priceForOneInfant}
+                tour={tour}
+              />
+            </motion.div>
+          </Modal>
         </motion.div>
       </div>
       <motion.footer

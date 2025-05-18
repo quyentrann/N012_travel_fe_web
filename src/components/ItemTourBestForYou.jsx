@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Card, Tag, message } from 'antd';
-import { EnvironmentOutlined, HeartOutlined, HeartFilled } from '@ant-design/icons';
+import {
+  EnvironmentOutlined,
+  HeartOutlined,
+  HeartFilled,
+} from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
@@ -31,7 +35,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
     setIsLoading(true);
     try {
       if (isFavorite) {
-        await axios.delete('http://localhost:8080/api/tour-favourites', {
+        await axios.delete('http://18.138.107.49:8080/api/tour-favourites', {
           data: { tourId: normalizedTour.tourId },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -39,7 +43,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
         onFavoriteChange(normalizedTour.tourId, false);
       } else {
         await axios.post(
-          'http://localhost:8080/api/tour-favourites',
+          'http://18.138.107.49:8080/api/tour-favourites',
           { tourId: normalizedTour.tourId },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -74,7 +78,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
 
     try {
       await axios.post(
-        `http://localhost:8080/api/search-history/click/${normalizedTour.tourId}`,
+        `http://18.138.107.49:8080/api/search-history/click/${normalizedTour.tourId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -94,19 +98,18 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
 
   return (
     <motion.div
-      className="w-full max-w-[265px] h-[345px] flex flex-col bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 my-5 mx-[15px]"
+      className="w-full h-[230px] max-w-[265px] sm:h-[345px] flex flex-col bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100 my-2 sm:my-5 sm:mx-[15px]"
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
-    >
+      whileTap={{ scale: 0.98 }}>
       <Card
         cover={
           <div className="relative">
             <img
               src={normalizedTour.imageURL || card}
               alt={normalizedTour.name || 'Travel'}
-              className="w-full h-40 object-cover rounded-t-lg"
+              className="w-full h-20 sm:h-40 object-cover rounded-t-lg"
               loading="lazy"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
@@ -114,8 +117,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
               animate={{ scale: isFavorite && isAuthenticated ? 1.2 : 1 }}
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
               className="absolute top-3 right-3 cursor-pointer"
-              onClick={handleToggleFavorite}
-            >
+              onClick={handleToggleFavorite}>
               {isAuthenticated && isFavorite ? (
                 <HeartFilled style={{ color: '#FF4D4F', fontSize: '24px' }} />
               ) : (
@@ -125,36 +127,39 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
           </div>
         }
         className="rounded-2xl shadow-none flex flex-col h-full border-none"
-        bodyStyle={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '16px' }}
-        onClick={handleTourClick}
-      >
-        <div className="flex flex-col justify-between h-full gap-2 px-1">
+        bodyStyle={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          padding: '10px',
+        }}
+        onClick={handleTourClick}>
+        <div className="flex flex-col justify-between h-full gap-2 px-1 ">
           <div className="overflow-hidden">
-            <span className="text-[15px] font-semibold text-gray-700 line-clamp-2 leading-tight">
+            <span className="text-[10px] sm:text-[15px] font-semibold text-gray-700 line-clamp-2 leading-tight">
               {normalizedTour.name || 'Tên tour không có'}
             </span>
           </div>
           <div className="overflow-hidden">
-            <p className="text-red-600 font-bold text-sm">
+            <p className="text-red-600 font-bold text-[11px] sm:text-sm">
               {normalizedTour.price
                 ? `${normalizedTour.price.toLocaleString()} đ/người`
                 : 'Liên hệ'}
             </p>
           </div>
           <div className="overflow-hidden">
-            <p className="text-gray-600 text-xs line-clamp-2">
+            <p className="text-gray-600 text-[9px] sm:text-xs line-clamp-2">
               {normalizedTour.description || 'Không có mô tả'}
             </p>
           </div>
           <div className="flex justify-between items-center">
-            <Tag
-              icon={<EnvironmentOutlined />}
-              color="default"
-              className="py-0.5 px-2 text-xs truncate"
-            >
-              {normalizedTour.location || 'Không có địa điểm'}
-            </Tag>
-            <p className="text-gray-700 text-xs truncate">
+            <div className="flex items-center space-x-1 text-gray-700">
+              <EnvironmentOutlined className="text-[9px] sm:text-[11px]" />
+              <span className="text-[8px] sm:text-[12px] w-10 sm:w-auto">
+                {normalizedTour.location || 'Đà Nẵng'}
+              </span>
+            </div>
+            <p className="text-gray-700 text-[10px] sm:text-xs truncate">
               Còn {normalizedTour.availableSlot || 0} chỗ
             </p>
           </div>

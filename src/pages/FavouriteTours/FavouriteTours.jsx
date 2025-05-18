@@ -115,7 +115,7 @@ const FavouriteTours = () => {
       <Header />
       <section className="py-12 sm:py-16 bg-gradient-to-b from-gray-100 to-gray-200 flex-grow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center mt-5 sm:mb-10">
             <motion.div variants={buttonVariants} whileHover="hover">
               <Button
                 onClick={() => navigate('/')}
@@ -125,13 +125,13 @@ const FavouriteTours = () => {
               </Button>
             </motion.div>
             <div className="text-center flex-1">
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-500 tracking-tight pt-10 pb-3">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-500 tracking-tight sm:pt-10 pb-1">
                 Tour Yêu Thích
               </h2>
-              <p className="mt-2 text-sm sm:text-base text-gray-600">
+              <p className="sm:mt-2 text-sm sm:text-base text-gray-600">
                 Những hành trình bạn yêu thích nhất
               </p>
-              <div className="mt-4 h-1 w-20 bg-blue-300 mx-auto rounded" />
+              <div className="mt-4 h-1 w-20 bg-blue-300 mx-auto rounded mb-3 sm:mb-4" />
             </div>
             <div className="w-10" />
           </div>

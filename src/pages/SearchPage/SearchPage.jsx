@@ -301,8 +301,8 @@ const SearchPage = () => {
           <div className="flex items-center">
             <motion.div variants={buttonVariants} whileHover="hover" className="md:hidden">
               <Button
-                onClick={() => navigate('/')}
-                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded px-3"
+                onClick={() => navigate('-1')}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-medium rounded md:px-3 "
               >
                 <ArrowLeftOutlined />
               </Button>
@@ -758,7 +758,7 @@ const SearchPage = () => {
             </motion.div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto justify-items-center pl-10">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto justify-items-center lg:pl-10">
                 {filteredTours.slice(0, visibleCount).map((tour) => (
                   <motion.div
                     key={tour.tourId}

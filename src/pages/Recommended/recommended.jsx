@@ -125,23 +125,23 @@ const Home = () => {
       {history.length > 0 && (
         <section className="py-12 sm:py-16 bg-gradient-to-b from-gray-100 to-gray-200 flex-grow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-10">
+            <div className="flex flex-col sm:flex-row justify-between sm:items-center mt-5 sm:mb-10">
               <motion.div variants={buttonVariants} whileHover="hover">
                 <Button
-                  onClick={() => navigate('/')}
-                  className="bg-gradient-to-r from-blue-400 to-blue-200 hover:from-blue-500 hover:to-blue-400 text-white font-medium rounded-full px-4 py-2 shadow-md"
-                >
+                               onClick={() => navigate('/')}
+                               className="bg-gradient-to-r from-blue-400 to-blue-200 hover:from-blue-500 hover:to-blue-400 text-white font-medium rounded-full px-4 py-2 shadow-md"
+                             >
                   <ArrowLeftOutlined />
                 </Button>
               </motion.div>
               <div className="text-center flex-1">
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-500 tracking-tight pt-10 pb-3">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-500 tracking-tight sm:pt-10 pb-1">
                   Dành Cho Bạn
                 </h2>
                 <p className="mt-2 text-sm sm:text-base text-gray-600">
-                  Khám phá những hành trình được cá nhân hóa dựa trên sở thích của bạn
+                  Khám phá hành trình riêng theo sở thích của bạn.
                 </p>
-                <div className="mt-4 h-1 w-20 bg-blue-300 mx-auto rounded" />
+                <div className="mt-4 h-1 w-25 bg-blue-300 mx-auto rounded mb-3 sm:mb-4" />
               </div>
               <div className="w-10" />
             </div>
@@ -164,7 +164,7 @@ const Home = () => {
                   Lỗi: {historyError}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 pl-10">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto justify-items-center">
                   {history.map((tour) => (
                     <motion.div
                       key={tour.tour?.tourId}
