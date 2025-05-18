@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 async function getTourInfo(state, event) {
-  const tourPriceApi = 'http://18.138.107.49:8080/api/tours'; // URL của API của bạn
+  const tourPriceApi = 'https://18.138.107.49/api/tours'; // URL của API của bạn
 
   try {
     const response = await axios.get(tourPriceApi);

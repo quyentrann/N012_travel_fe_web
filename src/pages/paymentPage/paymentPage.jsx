@@ -42,7 +42,7 @@ const VnpayReturn = () => {
         }
 
         const response = await axios.get(
-          'http://18.138.107.49:8080/api/payment/vnpay-return',
+          'https://18.138.107.49/api/payment/vnpay-return',
           {
             params: paramsObject,
             headers: {

@@ -8,7 +8,7 @@ import {
 } from '../apis/tour';
 
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://18.138.107.49:8080/api';
+  import.meta.env.VITE_API_BASE_URL || 'https://18.138.107.49/api';
 
 export const fetchTours = createAsyncThunk(
   'tours/fetchTours',
