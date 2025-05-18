@@ -58,7 +58,7 @@ const getSimilarTours = async (tourId) => {
       return [];
     }
     const response = await axios.get(
-      `http://18.138.107.49:8080/api/tours/${tourId}/similar`,
+      `https://18.138.107.49/api/tours/${tourId}/similar`,
       {
         headers: { Authorization: `Bearer ${token}` },
       }
@@ -288,7 +288,7 @@ const BookingDetail = () => {
         }
 
         const [bookingResponse] = await Promise.all([
-          axios.get(`http://18.138.107.49:8080/api/bookings/${state.id}`, {
+          axios.get(`https://18.138.107.49/api/bookings/${state.id}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -299,7 +299,7 @@ const BookingDetail = () => {
         const tourId = bookingResponse.data.tour?.tourId;
         if (tourId) {
           const tourResponse = await axios.get(
-            `http://18.138.107.49:8080/api/tours/${tourId}`,
+            `https://18.138.107.49/api/tours/${tourId}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (
@@ -324,12 +324,9 @@ const BookingDetail = () => {
         const [historyResponse, reviewsResponse, reviewCheckResponse] =
           await Promise.all([
             axios
-              .get(
-                `http://18.138.107.49:8080/api/bookings/history/${state.id}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                }
-              )
+              .get(`https://18.138.107.49/api/bookings/history/${state.id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
               .catch((error) => {
                 console.error(
                   'History API error:',
@@ -339,19 +336,16 @@ const BookingDetail = () => {
               }),
             axios
               .get(
-                `http://18.138.107.49:8080/api/reviews/by-tour/${
+                `https://18.138.107.49/api/reviews/by-tour/${
                   tourId || state.id
                 }?page=${currentPage - 1}&size=${pageSize}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               )
               .catch(() => ({ data: { content: [], totalElements: 0 } })),
             axios
-              .get(
-                `http://18.138.107.49:8080/api/reviews/by-booking/${state.id}`,
-                {
-                  headers: { Authorization: `Bearer ${token}` },
-                }
-              )
+              .get(`https://18.138.107.49/api/reviews/by-booking/${state.id}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              })
               .catch(() => ({ data: false })),
           ]);
 
@@ -411,7 +405,7 @@ const BookingDetail = () => {
     try {
       const token = localStorage.getItem('TOKEN');
       await axios.post(
-        `http://18.138.107.49:8080/api/reviews`,
+        `https://18.138.107.49/api/reviews`,
         { bookingId: state.id, rating, comment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -419,7 +413,7 @@ const BookingDetail = () => {
       setHasReviewed(true);
       setIsRatingModalVisible(false);
       const reviewsResponse = await axios.get(
-        `http://18.138.107.49:8080/api/reviews/by-tour/${
+        `https://18.138.107.49/api/reviews/by-tour/${
           bookingDetail.tour?.tourId || state.id
         }?page=${currentPage - 1}&size=${pageSize}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -456,7 +450,7 @@ const BookingDetail = () => {
     try {
       const token = localStorage.getItem('TOKEN');
       const response = await axios.post(
-        `http://18.138.107.49:8080/api/bookings/calculate-cancellation-fee/${state.id}`,
+        `https://18.138.107.49/api/bookings/calculate-cancellation-fee/${state.id}`,
         { cancelDate: new Date().toISOString(), isHoliday: false },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -494,13 +488,13 @@ const BookingDetail = () => {
       const token = localStorage.getItem('TOKEN');
       // Gọi API hủy tour
       await axios.put(
-        `http://18.138.107.49:8080/api/bookings/cancel/${state.id}`,
+        `https://18.138.107.49/api/bookings/cancel/${state.id}`,
         { reason, cancelDate: new Date().toISOString(), isHoliday: false },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // Lấy lại thông tin booking mới nhất
       const bookingResponse = await axios.get(
-        `http://18.138.107.49:8080/api/bookings/${state.id}`,
+        `https://18.138.107.49/api/bookings/${state.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const updatedBooking = bookingResponse.data;
@@ -512,7 +506,7 @@ const BookingDetail = () => {
       if (updatedBooking.status === 'CANCELED') {
         try {
           const historyResponse = await axios.get(
-            `http://18.138.107.49:8080/api/bookings/history/${state.id}`,
+            `https://18.138.107.49/api/bookings/history/${state.id}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const historyData = Array.isArray(historyResponse.data)
@@ -571,7 +565,7 @@ const BookingDetail = () => {
         return;
       }
       const response = await axios.post(
-        'http://18.138.107.49:8080/api/payment/vnpay-create',
+        'https://18.138.107.49/api/payment/vnpay-create',
         {
           bookingId: state.id,
           totalPrice: bookingDetail.totalPrice,
@@ -689,7 +683,7 @@ const BookingDetail = () => {
       }
 
       const userResponse = await axios.get(
-        'http://18.138.107.49:8080/api/users/me',
+        'https://18.138.107.49/api/users/me',
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -702,7 +696,7 @@ const BookingDetail = () => {
       }
 
       const tourResponse = await axios.get(
-        `http://18.138.107.49:8080/api/tours/${bookingDetail.tour.tourId}`,
+        `https://18.138.107.49/api/tours/${bookingDetail.tour.tourId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -790,7 +784,7 @@ const BookingDetail = () => {
       console.log('Booking Payload:', payload);
 
       const response = await axios.post(
-        'http://18.138.107.49:8080/api/bookings/book',
+        'https://18.138.107.49/api/bookings/book',
         payload,
         {
           headers: {

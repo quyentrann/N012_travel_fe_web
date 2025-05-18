@@ -36,7 +36,7 @@ export default function ItemCradComponent({
 
     try {
       await axios.post(
-        `http://18.138.107.49:8080/api/search-history/click/${tour.tourId}`,
+        `https://18.138.107.49/api/search-history/click/${tour.tourId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -64,7 +64,7 @@ export default function ItemCradComponent({
 
     try {
       if (isFavorite) {
-        await axios.delete('http://18.138.107.49:8080/api/tour-favourites', {
+        await axios.delete('https://18.138.107.49/api/tour-favourites', {
           data: { tourId: tour.tourId },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -73,7 +73,7 @@ export default function ItemCradComponent({
         message.success('Đã xóa tour khỏi yêu thích!');
       } else {
         await axios.post(
-          'http://18.138.107.49:8080/api/tour-favourites',
+          'https://18.138.107.49/api/tour-favourites',
           { tourId: tour.tourId },
           { headers: { Authorization: `Bearer ${token}` } }
         );
