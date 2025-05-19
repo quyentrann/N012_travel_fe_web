@@ -152,7 +152,7 @@ export default function ItemTourComponent({
       </div>
 
       <div className="pt-1 px-2 sm:pt-1.5 sm:px-4 space-y-0.5 sm:space-y-1.5">
-        <h3 className="text-[9px] sm:text-[17px] py-0.1 sm:py-1 font-bold text-gray-900 leading-3 line-clamp-2">
+        <h3 className="text-[9px] sm:text-[17px] py-0.1 sm:py-1 font-bold text-gray-900 leading-3 sm:leading-5 line-clamp-2">
           {tour.name || 'Tên Tour'}
         </h3>
         <p className="text-[9px] sm:text-[14px] text-gray-600 line-clamp-1">
