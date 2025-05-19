@@ -410,7 +410,7 @@ export default function TourDetail() {
   const getSimilarTours = async (tourId) => {
     try {
       const response = await fetch(
-        `https://18.138.107.49/api/tours/${tourId}/similar`
+        `http://localhost:8080/api/tours/${tourId}/similar`
       );
       if (!response.ok) {
         throw new Error('Lỗi khi lấy tour tương tự');
