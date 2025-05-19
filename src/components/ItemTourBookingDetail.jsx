@@ -80,7 +80,7 @@ export default function TourBookingForm({
 
     try {
       const response = await axios.post(
-        'http://localhost:8080/api/bookings/book',
+        'https://18.138.107.49/api/bookings/book',
         {
           tourId,
           numberPeople: totalPeople,
@@ -137,7 +137,7 @@ export default function TourBookingForm({
       }
 
       const response = await axios.post(
-        'http://localhost:8080/api/payment/vnpay-create',
+        'https://18.138.107.49/api/payment/vnpay-create',
         {
           bookingId,
           totalPrice,
@@ -197,7 +197,7 @@ export default function TourBookingForm({
         );
         setEmail(payload.sub || '');
 
-        fetch('http://localhost:8080/api/users/me', {
+        fetch('https://18.138.107.49/api/users/me', {
           headers: { Authorization: `Bearer ${storedToken}` },
         })
           .then((res) => res.json())
