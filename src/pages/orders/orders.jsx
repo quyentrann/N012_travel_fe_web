@@ -32,6 +32,11 @@ import Header from '../../components/Header1';
 import { getTours, calculateChangeFee, changeTour } from '../../apis/tour';
 import { calculateChangeFeeThunk, changeTourThunk } from '../../redux/tourSlice';
 import axiosInstance from '../../apis/axiosInstance';
+import { debounce } from 'lodash';
+import axiosRetry from 'axios-retry';
+
+// Thêm retry cho axios
+axiosRetry(axiosInstance, { retries: 3, retryDelay: 1000 });
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -84,6 +89,7 @@ const Orders = () => {
   const [availableDates, setAvailableDates] = useState([]);
   const [changeFeeInfo, setChangeFeeInfo] = useState(null);
   const [changeLoading, setChangeLoading] = useState(false);
+  const [feeLoading, setFeeLoading] = useState(false);
   const [cachedDates, setCachedDates] = useState({});
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,32 +110,152 @@ const Orders = () => {
   ];
 
   const calculateTotalPrice = (data) => {
-    const { numberAdults, numberChildren, numberInfants, adultPrice, childPrice, infantPrice, departureDate } = data;
+    const {
+      numberAdults = 0,
+      numberChildren = 0,
+      numberInfants = 0,
+      adultPrice = 0,
+      childPrice = 0,
+      infantPrice = 0,
+      departureDate,
+    } = data;
+
+    console.log('calculateTotalPrice inputs:', {
+      numberAdults,
+      numberChildren,
+      numberInfants,
+      adultPrice,
+      childPrice,
+      infantPrice,
+      departureDate,
+    });
+
     let totalPrice = numberAdults * adultPrice + numberChildren * childPrice + numberInfants * infantPrice;
     const isHoliday = departureDate ? holidays.includes(dayjs(departureDate).format('MM-DD')) : false;
-    totalPrice *= isHoliday ? 1.2 : 1.0; // Apply holiday multiplier
+    totalPrice *= isHoliday ? 1.2 : 1.0;
     const totalPeople = numberAdults + numberChildren + numberInfants;
     if (totalPeople >= 5) {
-        totalPrice *= 0.9; // Apply 10% discount for 5 or more people
+      totalPrice *= 0.9;
     }
-    return Math.round(totalPrice); // Round to avoid floating-point issues
-};
+    totalPrice = Math.max(0, Math.round(totalPrice));
+    console.log('Calculated totalPrice:', totalPrice);
+    return totalPrice;
+  };
 
-  // Calculate total price whenever quantities change
-useEffect(() => {
+  const calculateLocalChangeFee = (changeTourData, originalBooking) => {
+    if (
+      !changeTourData.departureDate ||
+      (!changeTourData.numberAdults &&
+        !changeTourData.numberChildren &&
+        !changeTourData.numberInfants)
+    ) {
+      return null;
+    }
+
+    const totalPeople =
+      changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
+    if (totalPeople > changeTourData.maxPeople || totalPeople <= 0) {
+      return null;
+    }
+
+    const originalPrice = originalBooking?.totalPrice || 0;
+    const newTotalPrice = changeTourData.totalPrice || 0;
+
+    if (newTotalPrice === 0) {
+      console.warn('newTotalPrice is 0, check calculateTotalPrice inputs');
+      return null;
+    }
+
+    const daysToDeparture = dayjs(changeTourData.departureDate).diff(dayjs(), 'day');
+    const changeFee = daysToDeparture > 7 ? originalPrice * 0.1 : originalPrice * 0.2;
+    const priceDifference = newTotalPrice - originalPrice;
+    const refundAmount = priceDifference < 0 ? Math.abs(priceDifference) : 0;
+    const additionalPayment = priceDifference > 0 ? priceDifference : 0;
+
+    return {
+      changeFee: Math.round(changeFee),
+      priceDifference: Math.round(priceDifference),
+      newTotalPrice: Math.round(newTotalPrice),
+      refundAmount: Math.round(refundAmount),
+      additionalPayment: Math.round(additionalPayment),
+      message: 'Dữ liệu tạm tính, đang xác nhận với hệ thống...',
+    };
+  };
+
+  const debouncedCalculateChangeFee = debounce(async (changeTourData) => {
+    if (
+      !changeTourData.departureDate ||
+      (!changeTourData.numberAdults &&
+        !changeTourData.numberChildren &&
+        !changeTourData.numberInfants)
+    ) {
+      setChangeFeeInfo(null);
+      setFeeLoading(false);
+      return;
+    }
+
+    const totalPeople =
+      changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
+    if (totalPeople > changeTourData.maxPeople || totalPeople <= 0) {
+      setChangeFeeInfo(null);
+      setFeeLoading(false);
+      return;
+    }
+
+    setFeeLoading(true);
+    try {
+      const isHoliday = changeTourData.departureDate
+        ? holidays.includes(dayjs(changeTourData.departureDate).format('MM-DD'))
+        : false;
+      const changeRequest = {
+        departureDate: dayjs(changeTourData.departureDate).format('YYYY-MM-DD'),
+        numberAdults: changeTourData.numberAdults,
+        numberChildren: changeTourData.numberChildren,
+        numberInfants: changeTourData.numberInfants,
+        isHoliday,
+        changeDate: new Date().toISOString(),
+      };
+      const result = await dispatch(
+        calculateChangeFeeThunk({ bookingId: changeTourData.bookingId, changeRequest })
+      ).unwrap();
+      setChangeFeeInfo({
+        changeFee: result.changeFee,
+        priceDifference: result.priceDifference,
+        newTotalPrice: result.newTotalPrice,
+        refundAmount: result.refundAmount,
+        additionalPayment: result.priceDifference > 0 ? result.priceDifference : 0,
+        message: result.message,
+      });
+    } catch (error) {
+      console.error('Error calculating change fee:', error);
+      setChangeFeeInfo(null);
+    } finally {
+      setFeeLoading(false);
+    }
+  }, 500);
+
+  useEffect(() => {
+    if (!isChangeModalVisible || !changeTourData.bookingId) return;
+
     const totalPrice = calculateTotalPrice(changeTourData);
     setChangeTourData((prev) => ({ ...prev, totalPrice }));
-}, [
+
+    const originalBooking = history.find((item) => item.key === changeTourData.bookingId);
+    const localFeeInfo = calculateLocalChangeFee(changeTourData, originalBooking);
+    setChangeFeeInfo(localFeeInfo);
+
+    debouncedCalculateChangeFee(changeTourData);
+  }, [
     changeTourData.numberAdults,
     changeTourData.numberChildren,
     changeTourData.numberInfants,
-    changeTourData.adultPrice,
-    changeTourData.childPrice,
-    changeTourData.infantPrice,
     changeTourData.departureDate,
-]);
+    changeTourData.bookingId,
+    isChangeModalVisible,
+    dispatch,
+    history,
+  ]);
 
-  // Reset additionalPaymentInfo when modal closes
   useEffect(() => {
     if (!isAdditionalPaymentModalVisible) {
       setAdditionalPaymentInfo(null);
@@ -138,7 +264,6 @@ useEffect(() => {
     }
   }, [isAdditionalPaymentModalVisible]);
 
-  // Fetch available dates and ticket prices
   const fetchAvailableDates = async (tourId) => {
     if (cachedDates[tourId]) {
       setAvailableDates(cachedDates[tourId].dates);
@@ -161,7 +286,17 @@ useEffect(() => {
         const maxPeople = Math.max(
           ...tour.tourDetails.map((detail) => detail.availableSlot || Infinity)
         );
-        const { adultPrice = 0, childPrice = 0, infantPrice = 0 } = tour.tourDetails[0] || {};
+        const { adultPrice = 1000000, childPrice = 500000, infantPrice = 200000 } = tour.tourDetails[0] || {};
+
+        console.log('fetchAvailableDates result:', {
+          tourId,
+          validDates,
+          maxPeople,
+          adultPrice,
+          childPrice,
+          infantPrice,
+        });
+
         setAvailableDates(validDates);
         setCachedDates((prev) => ({
           ...prev,
@@ -173,6 +308,13 @@ useEffect(() => {
           adultPrice,
           childPrice,
           infantPrice,
+          totalPrice: calculateTotalPrice({
+            ...prev,
+            maxPeople,
+            adultPrice,
+            childPrice,
+            infantPrice,
+          }),
         }));
       } else {
         message.error('Không tìm thấy thông tin tour');
@@ -185,7 +327,6 @@ useEffect(() => {
     }
   };
 
-  // Fetch booking history
   const fetchHistory = async () => {
     try {
       const token = localStorage.getItem('TOKEN');
@@ -198,31 +339,53 @@ useEffect(() => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const formattedData = response.data.map((item) => ({
-        key: item.bookingId,
-        tourId: item.tour?.tourId,
-        tourImage: item.tour?.imageURL || 'https://via.placeholder.com/80',
-        tourName: item.tour?.name || 'Tour không xác định',
-        bookingDate: item.bookingDate,
-        departureDate: item.departureDate,
-        status: item.status || 'PENDING',
-        price: item.totalPrice ? item.totalPrice.toLocaleString('vi-VN') + 'đ' : 'N/A',
-        numberPeople: item.numberPeople || 0,
-        numberAdults: item.numberAdults || item.numberPeople || 0,
-        numberChildren: item.numberChildren || 0,
-        numberInfants: item.numberInfants || 0,
-        totalPrice: item.totalPrice,
-      }));
+      if (!Array.isArray(response.data)) {
+        console.error('Dữ liệu API không phải mảng:', response.data);
+        message.error('Dữ liệu lịch sử booking không hợp lệ');
+        setHistory([]);
+        return;
+      }
+
+      const formattedData = response.data.map((item) => {
+        const numberAdults = item.numberAdults !== undefined && item.numberAdults !== null
+          ? parseInt(item.numberAdults)
+          : 0;
+        const numberChildren = item.numberChildren !== undefined && item.numberChildren !== null
+          ? parseInt(item.numberChildren)
+          : 0;
+        const numberInfants = item.numberInfants !== undefined && item.numberInfants !== null
+          ? parseInt(item.numberInfants)
+          : 0;
+        const numberPeople = item.numberPeople !== undefined && item.numberPeople !== null
+          ? parseInt(item.numberPeople)
+          : (numberAdults + numberChildren + numberInfants);
+
+        return {
+          key: item.bookingId,
+          tourId: item.tour?.tourId,
+          tourImage: item.tour?.imageURL || 'https://via.placeholder.com/80',
+          tourName: item.tour?.name || 'Tour không xác định',
+          bookingDate: item.bookingDate,
+          departureDate: item.departureDate,
+          status: item.status || 'PENDING',
+          price: item.totalPrice ? item.totalPrice.toLocaleString('vi-VN') + 'đ' : 'N/A',
+          numberPeople: numberPeople,
+          numberAdults: numberAdults,
+          numberChildren: numberChildren,
+          numberInfants: numberInfants,
+          totalPrice: item.totalPrice,
+        };
+      });
 
       formattedData.reverse();
       setHistory(formattedData);
     } catch (error) {
       console.error('Lỗi khi lấy lịch sử đặt tour:', error.response || error.message);
-      // message.error(
-      //   error.response?.status === 403
-      //     ? 'Bạn không có quyền truy cập lịch sử đặt tour'
-      //     : 'Có lỗi xảy ra khi lấy lịch sử đặt tour. Vui lòng thử lại sau.'
-      // );
+      message.error(
+        error.response?.status === 403
+          ? 'Bạn không có quyền truy cập lịch sử đặt tour'
+          : 'Có lỗi xảy ra khi lấy lịch sử đặt tour. Vui lòng thử lại sau.'
+      );
     } finally {
       setLoading(false);
     }
@@ -234,7 +397,6 @@ useEffect(() => {
     const handleFocus = () => fetchHistory();
     const handlePaymentCompleted = (event) => {
       if (event.data.type === 'PAYMENT_COMPLETED') {
-        console.log('Received PAYMENT_COMPLETED message:', event.data);
         fetchHistory();
         message.success('Thanh toán đã được xử lý, danh sách booking đã được cập nhật.');
       }
@@ -243,7 +405,6 @@ useEffect(() => {
     window.addEventListener('focus', handleFocus);
     window.addEventListener('message', handlePaymentCompleted);
 
-    // Handle navigation state refresh
     if (location.state?.refresh) {
       fetchHistory();
     }
@@ -254,13 +415,11 @@ useEffect(() => {
     };
   }, [navigate, location.state]);
 
-  // Filter bookings
   const activeBookings = history.filter((item) =>
     ['CONFIRMED', 'PAID', 'IN_PROGRESS', 'PENDING_PAYMENT'].includes(item.status)
   );
   const pastBookings = history.filter((item) => ['COMPLETED', 'CANCELED'].includes(item.status));
 
-  // Cancel tour handlers
   const showCancelModal = (bookingId) => {
     const booking = history.find((item) => item.key === bookingId);
     if (booking && booking.status === 'CANCELED') {
@@ -308,17 +467,15 @@ useEffect(() => {
       setIsConfirmModalVisible(true);
     } catch (error) {
       console.error('Lỗi khi lấy thông tin hủy:', error.response || error.message);
-      let errorMessage = 'Không thể lấy thông tin hủy tour';
-      if (error.response) {
-        if (error.response.status === 404) {
-          errorMessage = 'Không tìm thấy booking';
-        } else if (error.response.status === 403) {
-          errorMessage = error.response.data.error || 'Không thể hủy tour do trạng thái hiện tại';
-        } else if (error.response.status === 400) {
-          errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
-        }
-      }
-      message.error(errorMessage);
+      message.error(
+        error.response?.status === 404
+          ? 'Không tìm thấy booking'
+          : error.response?.status === 403
+          ? error.response.data.error || 'Không thể hủy tour do trạng thái hiện tại'
+          : error.response?.status === 400
+          ? error.response.data.error || 'Dữ liệu không hợp lệ'
+          : 'Không thể lấy thông tin hủy tour'
+      );
     } finally {
       setCancelLoading(false);
     }
@@ -329,7 +486,6 @@ useEffect(() => {
     try {
       const token = localStorage.getItem('TOKEN');
       const cancelDate = new Date().toISOString();
-      // Gọi API hủy tour
       await axiosInstance.put(
         `/bookings/cancel/${bookingIdToCancel}`,
         {
@@ -342,17 +498,10 @@ useEffect(() => {
         }
       );
 
-      // Lấy thông tin booking mới nhất
-      const bookingResponse = await axiosInstance.get(`/bookings/${bookingIdToCancel}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const updatedBooking = bookingResponse.data;
-
-      // Cập nhật danh sách history
       setHistory((prevHistory) =>
         prevHistory.map((item) =>
           item.key === bookingIdToCancel
-            ? { ...item, status: updatedBooking.status || 'CANCELED' }
+            ? { ...item, status: 'CANCELED' }
             : item
         )
       );
@@ -362,45 +511,19 @@ useEffect(() => {
       setReason('');
       setBookingIdToCancel(null);
       setCancellationInfo(null);
-
-      // Gọi API lịch sử booking trong một try-catch riêng
-      if (updatedBooking.status === 'CANCELED') {
-        try {
-          const historyResponse = await axiosInstance.get(
-            `/bookings/history/${bookingIdToCancel}`,
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
-          const historyData = Array.isArray(historyResponse.data)
-            ? historyResponse.data
-            : historyResponse.data?.content || [];
-          // Có thể sử dụng historyData nếu cần hiển thị lịch sử trong UI
-        } catch (historyError) {
-          console.error('Lỗi khi lấy lịch sử booking:', historyError);
-          // message.warning('Không thể lấy lịch sử booking, nhưng tour đã được hủy thành công.');
-        }
-      } else {
-        console.warn('Booking không ở trạng thái CANCELED sau khi hủy:', updatedBooking.status);
-        // message.warning('Tour đã được hủy, nhưng trạng thái không được cập nhật đúng.');
-      }
     } catch (error) {
       console.error('Lỗi khi hủy tour:', error.response || error.message);
-      let errorMessage = 'Không thể hủy tour';
-      if (error.response) {
-        if (error.response.status === 401) {
-          errorMessage = 'Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.';
-          localStorage.removeItem('TOKEN');
-          navigate('/login');
-        } else if (error.response.status === 404) {
-          errorMessage = 'Không tìm thấy booking';
-        } else if (error.response.status === 403) {
-          errorMessage = error.response.data.error || 'Bạn không có quyền hủy tour.';
-        } else if (error.response.status === 400) {
-          errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
-        }
-      }
-      message.error(errorMessage);
+      message.error(
+        error.response?.status === 401
+          ? 'Phiên đăng nhập hết hạn! Vui lòng đăng nhập lại.'
+          : error.response?.status === 404
+          ? 'Không tìm thấy booking'
+          : error.response?.status === 403
+          ? error.response.data.error || 'Bạn không có quyền hủy tour.'
+          : error.response?.status === 400
+          ? error.response.data.error || 'Dữ liệu không hợp lệ'
+          : 'Không thể hủy tour'
+      );
     } finally {
       setCancelLoading(false);
     }
@@ -414,7 +537,6 @@ useEffect(() => {
     message.info('Đã hủy bỏ hành động hủy tour.');
   };
 
-  // View booking detail
   const goToBookingDetail = (bookingId) => {
     if (!bookingId) {
       message.error('Không có thông tin booking!');
@@ -423,9 +545,8 @@ useEffect(() => {
     navigate('/booking-detail', { state: { id: bookingId } });
   };
 
-  // Payment handlers
   const showPaymentModal = (bookingId, totalPrice, tourName) => {
-    setSelectedBooking({ bookingId, totalPrice, tourName });``
+    setSelectedBooking({ bookingId, totalPrice, tourName });
     setPaymentMethod('VNPAY');
     setIsPaymentModalVisible(true);
   };
@@ -438,7 +559,7 @@ useEffect(() => {
 
     setPaymentLoading(true);
     try {
-      const token = localStorage.getItem('TOKEN');``
+      const token = localStorage.getItem('TOKEN');
       if (!token) {
         message.error('Vui lòng đăng nhập để thanh toán');
         navigate('/login');
@@ -480,156 +601,137 @@ useEffect(() => {
     }
   };
 
-  // Additional payment handlers
   const showAdditionalPaymentModal = async (bookingId, tourName) => {
     setSelectedBooking({ bookingId, tourName });
     setPaymentMethod('VNPAY');
     setPaymentInfoLoading(true);
     try {
-        const token = localStorage.getItem('TOKEN');
-        if (!token) {
-            message.error('Vui lòng đăng nhập để thanh toán bổ sung');
-            navigate('/login');
-            return;
-        }
+      const token = localStorage.getItem('TOKEN');
+      if (!token) {
+        message.error('Vui lòng đăng nhập để thanh toán bổ sung');
+        navigate('/login');
+        return;
+      }
 
-        const response = await axiosInstance.get(`/bookings/history/${bookingId}/entries`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
+      const response = await axiosInstance.get(`/bookings/history/${bookingId}/entries`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-        console.log('Booking history entries response:', response.data);
+      if (!Array.isArray(response.data)) {
+        message.error('Dữ liệu lịch sử booking không hợp lệ');
+        return;
+      }
 
-        if (!Array.isArray(response.data)) {
-            console.error('Invalid history response: Expected an array, received:', response.data);
-            message.error('Dữ liệu lịch sử booking không hợp lệ');
-            return;
-        }
+      const latestHistory = response.data
+        .sort((a, b) => new Date(b.changeDate) - new Date(a.changeDate))
+        .find((entry) => entry.additionalPayment > 0 && entry.newStatus === 'PENDING_PAYMENT');
 
-        const latestHistory = response.data
-            .sort((a, b) => new Date(b.changeDate) - new Date(a.changeDate))
-            .find((entry) => entry.additionalPayment > 0 && entry.newStatus === 'PENDING_PAYMENT');
+      if (!latestHistory) {
+        message.error('Không tìm thấy thông tin thanh toán bổ sung.');
+        return;
+      }
 
-        if (!latestHistory) {
-            console.warn(
-                `No history entry found with additionalPayment > 0 and newStatus = PENDING_PAYMENT for bookingId: ${bookingId}`
-            );
-            message.error(
-                'Không tìm thấy thông tin thanh toán bổ sung.'
-            );
-            return;
-        }
+      const booking = history.find((item) => item.key === bookingId);
+      if (!booking || booking.status !== 'PENDING_PAYMENT') {
+        message.error('Booking không ở trạng thái chờ thanh toán bổ sung');
+        return;
+      }
 
-        const booking = history.find((item) => item.key === bookingId);
-        if (!booking || booking.status !== 'PENDING_PAYMENT') {
-            console.warn(
-                `Booking status mismatch. Local status: ${booking?.status}, expected: PENDING_PAYMENT`
-            );
-            message.error('Booking không ở trạng thái chờ thanh toán bổ sung');
-            return;
-        }
-
-        setAdditionalPaymentInfo({
-            additionalPayment: latestHistory.additionalPayment,
-            changeDate: latestHistory.changeDate,
-        });
-        setIsAdditionalPaymentModalVisible(true);
+      setAdditionalPaymentInfo({
+        additionalPayment: latestHistory.additionalPayment,
+        changeDate: latestHistory.changeDate,
+      });
+      setIsAdditionalPaymentModalVisible(true);
     } catch (error) {
-        console.error('Lỗi khi lấy thông tin thanh toán bổ sung:', error.response || error);
-        let errorMessage = 'Không thể lấy thông tin thanh toán bổ sung';
-        if (error.response) {
-            if (error.response.status === 404) {
-                errorMessage = 'Không tìm thấy booking';
-            } else if (error.response.status === 403) {
-                errorMessage = 'Bạn không có quyền truy cập thông tin booking';
-            } else if (error.response.status === 400) {
-                errorMessage = error.response.data.error || 'Dữ liệu không hợp lệ';
-            } else {
-                errorMessage = error.response.data.error || 'Lỗi server';
-            }
-        }
-        message.error(errorMessage);
+      console.error('Lỗi khi lấy thông tin thanh toán bổ sung:', error.response || error);
+      message.error(
+        error.response?.status === 404
+          ? 'Không tìm thấy booking'
+          : error.response?.status === 403
+          ? 'Bạn không có quyền truy cập thông tin booking'
+          : error.response?.status === 400
+          ? error.response.data.error || 'Dữ liệu không hợp lệ'
+          : error.response?.data?.error || 'Không thể lấy thông tin thanh toán bổ sung'
+      );
     } finally {
-        setPaymentInfoLoading(false);
+      setPaymentInfoLoading(false);
     }
-};
+  };
 
   const handleAdditionalPayment = async () => {
     if (!selectedBooking?.bookingId) {
-        message.error('Không có thông tin booking!');
-        return;
+      message.error('Không có thông tin booking!');
+      return;
     }
     if (!additionalPaymentInfo?.additionalPayment || additionalPaymentInfo.additionalPayment <= 0) {
-        message.error('Số tiền thanh toán bổ sung không hợp lệ!');
-        return;
+      message.error('Số tiền thanh toán bổ sung không hợp lệ!');
+      return;
     }
 
     setPaymentLoading(true);
     try {
-        const token = localStorage.getItem('TOKEN');
-        if (!token) {
-            message.error('Vui lòng đăng nhập để thanh toán bổ sung');
-            navigate('/login');
-            return;
+      const token = localStorage.getItem('TOKEN');
+      if (!token) {
+        message.error('Vui lòng đăng nhập để thanh toán bổ sung');
+        navigate('/login');
+        return;
+      }
+
+      let ipAddress = '127.0.0.1';
+      try {
+        const ipResponse = await axios.get('https://api.ipify.org?format=json');
+        ipAddress = ipResponse.data.ip;
+      } catch (ipError) {
+        console.warn('Failed to fetch client IP, using default:', ipError);
+      }
+
+      const bookingResponse = await axiosInstance.get(`/bookings/${selectedBooking.bookingId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const bookingStatus = bookingResponse.data.status;
+      if (bookingStatus !== 'PENDING_PAYMENT' && bookingStatus !== 'CONFIRMED') {
+        message.error('Booking không ở trạng thái cho phép thanh toán. Vui lòng kiểm tra lại.');
+        return;
+      }
+
+      const response = await axiosInstance.post(
+        '/payment/vnpay-create',
+        {
+          bookingId: selectedBooking.bookingId,
+          totalPrice: additionalPaymentInfo.additionalPayment,
+          ipAddress,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.paymentUrl) {
+        const newWindow = window.open(response.data.paymentUrl, '_blank');
+        if (!newWindow) {
+          message.warning('Trình duyệt chặn tab thanh toán. Vui lòng cho phép popup.');
+          setPaymentLoading(false);
+          return;
         }
 
-        let ipAddress = '127.0.0.1';
-        try {
-            const ipResponse = await axios.get('https://api.ipify.org?format=json');
-            ipAddress = ipResponse.data.ip;
-        } catch (ipError) {
-            console.warn('Failed to fetch client IP, using default:', ipError);
-        }
-
-        const bookingResponse = await axiosInstance.get(`/bookings/${selectedBooking.bookingId}`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        const bookingStatus = bookingResponse.data.status;
-        console.log(`Booking ID: ${selectedBooking.bookingId}, Status: ${bookingStatus}`);
-        if (bookingStatus !== 'PENDING_PAYMENT' && bookingStatus !== 'CONFIRMED') {
-            message.error('Booking không ở trạng thái cho phép thanh toán. Vui lòng kiểm tra lại.');
-            return;
-        }
-
-        const response = await axiosInstance.post(
-            '/payment/vnpay-create',
-            {
-                bookingId: selectedBooking.bookingId,
-                totalPrice: additionalPaymentInfo.additionalPayment,
-                ipAddress,
-            },
-            { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (response.data.paymentUrl) {
-            console.log('VNPAY payment URL:', response.data.paymentUrl);
-            const newWindow = window.open(response.data.paymentUrl, '_blank');
-            if (!newWindow) {
-                message.warning('Trình duyệt chặn tab thanh toán. Vui lòng cho phép popup.');
-                setPaymentLoading(false);
-                return;
-            }
-
-            message.info('Vui lòng hoàn tất thanh toán trên cổng VNPAY.');
-            setIsAdditionalPaymentModalVisible(false);
-        } else {
-            message.error(response.data.error || 'Không thể tạo liên kết thanh toán bổ sung!');
-        }
+        message.info('Vui lòng hoàn tất thanh toán trên cổng VNPAY.');
+        setIsAdditionalPaymentModalVisible(false);
+      } else {
+        message.error(response.data.error || 'Không thể tạo liên kết thanh toán bổ sung!');
+      }
     } catch (error) {
-        console.error('Lỗi khi thực hiện thanh toán bổ sung:', error.response || error);
-        message.error(
-            error.response?.data?.error ||
-                (error.response?.status === 400
-                    ? 'Dữ liệu không hợp lệ'
-                    : error.response?.status === 403
-                    ? 'Bạn không có quyền thực hiện thanh toán này'
-                    : 'Lỗi khi thực hiện thanh toán bổ sung, vui lòng thử lại!')
-        );
+      console.error('Lỗi khi thực hiện thanh toán bổ sung:', error.response || error);
+      message.error(
+        error.response?.data?.error ||
+          (error.response?.status === 400
+            ? 'Dữ liệu không hợp lệ'
+            : error.response?.status === 403
+            ? 'Bạn không có quyền thực hiện thanh toán này'
+            : 'Lỗi khi thực hiện thanh toán bổ sung, vui lòng thử lại!')
+      );
     } finally {
-        setPaymentLoading(false);
+      setPaymentLoading(false);
     }
-};
+  };
 
-  // Change tour handlers
   const showChangeModal = async (
     bookingId,
     tourName,
@@ -712,8 +814,10 @@ useEffect(() => {
         priceDifference: result.priceDifference,
         newTotalPrice: result.newTotalPrice,
         refundAmount: result.refundAmount,
+        additionalPayment: result.priceDifference > 0 ? result.priceDifference : 0,
         message: result.message,
       });
+      message.success('Tính phí đổi thành công!');
     } catch (error) {
       console.error('Error calculating change fee:', error);
       message.error(error.message || 'Không thể tính phí đổi tour');
@@ -723,96 +827,92 @@ useEffect(() => {
     }
   };
 
-  // In handleConfirmChange
-const handleConfirmChange = async () => {
+  const handleConfirmChange = async () => {
     if (
-        !changeTourData.departureDate ||
-        (!changeTourData.numberAdults &&
-            !changeTourData.numberChildren &&
-            !changeTourData.numberInfants)
+      !changeTourData.departureDate ||
+      (!changeTourData.numberAdults &&
+        !changeTourData.numberChildren &&
+        !changeTourData.numberInfants)
     ) {
-        message.error('Vui lòng chọn ngày khởi hành và số người');
-        return;
+      message.error('Vui lòng chọn ngày khởi hành và số người');
+      return;
     }
     const totalPeople =
-        changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
+      changeTourData.numberAdults + changeTourData.numberChildren + changeTourData.numberInfants;
     if (totalPeople > changeTourData.maxPeople) {
-        message.error(`Số người vượt quá số chỗ khả dụng (${changeTourData.maxPeople})`);
-        return;
+      message.error(`Số người vượt quá số chỗ khả dụng (${changeTourData.maxPeople})`);
+      return;
     }
 
     setChangeLoading(true);
     try {
-        const isHoliday = changeTourData.departureDate
-            ? holidays.includes(dayjs(changeTourData.departureDate).format('MM-DD'))
-            : false;
-        const changeRequest = {
-            departureDate: dayjs(changeTourData.departureDate).format('YYYY-MM-DD'),
-            numberAdults: changeTourData.numberAdults,
-            numberChildren: changeTourData.numberChildren,
-            numberInfants: changeTourData.numberInfants,
-            isHoliday,
-            changeDate: new Date().toISOString(),
-        };
-        console.log('Change request:', changeRequest); // Debug log
-        const response = await dispatch(
-            changeTourThunk({ bookingId: changeTourData.bookingId, changeRequest })
-        ).unwrap();
+      const isHoliday = changeTourData.departureDate
+        ? holidays.includes(dayjs(changeTourData.departureDate).format('MM-DD'))
+        : false;
+      const changeRequest = {
+        departureDate: dayjs(changeTourData.departureDate).format('YYYY-MM-DD'),
+        numberAdults: changeTourData.numberAdults,
+        numberChildren: changeTourData.numberChildren,
+        numberInfants: changeTourData.numberInfants,
+        isHoliday,
+        changeDate: new Date().toISOString(),
+      };
+      const response = await dispatch(
+        changeTourThunk({ bookingId: changeTourData.bookingId, changeRequest })
+      ).unwrap();
 
-        console.log('Change tour response:', response);
-        setHistory((prevHistory) =>
-            prevHistory.map((item) =>
-                item.key === changeTourData.bookingId
-                    ? {
-                          ...item,
-                          departureDate: changeTourData.departureDate,
-                          numberPeople: totalPeople,
-                          numberAdults: changeTourData.numberAdults,
-                          numberChildren: changeTourData.numberChildren,
-                          numberInfants: changeTourData.numberInfants,
-                          totalPrice: changeFeeInfo.newTotalPrice,
-                          price: changeFeeInfo.newTotalPrice
-                              ? changeFeeInfo.newTotalPrice.toLocaleString('vi-VN') + 'đ'
-                              : item.price,
-                          status: changeFeeInfo.priceDifference > 0 ? 'PENDING_PAYMENT' : item.status,
-                      }
-                    : item
-            )
+      setHistory((prevHistory) =>
+        prevHistory.map((item) =>
+          item.key === changeTourData.bookingId
+            ? {
+                ...item,
+                departureDate: changeTourData.departureDate,
+                numberPeople: totalPeople,
+                numberAdults: changeTourData.numberAdults,
+                numberChildren: changeTourData.numberChildren,
+                numberInfants: changeTourData.numberInfants,
+                totalPrice: changeFeeInfo.newTotalPrice,
+                price: changeFeeInfo.newTotalPrice
+                  ? changeFeeInfo.newTotalPrice.toLocaleString('vi-VN') + 'đ'
+                  : item.price,
+                status: changeFeeInfo.priceDifference > 0 ? 'PENDING_PAYMENT' : item.status,
+              }
+            : item
+        )
+      );
+
+      setIsChangeModalVisible(false);
+      if (changeFeeInfo.priceDifference > 0) {
+        message.success(
+          `Đổi lịch tour thành công! Vui lòng thanh toán bổ sung ${changeFeeInfo.priceDifference.toLocaleString(
+            'vi-VN'
+          )} VND.`
         );
-
-        setIsChangeModalVisible(false);
-        if (changeFeeInfo.priceDifference > 0) {
-            message.success(
-                `Đổi lịch tour thành công! Vui lòng thanh toán bổ sung ${changeFeeInfo.priceDifference.toLocaleString(
-                    'vi-VN'
-                )} VND.`
-            );
-        } else {
-            message.success(response.message || 'Đổi lịch tour thành công!');
-        }
-        setChangeTourData({
-            bookingId: null,
-            currentTourName: '',
-            departureDate: null,
-            numberAdults: 1,
-            numberChildren: 0,
-            numberInfants: 0,
-            maxPeople: Infinity,
-            adultPrice: 0,
-            childPrice: 0,
-            infantPrice: 0,
-            totalPrice: 0,
-        });
-        setChangeFeeInfo(null);
+      } else {
+        message.success(response.message || 'Đổi lịch tour thành công!');
+      }
+      setChangeTourData({
+        bookingId: null,
+        currentTourName: '',
+        departureDate: null,
+        numberAdults: 1,
+        numberChildren: 0,
+        numberInfants: 0,
+        maxPeople: Infinity,
+        adultPrice: 0,
+        childPrice: 0,
+        infantPrice: 0,
+        totalPrice: 0,
+      });
+      setChangeFeeInfo(null);
     } catch (error) {
-        console.error('Error changing tour:', error);
-        message.error(error.message || 'Không thể đổi tour');
+      console.error('Error changing tour:', error);
+      message.error(error.message || 'Không thể đổi tour');
     } finally {
-        setChangeLoading(false);
+      setChangeLoading(false);
     }
-};
+  };
 
-  // Columns for Active Bookings
   const activeColumns = [
     {
       title: 'Tour',
@@ -962,7 +1062,6 @@ const handleConfirmChange = async () => {
     },
   ];
 
-  // Columns for Booking History
   const historyColumns = [
     {
       title: 'Tour',
@@ -1061,10 +1160,7 @@ const handleConfirmChange = async () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col w-screen">
-      {/* Header */}
       <Header />
-
-      {/* Content */}
       <Content className="flex-grow py-10 px-4 sm:px-6 mt-10">
         <Title level={3} className="text-gray-800 mb-6 ml-30 pt-5">
           Danh Sách Tour Đã Đặt
@@ -1080,9 +1176,7 @@ const handleConfirmChange = async () => {
             className="bg-white rounded-xl shadow-lg p-8"
             style={{ padding: '10px' }}
           >
-            {/* Active Bookings Tab */}
             <TabPane tab="Tour Đã Đặt" key="1">
-              {/* Desktop View */}
               <div className="hidden md:block">
                 <Table
                   columns={activeColumns}
@@ -1095,8 +1189,6 @@ const handleConfirmChange = async () => {
                   locale={{ emptyText: 'Không có tour nào còn hiệu lực.' }}
                 />
               </div>
-
-              {/* Mobile View */}
               <div className="md:hidden">
                 {loading || paymentLoading || changeLoading ? (
                   <div className="flex justify-center py-8">
@@ -1226,10 +1318,7 @@ const handleConfirmChange = async () => {
                 )}
               </div>
             </TabPane>
-
-            {/* Booking History Tab */}
             <TabPane tab="Lịch Sử Đặt Tour" key="2">
-              {/* Desktop View */}
               <div className="hidden md:block">
                 <Table
                   columns={historyColumns}
@@ -1242,8 +1331,6 @@ const handleConfirmChange = async () => {
                   locale={{ emptyText: 'Không có lịch sử đặt tour.' }}
                 />
               </div>
-
-              {/* Mobile View */}
               <div className="md:hidden">
                 {loading ? (
                   <div className="flex justify-center py-8">
@@ -1334,7 +1421,6 @@ const handleConfirmChange = async () => {
         </motion.div>
       </Content>
 
-      {/* Modal nhập lý do hủy */}
       <Modal
         title={<Title level={4} className="text-blue-600">Nhập lý do hủy tour</Title>}
         open={isCancelModalVisible}
@@ -1361,7 +1447,6 @@ const handleConfirmChange = async () => {
         />
       </Modal>
 
-      {/* Modal xác nhận hủy tour */}
       {cancellationInfo && (
         <Modal
           title={<Title level={4} className="text-red-600">Xác nhận hủy tour</Title>}
@@ -1405,7 +1490,6 @@ const handleConfirmChange = async () => {
         </Modal>
       )}
 
-      {/* Modal thanh toán */}
       {selectedBooking && (
         <Modal
           title={<Title level={4} className="text-green-600">Xác nhận thanh toán</Title>}
@@ -1456,7 +1540,6 @@ const handleConfirmChange = async () => {
         </Modal>
       )}
 
-      {/* Modal thanh toán bổ sung */}
       {selectedBooking && (
         <Modal
           title={<Title level={4} className="text-orange-600">Xác nhận thanh toán bổ sung</Title>}
@@ -1532,190 +1615,233 @@ const handleConfirmChange = async () => {
         </Modal>
       )}
 
-      {/* Modal đổi lịch tour */}
       <Modal
-        title={<Title level={4} className="text-purple-600">Đổi lịch tour</Title>}
-        open={isChangeModalVisible}
-        onOk={changeFeeInfo ? handleConfirmChange : handleCalculateChangeFee}
-        onCancel={handleChangeModalCancel}
-        okText={changeFeeInfo ? 'Xác nhận đổi' : 'Tính phí đổi'}
-        cancelText="Hủy"
-        okButtonProps={{
-          className: 'bg-purple-600 hover:bg-purple-700 rounded-md h-10',
-          loading: changeLoading,
-          disabled:
-            !changeTourData.departureDate ||
-            (!changeTourData.numberAdults &&
-              !changeTourData.numberChildren &&
-              !changeTourData.numberInfants) ||
-            !availableDates.length,
-        }}
-        cancelButtonProps={{ className: 'rounded-md h-10' }}
-        centered
-        className="rounded-xl"
-        width={450}
+  title={<Title level={4} className="text-purple-600">Đổi lịch tour</Title>}
+  open={isChangeModalVisible}
+  onOk={changeFeeInfo ? handleConfirmChange : handleCalculateChangeFee}
+  onCancel={handleChangeModalCancel}
+  okText={changeFeeInfo ? 'Xác nhận đổi' : 'Tính phí đổi'}
+  cancelText="Hủy"
+  okButtonProps={{
+    className: 'bg-purple-600 hover:bg-purple-700 rounded-md h-10',
+    loading: changeLoading,
+    disabled:
+      !changeTourData.departureDate ||
+      (!changeTourData.numberAdults &&
+        !changeTourData.numberChildren &&
+        !changeTourData.numberInfants) ||
+      !availableDates.length,
+  }}
+  cancelButtonProps={{ className: 'rounded-md h-10' }}
+  centered
+  className="rounded-xl"
+  width={450}
+>
+  <div className="space-y-4 text-sm">
+    <div>
+      <Text className="text-gray-600">Tour hiện tại:</Text>
+      <Text className="block font-semibold text-gray-800">
+        {changeTourData.currentTourName}
+      </Text>
+    </div>
+    <div>
+      <Text className="text-gray-600">Chọn ngày khởi hành mới:</Text>
+      <Select
+        value={changeTourData.departureDate}
+        onChange={(value) =>
+          setChangeTourData((prev) => ({ ...prev, departureDate: value }))
+        }
+        className="w-full mt-2"
+        placeholder="Chọn ngày khởi hành"
+        disabled={changeLoading || !availableDates.length}
+        aria-label="Ngày khởi hành mới"
       >
-        <div className="space-y-4 text-sm">
-          <div>
-            <Text className="text-gray-600">Tour hiện tại:</Text>
-            <Text className="block font-semibold text-gray-800">
-              {changeTourData.currentTourName}
-            </Text>
-          </div>
-          <div>
-            <Text className="text-gray-600">Chọn ngày khởi hành mới:</Text>
-            <Select
-              value={changeTourData.departureDate}
-              onChange={(value) =>
-                setChangeTourData((prev) => ({ ...prev, departureDate: value }))
-              }
-              className="w-full mt-2"
-              placeholder="Chọn ngày khởi hành"
-              disabled={changeLoading || !availableDates.length}
-              aria-label="Ngày khởi hành mới"
-            >
-              {availableDates.map((date) => (
-                <Option key={date} value={date}>
-                  {new Date(date).toLocaleDateString('vi-VN', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                  })}
-                </Option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Text className="text-gray-600">
-              Người lớn (≥10 tuổi, tối đa {changeTourData.maxPeople},{' '}
-              {changeTourData.adultPrice.toLocaleString('vi-VN')} VND/người):
-            </Text>
-            <Input
-              type="number"
-              min={0}
-              max={changeTourData.maxPeople}
-              value={changeTourData.numberAdults}
-              onChange={(e) =>
-                setChangeTourData((prev) => ({
-                  ...prev,
-                  numberAdults: parseInt(e.target.value) || 0,
-                }))
-              }
-              className="w-full mt-2"
-              placeholder="Nhập số người lớn"
-              disabled={changeLoading}
-              aria-label="Số người lớn tham gia"
-            />
-          </div>
-          <div>
-            <Text className="text-gray-600">
-              Trẻ em (2–10 tuổi, tối đa {changeTourData.maxPeople},{' '}
-              {changeTourData.childPrice.toLocaleString('vi-VN')} VND/người):
-            </Text>
-            <Input
-              type="number"
-              min={0}
-              max={changeTourData.maxPeople}
-              value={changeTourData.numberChildren}
-              onChange={(e) =>
-                setChangeTourData((prev) => ({
-                  ...prev,
-                  numberChildren: parseInt(e.target.value) || 0,
-                }))
-              }
-              className="w-full mt-2"
-              placeholder="Nhập số trẻ em"
-              disabled={changeLoading}
-              aria-label="Số trẻ em tham gia"
-            />
-          </div>
-          <div>
-            <Text className="text-gray-600">
-              Trẻ nhỏ (2 tuổi, tối đa {changeTourData.maxPeople},{' '}
-              {changeTourData.infantPrice.toLocaleString('vi-VN')} VND/người):
-            </Text>
-            <Input
-              type="number"
-              min={0}
-              max={changeTourData.maxPeople}
-              value={changeTourData.numberInfants}
-              onChange={(e) =>
-                setChangeTourData((prev) => ({
-                  ...prev,
-                  numberInfants: parseInt(e.target.value) || 0,
-                }))
-              }
-              className="w-full mt-2"
-              placeholder="Nhập số trẻ nhỏ"
-              disabled={changeLoading}
-              aria-label="Số trẻ nhỏ tham gia"
-            />
-          </div>
-          <div>
-    <Text className="text-gray-600">
+        {availableDates.map((date) => (
+          <Option key={date} value={date}>
+            {new Date(date).toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })}
+          </Option>
+        ))}
+      </Select>
+    </div>
+    <div>
+      <Text className="text-gray-600">
+        Người lớn (≥10 tuổi, tối đa {changeTourData.maxPeople},{' '}
+        {(changeTourData.adultPrice || 1000000).toLocaleString('vi-VN')} VND/người):
+      </Text>
+      <Input
+        type="number"
+        min={0}
+        max={changeTourData.maxPeople}
+        value={changeTourData.numberAdults}
+        onChange={(e) =>
+          setChangeTourData((prev) => ({
+            ...prev,
+            numberAdults: parseInt(e.target.value) || 0,
+          }))
+        }
+        className="w-full mt-2"
+        placeholder="Nhập số người lớn"
+        disabled={changeLoading}
+        aria-label="Số người lớn tham gia"
+      />
+    </div>
+    <div>
+      <Text className="text-gray-600">
+        Trẻ em (2–10 tuổi, tối đa {changeTourData.maxPeople},{' '}
+        {(changeTourData.childPrice || 500000).toLocaleString('vi-VN')} VND/người):
+      </Text>
+      <Input
+        type="number"
+        min={0}
+        max={changeTourData.maxPeople}
+        value={changeTourData.numberChildren}
+        onChange={(e) =>
+          setChangeTourData((prev) => ({
+            ...prev,
+            numberChildren: parseInt(e.target.value) || 0,
+          }))
+        }
+        className="w-full mt-2"
+        placeholder="Nhập số trẻ em"
+        disabled={changeLoading}
+        aria-label="Số trẻ em tham gia"
+      />
+    </div>
+    <div>
+      <Text className="text-gray-600">
+        Trẻ nhỏ (2 tuổi, tối đa {changeTourData.maxPeople},{' '}
+        {(changeTourData.infantPrice || 200000).toLocaleString('vi-VN')} VND/người):
+      </Text>
+      <Input
+        type="number"
+        min={0}
+        max={changeTourData.maxPeople}
+        value={changeTourData.numberInfants}
+        onChange={(e) =>
+          setChangeTourData((prev) => ({
+            ...prev,
+            numberInfants: parseInt(e.target.value) || 0,
+          }))
+        }
+        className="w-full mt-2"
+        placeholder="Nhập số trẻ nhỏ"
+        disabled={changeLoading}
+        aria-label="Số trẻ nhỏ tham gia"
+      />
+    </div>
+    <div>
+      <Text className="text-gray-600">
         Tổng giá tạm tính:{' '}
         <span className="font-semibold text-gray-800">
-            {changeTourData.totalPrice.toLocaleString('vi-VN')} VND
+          {changeTourData.totalPrice
+            ? changeTourData.totalPrice.toLocaleString('vi-VN')
+            : 'Đang tải giá...'}{' '}
+          VND
         </span>
-    </Text>
-</div>
-          {changeFeeInfo && (
-            <div className="space-y-2">
-              <Text className="text-gray-600">Thông tin phí đổi:</Text>
-              <p>
-                Phí đổi:{' '}
-                <span className="font-medium text-purple-600">
-                  {changeFeeInfo.changeFee
-                    ? changeFeeInfo.changeFee.toLocaleString('vi-VN')
-                    : '0'}{' '}
-                  VND
-                </span>
-              </p>
-              <p>
-                Chênh lệch giá:{' '}
-                <span
-                  className={`font-medium ${
-                    changeFeeInfo.priceDifference >= 0 ? 'text-red-600' : 'text-green-600'
-                  }`}
-                >
-                  {changeFeeInfo.priceDifference
-                    ? changeFeeInfo.priceDifference.toLocaleString('vi-VN')
-                    : '0'}{' '}
-                  VND
-                </span>
-                {changeFeeInfo.priceDifference > 0 && (
-                  <span className="text-gray-500 italic"> (Cần thanh toán bổ sung)</span>
-                )}
-              </p>
-              <p>
-                Tổng giá mới:{' '}
-                <span className="font-medium text-gray-800">
-                  {changeFeeInfo.newTotalPrice
-                    ? changeFeeInfo.newTotalPrice.toLocaleString('vi-VN')
-                    : '0'}{' '}
-                  VND
-                </span>
-              </p>
-              {changeFeeInfo.refundAmount > 0 && (
-                <p>
-                  Số tiền hoàn lại:{' '}
-                  <span className="font-medium text-green-600">
-                    {changeFeeInfo.refundAmount
-                      ? changeFeeInfo.refundAmount.toLocaleString('vi-VN')
-                      : '0'}{' '}
-                    VND
-                  </span>
-                </p>
-              )}
-              {changeFeeInfo.message && (
-                <Text className="text-gray-500 italic">{changeFeeInfo.message}</Text>
-              )}
-            </div>
+      </Text>
+    </div>
+    <div>
+      <Text className="text-gray-600">Thông tin phí đổi:</Text>
+      {feeLoading ? (
+        <div className="flex items-center space-x-2">
+          <Spin size="small" />
+          <Text className="text-gray-500">Đang tính phí đổi...</Text>
+        </div>
+      ) : changeFeeInfo ? (
+        <div className="space-y-2">
+          <p>
+            Phí đổi:{' '}
+            <span className="font-medium text-purple-600">
+              {(changeFeeInfo.changeFee || 0).toLocaleString('vi-VN')} VND
+            </span>
+          </p>
+          {(() => {
+            const booking = history.find((item) => item.key === changeTourData.bookingId);
+            const isConfirmed = booking?.status === 'CONFIRMED';
+
+            if (isConfirmed) {
+              // Trường hợp CONFIRMED: Chỉ hiển thị phí đổi và tổng giá mới
+              return (
+                <>
+                  <p>
+                    Tổng giá mới:{' '}
+                    <span className="font-medium text-gray-800">
+                      {(changeFeeInfo.newTotalPrice || 0).toLocaleString('vi-VN')} VND
+                    </span>
+                  </p>
+                  <p className="mt-2 font-semibold">
+                    Tổng cộng cần thanh toán:{' '}
+                    <span className="text-purple-600">
+                      {((changeFeeInfo.changeFee || 0) + (changeFeeInfo.newTotalPrice || 0)).toLocaleString('vi-VN')} VND
+                    </span>
+                  </p>
+                </>
+              );
+            } else {
+              // Trường hợp PAID: Hiển thị chênh lệch giá, số tiền trả thêm hoặc hoàn lại
+              return (
+                <>
+                  <p>
+                    Chênh lệch giá:{' '}
+                    <span
+                      className={`font-medium ${
+                        changeFeeInfo.priceDifference >= 0 ? 'text-red-600' : 'text-green-600'
+                      }`}
+                    >
+                      {(changeFeeInfo.priceDifference || 0).toLocaleString('vi-VN')} VND
+                    </span>
+                  </p>
+                  <p>
+                    Tổng giá mới:{' '}
+                    <span className="font-medium text-gray-800">
+                      {(changeFeeInfo.newTotalPrice || 0).toLocaleString('vi-VN')} VND
+                    </span>
+                  </p>
+                  {changeFeeInfo.additionalPayment > 0 && (
+                    <p>
+                      Số tiền cần trả thêm:{' '}
+                      <span className="font-medium text-red-600">
+                        {changeFeeInfo.additionalPayment.toLocaleString('vi-VN')} VND
+                      </span>
+                    </p>
+                  )}
+                  {changeFeeInfo.refundAmount > 0 && (
+                    <p>
+                      Số tiền hoàn lại:{' '}
+                      <span className="font-medium text-green-600">
+                        {changeFeeInfo.refundAmount.toLocaleString('vi-VN')} VND
+                      </span>
+                    </p>
+                  )}
+                  {changeFeeInfo.additionalPayment > 0 && (
+                    <p className="mt-2 font-semibold">
+                      Tổng cộng cần thanh toán:{' '}
+                      <span className="text-purple-600">
+                        {((changeFeeInfo.changeFee || 0) + (changeFeeInfo.additionalPayment || 0)).toLocaleString('vi-VN')} VND
+                      </span>
+                    </p>
+                  )}
+                </>
+              );
+            }
+          })()}
+          {changeFeeInfo.message && (
+            <Text className="text-gray-500 italic">{changeFeeInfo.message}</Text>
           )}
         </div>
-      </Modal>
+      ) : (
+        <Text className="text-gray-500 italic">
+          Vui lòng chọn ngày và số lượng để tính phí đổi.
+        </Text>
+      )}
+    </div>
+  </div>
+</Modal>
 
-      {/* Footer */}
       <Footer />
     </div>
   );
