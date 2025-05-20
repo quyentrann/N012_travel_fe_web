@@ -49,7 +49,16 @@ const statusColors = {
   PAID: 'green',
   COMPLETED: 'blue',
   IN_PROGRESS: 'purple',
-  PENDING_PAYMENT: 'orange',
+  PENDING_PAYMENT: 'yellow',
+};
+
+const statusLabels = {
+  CONFIRMED: 'Đã xác nhận',
+  CANCELED: 'Đã hủy',
+  PAID: 'Đã thanh toán',
+  COMPLETED: 'Hoàn thành',
+  IN_PROGRESS: 'Đang diễn ra',
+  PENDING_PAYMENT: 'Chờ thanh toán',
 };
 
 const Orders = () => {
@@ -960,7 +969,7 @@ const Orders = () => {
       key: 'status',
       render: (status) => (
         <Tag color={statusColors[status]} className="px-3 py-1 rounded-full">
-          {status}
+          {statusLabels[status] || status}
         </Tag>
       ),
     },
@@ -1109,8 +1118,8 @@ const Orders = () => {
       key: 'status',
       render: (status) => (
         <Tag color={statusColors[status]} className="px-3 py-1 rounded-full">
-          {status}
-        </Tag>
+        {statusLabels[status] || status} {/* Hiển thị tiếng Việt, fallback về tiếng Anh nếu không có */}
+      </Tag>
       ),
     },
     {
@@ -1254,7 +1263,7 @@ const Orders = () => {
                                   color={statusColors[record.status]}
                                   className="px-2 py-0.5 rounded-full text-xs"
                                 >
-                                  {record.status}
+                                 {statusLabels[record.status] || record.status}
                                 </Tag>
                               </p>
                             </div>

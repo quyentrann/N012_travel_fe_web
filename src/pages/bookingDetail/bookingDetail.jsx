@@ -75,6 +75,24 @@ const getSimilarTours = async (tourId) => {
   }
 };
 
+const statusColors = {
+  CONFIRMED: 'gold',
+  CANCELED: 'red',
+  PAID: 'green',
+  COMPLETED: 'blue',
+  IN_PROGRESS: 'purple',
+  PENDING_PAYMENT: 'yellow',
+};
+
+const statusLabels = {
+  CONFIRMED: 'Đã xác nhận',
+  CANCELED: 'Đã hủy',
+  PAID: 'Đã thanh toán',
+  COMPLETED: 'Hoàn thành',
+  IN_PROGRESS: 'Đang diễn ra',
+  PENDING_PAYMENT: 'Chờ thanh toán',
+};
+
 const RatingModal = ({ open, onCancel, onConfirm, loading }) => {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -92,6 +110,8 @@ const RatingModal = ({ open, onCancel, onConfirm, loading }) => {
     setRating(0);
     setComment('');
   };
+
+
 
   return (
     <Modal
@@ -980,21 +1000,12 @@ const BookingDetail = () => {
                   </Text>
                 </div>
                 <div>
-                  <Text className="text-sm text-gray-600">
-                    <span className="font-semibold">Trạng thái:</span>{' '}
-                    <Tag
-                      color={
-                        bookingDetail.status === 'PAID'
-                          ? 'green'
-                          : bookingDetail.status === 'CANCELED'
-                          ? 'red'
-                          : bookingDetail.status === 'COMPLETED'
-                          ? 'blue'
-                          : 'yellow'
-                      }>
-                      {bookingDetail.status || 'PENDING'}
-                    </Tag>
-                  </Text>
+<Text className="text-sm text-gray-600">
+  <span className="font-semibold">Trạng thái:</span>{' '}
+  <Tag color={statusColors[bookingDetail.status] || 'yellow'}>
+    {statusLabels[bookingDetail.status] || bookingDetail.status || 'Chưa xác định'}
+  </Tag>
+</Text>
                   <Text className="text-sm text-gray-600 block mt-3">
                     <span className="font-semibold">Tổng giá:</span>{' '}
                     {bookingDetail.totalPrice
