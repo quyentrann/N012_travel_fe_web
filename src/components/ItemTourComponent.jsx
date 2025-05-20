@@ -159,7 +159,7 @@ export default function ItemTourComponent({
           Mô tả: {tour.description || 'Mô tả tour'}
         </p>
         <p className="text-[9px] sm:text-[14px] text-gray-600 line-clamp-2 pb-0.5 sm:pb-1">
-          Loại hình tour: {tour.tourcategory?.categoryName || 'Chưa có loại'}
+          Loại hình tour: {tour.tourCategory?.categoryName || 'Chưa có loại'}
         </p>
         <div className="flex flex-wrap justify-between text-[10px] sm:text-[12px] text-gray-500 gap-1 sm:gap-0">
           <span className="flex items-center gap-1">
