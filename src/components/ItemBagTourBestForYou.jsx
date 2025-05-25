@@ -48,7 +48,7 @@ function ItemBagTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
 
     try {
       await axios.post(
-        `http://localhost:8080/api/search-history/click/${tour.tourId}`,
+        `https://18.138.107.49/api/search-history/click/${tour.tourId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
