@@ -759,23 +759,23 @@ const SearchPage = () => {
           ) : (
             <>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto justify-items-center lg:pl-10">
-                {filteredTours.slice(0, visibleCount).map((tour) => (
-                  <motion.div
-                    key={tour.tourId}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
-                    className="w-full"
-                  >
-                    <ItemTourComponent
-                      tour={tour}
-                      isFavorite={favoriteTours.some((fav) => fav.tourId === tour.tourId)}
-                      onFavoriteChange={handleFavoriteChange}
-                    />
-                  </motion.div>
-                ))}
-              </div>
+  {[...filteredTours].reverse().slice(0, visibleCount).map((tour) => (
+    <motion.div
+      key={tour.tourId}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
+      className="w-full"
+    >
+      <ItemTourComponent
+        tour={tour}
+        isFavorite={favoriteTours.some((fav) => fav.tourId === tour.tourId)}
+        onFavoriteChange={handleFavoriteChange}
+      />
+    </motion.div>
+  ))}
+</div>
               {visibleCount < filteredTours.length && (
                 <div className="flex justify-center mt-8">
                   <button

@@ -183,36 +183,58 @@ const Home = () => {
       : b.tourId - a.tourId;
   });
 
-  // Prepare recommended tours (prioritize history, supplement with high-rated tours)
+  // Prepare recommended tours (history > favorites > high-rated tours)
   const recommendedTours = (() => {
     const maxTours = 5;
     let result = [];
 
-    // Add tours from history (if authenticated and history exists)
+    // Step 1: Add tours from history (if authenticated and history exists)
     if (isAuthenticated && history.length > 0) {
-      result = history.map(item => ({
-        tourId: item.tourId || item.tour?.tourId,
-        tour: {
+      result = history
+        .map(item => ({
           tourId: item.tourId || item.tour?.tourId,
-          name: item.tour?.name || item.name || 'Unknown Tour',
-          imageURL: item.tour?.imageURL || item.imageURL,
-          price: item.tour?.price || item.price,
-          bookings: item.tour?.bookings || item.bookings || [],
-          reviews: item.tour?.reviews || item.reviews || [],
-        },
-      }));
+          tour: {
+            tourId: item.tourId || item.tour?.tourId,
+            name: item.tour?.name || item.name || 'Unknown Tour',
+            imageURL: item.tour?.imageURL || item.imageURL,
+            price: item.tour?.price || item.price,
+            bookings: item.tour?.bookings || item.bookings || [],
+            reviews: item.tour?.reviews || item.reviews || [],
+          },
+        }))
+        .slice(0, maxTours); // Giới hạn số tour từ history
     }
 
-    // Supplement with high-rated tours if needed
-    if (result.length < maxTours) {
+    // Step 2: Add favorite tours if not enough
+    if (isAuthenticated && result.length < maxTours && favoriteTours.length > 0) {
       const historyTourIds = new Set(result.map(tour => tour.tourId));
+      const favoriteTourItems = favoriteTours
+        .filter(fav => !historyTourIds.has(fav.tour?.tourId || fav.tourId))
+        .map(fav => ({
+          tourId: fav.tour?.tourId || fav.tourId,
+          tour: {
+            tourId: fav.tour?.tourId || fav.tourId,
+            name: fav.tour?.name || 'Unknown Tour',
+            imageURL: fav.tour?.imageURL || fav.imageURL,
+            price: fav.tour?.price || fav.price,
+            bookings: fav.tour?.bookings || fav.bookings || [],
+            reviews: fav.tour?.reviews || fav.reviews || [],
+          },
+        }))
+        .slice(0, maxTours - result.length);
+      result = [...result, ...favoriteTourItems];
+    }
+
+    // Step 3: Supplement with high-rated tours if needed
+    if (result.length < maxTours) {
+      const usedTourIds = new Set(result.map(tour => tour.tourId));
       const additionalTours = [...tours]
         .map(tour => ({
           ...tour,
           averageRating: getAverageRating(tour),
         }))
-        .sort((a, b) => b.averageRating - a.averageRating) // Sắp xếp theo rating
-        .filter(tour => !historyTourIds.has(tour.tourId))
+        .sort((a, b) => b.averageRating - a.averageRating)
+        .filter(tour => !usedTourIds.has(tour.tourId))
         .slice(0, maxTours - result.length)
         .map(tour => ({
           tourId: tour.tourId,
@@ -233,6 +255,7 @@ const Home = () => {
       tourId: t.tourId,
       name: t.tour.name,
       averageRating: getAverageRating(t.tour),
+      source: t.source || (history.some(h => h.tourId === t.tourId || h.tour?.tourId === t.tourId) ? 'history' : favoriteTours.some(f => f.tourId === t.tourId || f.tour?.tourId === t.tourId) ? 'favorite' : 'high-rated'),
     })), null, 2));
 
     return result.slice(0, maxTours);
