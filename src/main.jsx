@@ -123,7 +123,7 @@ function AppWithChat() {
     <BrowserRouter>
       <ConfigProvider locale={viVN}>
         <App />
-        {/* <BotpressChat /> */}
+        <BotpressChat />
       </ConfigProvider>
     </BrowserRouter>
   );
