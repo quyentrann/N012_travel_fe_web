@@ -28,7 +28,7 @@ const VnpayReturn = () => {
         throw new Error('Không tìm thấy refresh token');
       }
       const response = await axios.post(
-        'http://localhost:8080/api/auth/refresh',
+        'https://18.138.107.49/api/auth/refresh',
         { refreshToken },
         { timeout: 5000 }
       );
@@ -49,7 +49,7 @@ const VnpayReturn = () => {
 
   const fetchUserInfo = async (token) => {
     try {
-      const response = await axios.get('http://localhost:8080/api/auth/check', {
+      const response = await axios.get('https://18.138.107.49/api/auth/check', {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 5000,
       });
@@ -104,7 +104,7 @@ const VnpayReturn = () => {
         setBookingId(txnRef.split('_')[0]);
 
         const response = await axios.get(
-          'http://localhost:8080/api/payment/vnpay-return',
+          'https://18.138.107.49/api/payment/vnpay-return',
           {
             params: paramsObject,
             headers: {
@@ -161,7 +161,9 @@ const VnpayReturn = () => {
           setStatus('error');
           setMessageText(
             error.response?.data?.message ||
-              `Bạn không có quyền truy cập booking ${bookingId || 'này'}. Vui lòng kiểm tra tài khoản hoặc mã đơn đặt tour.`
+              `Bạn không có quyền truy cập booking ${
+                bookingId || 'này'
+              }. Vui lòng kiểm tra tài khoản hoặc mã đơn đặt tour.`
           );
           message.error('Không có quyền truy cập booking.');
         } else if (error.response?.status === 404) {
@@ -170,7 +172,9 @@ const VnpayReturn = () => {
           message.error('Không tìm thấy đơn đặt tour.');
         } else if (error.code === 'ECONNABORTED') {
           setStatus('error');
-          setMessageText('Kết nối đến server thất bại. Vui lòng kiểm tra mạng.');
+          setMessageText(
+            'Kết nối đến server thất bại. Vui lòng kiểm tra mạng.'
+          );
           message.error('Kết nối timeout. Vui lòng thử lại.');
         } else {
           setStatus('error');
@@ -215,10 +219,11 @@ const VnpayReturn = () => {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3 }}
-          className="flex flex-col items-center"
-        >
+          className="flex flex-col items-center">
           <Spin size="large" />
-          <Text className="mt-2 text-gray-600">Đang xử lý kết quả thanh toán...</Text>
+          <Text className="mt-2 text-gray-600">
+            Đang xử lý kết quả thanh toán...
+          </Text>
         </motion.div>
       </div>
     );
@@ -234,8 +239,7 @@ const VnpayReturn = () => {
           <Button
             type="primary"
             className="h-12 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-base"
-            onClick={handleNavigate}
-          >
+            onClick={handleNavigate}>
             Xem Chi Tiết Đơn Đặt Tour
           </Button>
           <div className="mt-4 text-gray-600">
@@ -256,29 +260,25 @@ const VnpayReturn = () => {
         <div className="mt-6 flex gap-4 justify-center flex-wrap">
           <Button
             className="h-12 px-6 rounded-lg border-blue-600 text-blue-600 hover:bg-blue-50 text-base"
-            onClick={handleRetry}
-          >
+            onClick={handleRetry}>
             Thử Lại
           </Button>
           <Button
             type="primary"
             className="h-12 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-base"
-            onClick={() => navigate('/orders')}
-          >
+            onClick={() => navigate('/orders')}>
             Xem Đơn Đặt Tour
           </Button>
           <Button
             type="primary"
             className="h-12 px-6 rounded-lg bg-gray-600 hover:bg-gray-700 text-base"
-            onClick={() => navigate('/')}
-          >
+            onClick={() => navigate('/')}>
             Về Trang Chủ
           </Button>
           <Button
             type="link"
             href="mailto:support@traveleasy.com"
-            className="mt-4 text-blue-600"
-          >
+            className="mt-4 text-blue-600">
             Liên hệ hỗ trợ
           </Button>
         </div>
@@ -292,22 +292,19 @@ const VnpayReturn = () => {
         <div className="mt-6 flex gap-4 justify-center">
           <Button
             className="h-12 px-6 rounded-lg border-blue-600 text-blue-600 hover:bg-blue-50 text-base"
-            onClick={handleRetry}
-          >
+            onClick={handleRetry}>
             Thử Lại
           </Button>
           <Button
             type="primary"
             className="h-12 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-base"
-            onClick={() => navigate('/')}
-          >
+            onClick={() => navigate('/')}>
             Về Trang Chủ
           </Button>
           <Button
             type="link"
             href="mailto:support@traveleasy.com"
-            className="mt-4 text-blue-600"
-          >
+            className="mt-4 text-blue-600">
             Liên hệ hỗ trợ
           </Button>
         </div>
@@ -336,11 +333,12 @@ const VnpayReturn = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-xl w-full bg-white rounded-2xl shadow-xl p-8 text-center"
-        >
+          className="max-w-xl w-full bg-white rounded-2xl shadow-xl p-8 text-center">
           <div className="mb-6">
             {statusConfig[status]?.icon}
-            <Title level={3} className={`mt-4 ${statusConfig[status]?.titleColor}`}>
+            <Title
+              level={3}
+              className={`mt-4 ${statusConfig[status]?.titleColor}`}>
               {statusConfig[status]?.title}
             </Title>
             <Text className="text-gray-600 block mt-2">{messageText}</Text>
