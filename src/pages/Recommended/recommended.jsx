@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Tab } from '@headlessui/react';
 import ItemTourComponent from '../../components/ItemTourComponent';
 import { logout } from '../../redux/userSlice';
-import { setFilteredTours, fetchTours, fetchFavoriteTours } from '../../redux/tourSlice'; // Add fetchFavoriteTours
+import { setFilteredTours, fetchTours, fetchFavoriteTours } from '../../redux/tourSlice';
 import { fetchLocations } from '../../redux/locationSlice';
 import { fetchUnreadCount } from '../../redux/notificationSlice';
 import { setSearchTerm } from '../../redux/searchSlice';
@@ -41,7 +41,7 @@ const Home = () => {
   const {
     tours,
     filteredTours,
-    favoriteTours, // Add favoriteTours
+    favoriteTours,
     loading: toursLoading,
     error: toursError,
   } = useSelector((state) => state.tours);
@@ -65,7 +65,7 @@ const Home = () => {
         promises.push(
           dispatch(fetchSearchHistory()),
           dispatch(fetchUnreadCount()),
-          dispatch(fetchFavoriteTours()) // Fetch favorite tours
+          dispatch(fetchFavoriteTours())
         );
       }
       await Promise.all(promises);
@@ -95,6 +95,106 @@ const Home = () => {
     return totalOrdersB - totalOrdersA;
   });
 
+  // Hàm tính điểm đánh giá trung bình
+  const getAverageRating = (tour) => {
+    if (!tour?.reviews || tour.reviews.length === 0) return 0;
+    const totalRating = tour.reviews.reduce((sum, review) => sum + (review.rating || 0), 0);
+    return totalRating / tour.reviews.length;
+  };
+
+  // Chuẩn bị danh sách tour hiển thị (history > favoriteTours > high-rated tours)
+  const displayTours = (() => {
+    const maxTours = 8;
+    let result = [];
+
+    // Log history để debug
+    console.log('Raw history:', JSON.stringify(history, null, 2));
+
+    // Bước 1: Thêm tour từ history
+    if (history.length > 0) {
+      result = history
+        .map(item => ({
+          tour: {
+            tourId: item.tour?.tourId || item.tourId,
+            name: item.tour?.name || item.name || 'Unknown',
+            imageURL: item.tour?.imageURL || item.imageURL,
+            price: item.tour?.price || item.price,
+            bookings: item.tour?.bookings || item.bookings || [],
+            reviews: item.tour?.reviews || item.reviews || [],
+            description: item.tour?.description || item.description,
+            location: item.tour?.location || item.location,
+            availableSlot: item.tour?.availableSlot || item.availableSlot,
+          },
+          source: 'history',
+        }))
+        .filter(item => item.tour?.tourId && item.tour?.name && item.tour?.name !== 'Unknown')
+        .slice(0, maxTours);
+    }
+
+    // Bước 2: Thêm favorite tours nếu chưa đủ
+    if (isAuthenticated && result.length < maxTours && favoriteTours.length > 0) {
+      const historyTourIds = new Set(result.map(item => item.tour?.tourId));
+      const favoriteTourItems = favoriteTours
+        .filter(fav => !historyTourIds.has(fav.tourId || fav.tour?.tourId))
+        .map(fav => ({
+          tour: {
+            tourId: fav.tourId || fav.tour?.tourId,
+            name: fav.name || fav.tour?.name || 'Unknown',
+            imageURL: fav.imageURL || fav.tour?.imageURL,
+            price: fav.price || fav.tour?.price,
+            bookings: fav.bookings || fav.tour?.bookings || [],
+            reviews: fav.reviews || fav.tour?.reviews || [],
+            description: fav.description || fav.tour?.description,
+            location: fav.location || fav.tour?.location,
+            availableSlot: fav.availableSlot || fav.tour?.availableSlot,
+          },
+          source: 'favorite',
+        }))
+        .filter(item => item.tour?.tourId && item.tour?.name && item.tour?.name !== 'Unknown')
+        .slice(0, maxTours - result.length);
+      result = [...result, ...favoriteTourItems];
+    }
+
+    // Bước 3: Thêm tour đánh giá cao nếu chưa đủ
+    if (result.length < maxTours) {
+      const usedTourIds = new Set(result.map(item => item.tour?.tourId));
+      const additionalTours = [...tours]
+        .map(tour => ({
+          ...tour,
+          averageRating: getAverageRating(tour),
+        }))
+        .sort((a, b) => b.averageRating - a.averageRating)
+        .filter(tour => !usedTourIds.has(tour.tourId) && tour.tourId && tour.name && tour.imageURL)
+        .slice(0, maxTours - result.length)
+        .map(tour => ({
+          tour: {
+            tourId: tour.tourId,
+            name: tour.name || 'Unknown',
+            imageURL: tour.imageURL,
+            price: tour.price,
+            bookings: tour.bookings || [],
+            reviews: tour.reviews || [],
+            description: tour.description,
+            location: tour.location,
+            availableSlot: tour.availableSlot,
+          },
+          source: 'high-rated',
+        }));
+      result = [...result, ...additionalTours];
+    }
+
+    // Log để debug
+    console.log('Display Tours:', JSON.stringify(result.map(t => ({
+      tourId: t.tour?.tourId,
+      name: t.tour?.name,
+      averageRating: getAverageRating(t.tour),
+      source: t.source,
+    })), null, 2));
+    console.log(`Total tours displayed: ${result.length}`);
+
+    return result.slice(0, maxTours);
+  })();
+
   const handleTourClick = async (query) => {
     try {
       const token = localStorage.getItem('TOKEN');
@@ -109,7 +209,6 @@ const Home = () => {
     }
   };
 
-  // Handle favorite change (optional, if you want to update favorite status)
   const handleFavoriteChange = (tourId, isFavorite) => {
     if (!isFavorite) {
       dispatch(fetchFavoriteTours()).then(() => {
@@ -128,9 +227,9 @@ const Home = () => {
             <div className="flex flex-col sm:flex-row justify-between sm:items-center mt-5 sm:mb-10">
               <motion.div variants={buttonVariants} whileHover="hover">
                 <Button
-                               onClick={() => navigate('/')}
-                               className="bg-gradient-to-r from-blue-400 to-blue-200 hover:from-blue-500 hover:to-blue-400 text-white font-medium rounded-full px-4 py-2 shadow-md"
-                             >
+                  onClick={() => navigate('/')}
+                  className="bg-gradient-to-r from-blue-400 to-blue-200 hover:from-blue-500 hover:to-blue-400 text-white font-medium rounded-full px-4 py-2 shadow-md"
+                >
                   <ArrowLeftOutlined />
                 </Button>
               </motion.div>
@@ -165,9 +264,9 @@ const Home = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto justify-items-center">
-                  {history.map((tour) => (
+                  {displayTours.map((item) => (
                     <motion.div
-                      key={tour.tour?.tourId}
+                      key={item.tour?.tourId}
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.5 }}
@@ -175,10 +274,10 @@ const Home = () => {
                       whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
                     >
                       <ItemTourBestForYou
-                        tour={tour}
-                        isFavorite={favoriteTours.some((fav) => fav.tourId === tour.tour?.tourId)} // Pass isFavorite
-                        onFavoriteChange={handleFavoriteChange} // Pass onFavoriteChange
-                        onClick={() => handleTourClick(tour.tour?.name || tour.name || 'Unknown')}
+                        tour={item.tour}
+                        isFavorite={favoriteTours.some((fav) => fav.tourId === item.tour?.tourId)}
+                        onFavoriteChange={handleFavoriteChange}
+                        onClick={() => handleTourClick(item.tour?.name || 'Unknown')}
                       />
                     </motion.div>
                   ))}

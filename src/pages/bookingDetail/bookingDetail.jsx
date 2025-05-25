@@ -58,7 +58,7 @@ const getSimilarTours = async (tourId) => {
       return [];
     }
     const response = await axios.get(
-      `https://18.138.107.49/api/tours/${tourId}/similar`,
+      `http://localhost:8080/api/tours/${tourId}/similar`,
       {
         headers: { Authorization: `Bearer ${token}` },
       }
@@ -110,8 +110,6 @@ const RatingModal = ({ open, onCancel, onConfirm, loading }) => {
     setRating(0);
     setComment('');
   };
-
-
 
   return (
     <Modal
@@ -308,7 +306,7 @@ const BookingDetail = () => {
         }
 
         const [bookingResponse] = await Promise.all([
-          axios.get(`https://18.138.107.49/api/bookings/${state.id}`, {
+          axios.get(`http://localhost:8080/api/bookings/${state.id}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
         ]);
@@ -319,7 +317,7 @@ const BookingDetail = () => {
         const tourId = bookingResponse.data.tour?.tourId;
         if (tourId) {
           const tourResponse = await axios.get(
-            `https://18.138.107.49/api/tours/${tourId}`,
+            `http://localhost:8080/api/tours/${tourId}`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (
@@ -344,7 +342,7 @@ const BookingDetail = () => {
         const [historyResponse, reviewsResponse, reviewCheckResponse] =
           await Promise.all([
             axios
-              .get(`https://18.138.107.49/api/bookings/history/${state.id}`, {
+              .get(`http://localhost:8080/api/bookings/history/${state.id}/entries`, {
                 headers: { Authorization: `Bearer ${token}` },
               })
               .catch((error) => {
@@ -356,14 +354,14 @@ const BookingDetail = () => {
               }),
             axios
               .get(
-                `https://18.138.107.49/api/reviews/by-tour/${
+                `http://localhost:8080/api/reviews/by-tour/${
                   tourId || state.id
                 }?page=${currentPage - 1}&size=${pageSize}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               )
               .catch(() => ({ data: { content: [], totalElements: 0 } })),
             axios
-              .get(`https://18.138.107.49/api/reviews/by-booking/${state.id}`, {
+              .get(`http://localhost:8080/api/reviews/by-booking/${state.id}`, {
                 headers: { Authorization: `Bearer ${token}` },
               })
               .catch(() => ({ data: false })),
@@ -425,7 +423,7 @@ const BookingDetail = () => {
     try {
       const token = localStorage.getItem('TOKEN');
       await axios.post(
-        `https://18.138.107.49/api/reviews`,
+        `http://localhost:8080/api/reviews`,
         { bookingId: state.id, rating, comment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -433,7 +431,7 @@ const BookingDetail = () => {
       setHasReviewed(true);
       setIsRatingModalVisible(false);
       const reviewsResponse = await axios.get(
-        `https://18.138.107.49/api/reviews/by-tour/${
+        `http://localhost:8080/api/reviews/by-tour/${
           bookingDetail.tour?.tourId || state.id
         }?page=${currentPage - 1}&size=${pageSize}`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -470,7 +468,7 @@ const BookingDetail = () => {
     try {
       const token = localStorage.getItem('TOKEN');
       const response = await axios.post(
-        `https://18.138.107.49/api/bookings/calculate-cancellation-fee/${state.id}`,
+        `http://localhost:8080/api/bookings/calculate-cancellation-fee/${state.id}`,
         { cancelDate: new Date().toISOString(), isHoliday: false },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -508,13 +506,13 @@ const BookingDetail = () => {
       const token = localStorage.getItem('TOKEN');
       // Gọi API hủy tour
       await axios.put(
-        `https://18.138.107.49/api/bookings/cancel/${state.id}`,
+        `http://localhost:8080/api/bookings/cancel/${state.id}`,
         { reason, cancelDate: new Date().toISOString(), isHoliday: false },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // Lấy lại thông tin booking mới nhất
       const bookingResponse = await axios.get(
-        `https://18.138.107.49/api/bookings/${state.id}`,
+        `http://localhost:8080/api/bookings/${state.id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const updatedBooking = bookingResponse.data;
@@ -526,7 +524,7 @@ const BookingDetail = () => {
       if (updatedBooking.status === 'CANCELED') {
         try {
           const historyResponse = await axios.get(
-            `https://18.138.107.49/api/bookings/history/${state.id}`,
+            `http://localhost:8080/api/bookings/history/${state.id}/entries`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const historyData = Array.isArray(historyResponse.data)
@@ -585,7 +583,7 @@ const BookingDetail = () => {
         return;
       }
       const response = await axios.post(
-        'https://18.138.107.49/api/payment/vnpay-create',
+        'http://localhost:8080/api/payment/vnpay-create',
         {
           bookingId: state.id,
           totalPrice: bookingDetail.totalPrice,
@@ -703,7 +701,7 @@ const BookingDetail = () => {
       }
 
       const userResponse = await axios.get(
-        'https://18.138.107.49/api/users/me',
+        'http://localhost:8080/api/users/me',
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -716,7 +714,7 @@ const BookingDetail = () => {
       }
 
       const tourResponse = await axios.get(
-        `https://18.138.107.49/api/tours/${bookingDetail.tour.tourId}`,
+        `http://localhost:8080/api/tours/${bookingDetail.tour.tourId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -804,7 +802,7 @@ const BookingDetail = () => {
       console.log('Booking Payload:', payload);
 
       const response = await axios.post(
-        'https://18.138.107.49/api/bookings/book',
+        'http://localhost:8080/api/bookings/book',
         payload,
         {
           headers: {
@@ -1000,12 +998,14 @@ const BookingDetail = () => {
                   </Text>
                 </div>
                 <div>
-<Text className="text-sm text-gray-600">
-  <span className="font-semibold">Trạng thái:</span>{' '}
-  <Tag color={statusColors[bookingDetail.status] || 'yellow'}>
-    {statusLabels[bookingDetail.status] || bookingDetail.status || 'Chưa xác định'}
-  </Tag>
-</Text>
+                  <Text className="text-sm text-gray-600">
+                    <span className="font-semibold">Trạng thái:</span>{' '}
+                    <Tag color={statusColors[bookingDetail.status] || 'yellow'}>
+                      {statusLabels[bookingDetail.status] ||
+                        bookingDetail.status ||
+                        'Chưa xác định'}
+                    </Tag>
+                  </Text>
                   <Text className="text-sm text-gray-600 block mt-3">
                     <span className="font-semibold">Tổng giá:</span>{' '}
                     {bookingDetail.totalPrice

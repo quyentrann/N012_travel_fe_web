@@ -35,7 +35,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
     setIsLoading(true);
     try {
       if (isFavorite) {
-        await axios.delete('https://18.138.107.49/api/tour-favourites', {
+        await axios.delete('http://localhost:8080/api/tour-favourites', {
           data: { tourId: normalizedTour.tourId },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -43,7 +43,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
         onFavoriteChange(normalizedTour.tourId, false);
       } else {
         await axios.post(
-          'https://18.138.107.49/api/tour-favourites',
+          'http://localhost:8080/api/tour-favourites',
           { tourId: normalizedTour.tourId },
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -78,7 +78,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
 
     try {
       await axios.post(
-        `https://18.138.107.49/api/search-history/click/${normalizedTour.tourId}`,
+        `http://localhost:8080/api/search-history/click/${normalizedTour.tourId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -127,7 +127,7 @@ function ItemTourBestForYou({ tour, isFavorite, onFavoriteChange }) {
           </div>
         }
         className="rounded-2xl shadow-none flex flex-col h-full border-none"
-        bodyStyle={{
+        styles={{
           display: 'flex',
           flexDirection: 'column',
           flex: 1,

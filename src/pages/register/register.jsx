@@ -51,6 +51,7 @@ export default function Register() {
     }, 10000); // 5 seconds
     return () => clearInterval(interval);
   }, []);
+
   const handleRegister = async (values) => {
     setLoading(true);
     try {
@@ -64,10 +65,10 @@ export default function Register() {
         email: values.email,
         password: values.password,
         fullName: values.fullName,
-        phoneNumber: values.phoneNumber,
-        dob: values.dob?.format('YYYY-MM-DD'),
-        address: values.address,
-        gender: values.gender,
+        phoneNumber: values.phoneNumber || undefined, // Gửi undefined nếu không nhập
+        dob: values.dob?.format('YYYY-MM-DD') || undefined, // Gửi undefined nếu không nhập
+        address: values.address || undefined, // Gửi undefined nếu không nhập
+        gender: values.gender === undefined ? undefined : values.gender, // Gửi undefined nếu không chọn
       });
       if (response.message.includes('OTP')) {
         message.success('OTP has been sent to your email!');
@@ -192,7 +193,7 @@ export default function Register() {
   };
 
   return (
-        <motion.div
+<motion.div
       variants={pageVariants}
       initial="initial"
       animate="animate"
@@ -200,10 +201,11 @@ export default function Register() {
       className="relative h-screen w-screen flex flex-col lg:flex-row bg-gradient-to-b from-[#009EE2]/10 to-transparent"
       style={{
         backgroundImage: `url(${nen})`,
-        backgroundSize: '810px 680px', // Tương ứng với bg-[length:800px_650px]
-        backgroundRepeat: 'no-repeat', // Nếu không muốn lặp lại
+        backgroundSize: '810px 680px',
+        backgroundRepeat: 'no-repeat',
       }}
     >
+      {/* Phần bên trái giữ nguyên */}
       <div className="hidden lg:flex lg:w-1/2 min-h-full flex-col pt-12">
         <img
           src={logo}
@@ -226,7 +228,8 @@ export default function Register() {
         </motion.p>
       </div>
       <div className="absolute inset-0 bg-white/25 lg:hidden"></div>
-      {/* Form Section (All Screens) */}
+
+      {/* Form Section */}
       <motion.div
         variants={rightSectionVariants}
         initial="initial"
@@ -269,8 +272,10 @@ export default function Register() {
                 form={form}
                 onFinish={handleRegister}
                 className="w-full"
-                layout="vertical">
-                <motion.div variants={fieldVariants} className=" lg:mt-0">
+                layout="vertical"
+                validateTrigger="onSubmit" // Chỉ validate khi submit
+              >
+                <motion.div variants={fieldVariants} className="lg:mt-0">
                   <Form.Item
                     name="email"
                     style={{ marginBottom: '18px' }}
@@ -337,7 +342,7 @@ export default function Register() {
                   </Form.Item>
                 </motion.div>
 
-                <motion.div variants={fieldVariants} className=" lg:mt-0">
+                <motion.div variants={fieldVariants} className="lg:mt-0">
                   <Row gutter={8}>
                     <Col span={24} lg={12}>
                       <Form.Item
@@ -364,10 +369,7 @@ export default function Register() {
                         name="phoneNumber"
                         style={{ marginBottom: '18px' }}
                         rules={[
-                          {
-                            required: true,
-                            message: 'Please enter your phone number',
-                          },
+                          // Không bắt buộc, chỉ kiểm tra định dạng nếu nhập
                           {
                             pattern: /^[0-9]{10}$/,
                             message: 'Phone number must be 10 digits',
@@ -375,7 +377,7 @@ export default function Register() {
                         ]}>
                         <Input
                           size="large"
-                          placeholder="Enter your phone number"
+                          placeholder="Enter your phone number (optional)"
                           prefix={
                             <PhoneOutlined className="text-gray-500 pr-2" />
                           }
@@ -386,7 +388,7 @@ export default function Register() {
                   </Row>
                 </motion.div>
 
-                <motion.div variants={fieldVariants} className=" lg:mt-0">
+                <motion.div variants={fieldVariants} className="lg:mt-0">
                   <Row gutter={8}>
                     <Col span={12}>
                       <Form.Item
@@ -394,15 +396,21 @@ export default function Register() {
                         style={{ marginBottom: '18px' }}
                         rules={[
                           {
-                            required: true,
-                            message: 'Please select your date of birth',
+                            validator: (_, value) =>
+                              value && value.isAfter()
+                                ? Promise.reject(
+                                    new Error(
+                                      'Date of birth must be in the past'
+                                    )
+                                  )
+                                : Promise.resolve(),
                           },
                         ]}>
                         <DatePicker
                           size="large"
                           format="YYYY-MM-DD"
                           className="w-full h-11 lg:h-[40px] border border-[#4A90E2] rounded-lg transition-all duration-200 hover:border-[#009EE2] text-sm"
-                          placeholder="Select date of birth"
+                          placeholder="Select date of birth (optional)"
                         />
                       </Form.Item>
                     </Col>
@@ -410,16 +418,14 @@ export default function Register() {
                       <Form.Item
                         name="gender"
                         style={{ marginBottom: '18px' }}
-                        rules={[
-                          {
-                            required: true,
-                            message: 'Please select your gender',
-                          },
-                        ]}>
+                        // Không bắt buộc
+                      >
                         <Select
                           size="large"
-                          placeholder="Select gender"
-                          className="w-full h-11 lg:h-[40px] border border-[#4A90E2] rounded-lg transition-all duration-200 hover:border-[#009EE2] text-sm">
+                          placeholder="Select gender (optional)"
+                          className="w-full h-11 lg:h-[40px] border border-[#4A90E2] rounded-lg transition-all duration-200 hover:border-[#009EE2] text-sm"
+                          allowClear // Cho phép bỏ chọn
+                        >
                           <Select.Option value={true}>Male</Select.Option>
                           <Select.Option value={false}>Female</Select.Option>
                         </Select>
@@ -428,16 +434,15 @@ export default function Register() {
                   </Row>
                 </motion.div>
 
-                <motion.div variants={fieldVariants} className=" lg:mt-0">
+                <motion.div variants={fieldVariants} className="lg:mt-0">
                   <Form.Item
                     name="address"
                     style={{ marginBottom: '10px' }}
-                    rules={[
-                      { required: true, message: 'Please enter your address' },
-                    ]}>
+                    // Không bắt buộc
+                  >
                     <Input
                       size="large"
-                      placeholder="Enter your address"
+                      placeholder="Enter your address (optional)"
                       className="w-full h-11 lg:h-[38px] border border-[#4A90E2] rounded-lg transition-all duration-200 hover:border-[#009EE2] text-sm"
                     />
                   </Form.Item>
@@ -483,7 +488,7 @@ export default function Register() {
 
                 <motion.div
                   variants={fieldVariants}
-                  className=" pt-2 pb-5 lg:mt-0 lg:pt-0 text-gray-700 text-center text-[16px] lg:text-base">
+                  className="pt-2 pb-5 lg:mt-0 lg:pt-0 text-gray-700 text-center text-[16px] lg:text-base">
                   Already have an account?{' '}
                   <span
                     className="cursor-pointer inline-block text-[#009EE2] transition duration-200 hover:underline font-medium px-3 py-2 relative z-20"
