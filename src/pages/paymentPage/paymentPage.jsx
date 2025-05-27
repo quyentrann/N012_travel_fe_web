@@ -277,7 +277,7 @@ const VnpayReturn = () => {
           </Button>
           <Button
             type="link"
-            href="mailto:support@traveleasy.com"
+            href="mailto:support@traveltada.com"
             className="mt-4 text-blue-600">
             Liên hệ hỗ trợ
           </Button>
@@ -322,10 +322,10 @@ const VnpayReturn = () => {
             className="h-10 w-10"
           />
           <Title level={4} className="m-0 text-blue-600">
-            TravelEasy
+            TravelTADA
           </Title>
         </div>
-        <Text className="text-gray-600">Hỗ trợ: support@traveleasy.com</Text>
+        <Text className="text-gray-600">Hỗ trợ: support@traveltada.com</Text>
       </header>
 
       <div className="flex-grow flex items-center justify-center py-8 px-4">
@@ -377,7 +377,7 @@ const VnpayReturn = () => {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center">
           <div className="mb-4 md:mb-0">
             <Text className="text-gray-300">
-              © 2025 TravelEasy. All rights reserved.
+              © 2025 TravelTADA. All rights reserved.
             </Text>
           </div>
           <div className="flex gap-6">

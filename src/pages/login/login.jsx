@@ -34,8 +34,8 @@ const sentences = [
 export default function Login() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [email, setEmail] = useState('quyentran3101@gmail.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { isAuthenticated } = useSelector((state) => state.user);
   const [index, setIndex] = useState(0);
