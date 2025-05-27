@@ -59,6 +59,12 @@ export default function TourBookingForm({
       message.warning('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Email!');
       return;
     }
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(phone)) {
+      message.warning('Số điện thoại phải là 10 chữ số!');
+      return;
+    }
+
 
     if (!startDate) {
       message.warning('Vui lòng chọn ngày khởi hành!');
@@ -356,12 +362,12 @@ export default function TourBookingForm({
           Email <span className="text-red-500">*</span>
         </label>
         <input
-          type="email"
-          className="w-full border p-1.5 rounded-md border-gray-400 text-xs"
-          placeholder="Nhập email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+  type="email"
+  className="w-full border p-1.5 rounded-md border-gray-400 text-xs bg-gray-100"
+  placeholder="Nhập email"
+  value={email}
+  disabled // Add this to disable the field
+/>
 
         <label className="block font-medium text-xs mt-2 mb-1">
           Ghi chú / Yêu cầu thêm
